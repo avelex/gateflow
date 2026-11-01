@@ -186,8 +186,7 @@
 
 ## 7. Testnet integration
 
-- [ ] 7.1 Deploy to a fresh testnet account with `new(...)`, `add_token` a test token, `storage_deposit` the contract on it, set the relay, then delete the account's full-access key; verify `near account list-keys <account>` shows no keys and `get_operator` returns the operator
-- [ ] 7.2 Run one direct invoice payment from a named testnet account; verify through the explorer that the receipt chain is `ft_on_transfer` → OutLayer → `on_screened` → `ft_transfer` → `on_closed`, the payment ends `Refunded` (named accounts fail screening), the invoice is `Returned`, and the logs carry `payment_opened` and `payment_closed`; record the tx hash in `GOAL.md`
+Moved to `mainnet-launch` tasks 0.1–0.2 at archive (2026-11-01), together with the deploy updates: key deletion, the relay account and the `new(...)` signature.
 
 ## Workflow follow-up
 

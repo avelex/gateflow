@@ -7,19 +7,23 @@ Holds each incoming payment in the Gateflow contract until a TEE screens the pay
 ## Requirements
 
 ### Requirement: Payments arrive by ft_transfer_call
-The system SHALL accept a payment only as a NEP-141 `ft_transfer_call` whose `msg` is JSON `{"gateway": <id>, "refund_to"?: <account>, "ref"?: <string>, "invoice"?: <id>}`, from an allowlisted token contract, for a non-zero amount. It SHALL keep the full amount and return no unused tokens.
+The system SHALL accept a payment only as a NEP-141 `ft_transfer_call` whose `msg` is JSON `{"invoice": <id>, "refund_to"?: <account>, "ref"?: <string>}`, from an allowlisted token contract, for a non-zero amount. The invoice SHALL determine the payment's gateway. It SHALL keep the full amount and return no unused tokens. Unknown `msg` fields SHALL be ignored.
 
 #### Scenario: Wrong token rejected
 - **WHEN** a token that is not on the allowlist calls `ft_on_transfer`
 - **THEN** the call fails with "token not accepted" and the token contract returns the funds to the sender
 
 #### Scenario: Malformed msg rejected
-- **WHEN** `msg` is not valid gateway JSON
+- **WHEN** `msg` is not valid payment JSON
 - **THEN** the call fails and the funds return to the sender
 
 #### Scenario: Payment without invoice
-- **WHEN** 5 USDC arrive with `msg = {"gateway":0}` and USDC is allowlisted
-- **THEN** the payment opens without an invoice
+- **WHEN** 5 USDC arrive with `msg = {"refund_to":"bob.near"}` and USDC is allowlisted
+- **THEN** the call fails and the funds return to the sender, and no payment is recorded
+
+#### Scenario: Unknown invoice
+- **WHEN** a payment names an invoice id that was never created
+- **THEN** the call fails with "unknown invoice" and the funds return to the sender, with or without a `ref`
 
 ### Requirement: Screening needs fuel
 The system SHALL reject a payment without a `ref` when the gateway's fuel is below the execution deposit, and otherwise deduct one execution deposit from the fuel when it opens the payment. For a payment with a `ref`, the fuel check and deduction SHALL happen at deferred screening instead.
@@ -33,7 +37,7 @@ The system SHALL reject a payment without a `ref` when the gateway's fuel is bel
 - **THEN** the payment opens as Pending and no fuel is deducted
 
 ### Requirement: Payment opened and screened
-On accepting a payment without a `ref`, the system SHALL record it as Pending with payer, refund account (`refund_to` or the sender), token, amount, invoice if any, open time and the gateway's `max_risk`, log `OPENED`, and request one TEE screening of the NEAR sender account against `max_risk`.
+On accepting a payment without a `ref`, the system SHALL record it as Pending with payer, refund account (`refund_to` or the sender), token, amount, invoice, gateway, open time and the gateway's `max_risk`, emit `payment_opened`, and request one TEE screening of the NEAR sender account against `max_risk`.
 
 #### Scenario: Screening requested
 - **WHEN** a valid payment without a `ref` arrives
@@ -51,7 +55,7 @@ For payments without a `ref`, the system SHALL screen the `sender_id` of `ft_on_
 - **THEN** the screened account is the NEAR account that delivered the tokens, not the origin-chain payer, and the payment is refunded
 
 ### Requirement: Settle or refund on the screening result
-The system SHALL settle a Pending payment to the gateway payout account only when screening returns `true`, and SHALL refund it to its refund account on `false`, a malformed result, an error or a timeout. Both transfers SHALL use the payment's token. Each payment closes once and logs `CLOSED`; a failed transfer moves it to a retryable failed state instead of `Settled` or `Refunded`.
+The system SHALL settle a Pending payment to the gateway payout account only when screening returns `true`, and SHALL refund it to its refund account on `false`, a malformed result, an error or a timeout. Both transfers SHALL use the payment's token. Each payment closes once and emits `payment_closed`; a failed transfer moves it to a retryable failed state instead of `Settled` or `Refunded`.
 
 #### Scenario: Approved
 - **WHEN** the enclave returns `true`
@@ -81,11 +85,15 @@ The system SHALL let anyone refund a payment that is still Pending 15 minutes af
 - **THEN** the payment becomes Refunded and the amount goes to its refund account
 
 ### Requirement: Only the configured enclave answers
-The enclave SHALL answer only executions whose caller is the configured Gateflow contract. The contract SHALL let only itself change the OutLayer project it calls.
+The enclave SHALL answer only executions whose caller is the configured Gateflow contract. Only the operator SHALL change the OutLayer contract and project that the Gateflow contract calls.
 
 #### Scenario: Foreign caller
 - **WHEN** an account other than the Gateflow contract triggers the enclave
 - **THEN** the enclave outputs null
+
+#### Scenario: Non-operator changes the enclave
+- **WHEN** an account other than the operator calls `set_enclave`
+- **THEN** the call fails with "not the operator"
 
 ### Requirement: Payment lookup
 The system SHALL expose a read-only view of a payment's gateway, payer, refund account, token, amount, invoice, `ref`, deposit address, open time, `max_risk` and status.
@@ -95,10 +103,10 @@ The system SHALL expose a read-only view of a payment's gateway, payer, refund a
 - **THEN** it returns the payment with status `Refunded`
 
 ### Requirement: Ref payments open without screening
-On accepting a payment with a `ref`, the system SHALL record it as Pending with its `ref`, payer, refund account, token, amount, invoice if any, open time and the gateway's `max_risk`, log `OPENED`, and SHALL NOT request screening. A `ref` SHALL be unique across payments.
+On accepting a payment with a `ref`, the system SHALL record it as Pending with its `ref`, payer, refund account, token, amount, invoice, gateway, open time and the gateway's `max_risk`, emit `payment_opened`, and SHALL NOT request screening. A `ref` SHALL be unique across payments.
 
 #### Scenario: 1Click delivery recorded
-- **WHEN** 1Click delivers 10 USDC with `msg = {"gateway":0,"ref":"r1","refund_to":"bob.near"}`
+- **WHEN** `intents.near` delivers 10 USDC with `msg = {"invoice":7,"ref":"r1","refund_to":"bob.near"}` for Open invoice 7 of 10 USDC
 - **THEN** the payment is Pending with `ref = "r1"`, no OutLayer execution runs, and no fuel is deducted
 
 #### Scenario: Duplicate ref
@@ -106,18 +114,22 @@ On accepting a payment with a `ref`, the system SHALL record it as Pending with 
 - **THEN** the payment opens and is refunded in the same call
 
 ### Requirement: Ref payments never fail at delivery
-For a payment with a `ref` on an existing gateway, from an allowlisted token, `ft_on_transfer` SHALL NOT fail. Any other check that rejects a payment without a `ref`, including the invoice checks, SHALL instead open the payment and refund it in the same call.
+A payment with a `ref` SHALL be accepted only when its `sender_id` is `intents.near`; any other sender SHALL be rejected with "ref payments only from intents.near" and the funds return. For a `ref` payment from `intents.near`, in an allowlisted token, naming an existing invoice, `ft_on_transfer` SHALL NOT fail: any check that rejects a payment without a `ref`, including the invoice checks, SHALL instead open the payment and refund it in the same call.
 
 #### Scenario: Policy rejection becomes refund
-- **WHEN** a payment with a `ref` would fail a deposit-time check
+- **WHEN** a payment with a `ref` from `intents.near` would fail a deposit-time check
 - **THEN** `ft_on_transfer` returns zero unused tokens and the payment is Refunded
 
 #### Scenario: Invoice mismatch becomes refund
-- **WHEN** a payment with a `ref` names an invoice that is already Paid
+- **WHEN** a payment with a `ref` from `intents.near` names an invoice that is already Paid
 - **THEN** `ft_on_transfer` returns zero unused tokens and the payment is Refunded
 
+#### Scenario: Ref from another sender
+- **WHEN** `alice.near` sends a payment with a `ref`
+- **THEN** the call fails with "ref payments only from intents.near", the funds return to her, and no payment is recorded
+
 ### Requirement: Deferred screening call
-The system SHALL let any account call `screen_intents(payment, deposit_address)` on a Pending payment with a `ref` that has not started screening. The call SHALL draw one execution deposit from gateway fuel, store the deposit address on the payment, and request one TEE screening with the deposit address, `ref`, gateway, amount and `max_risk`.
+The system SHALL let only the relay account call `screen_intents(payment, deposit_address)` on a Pending payment with a `ref` that has not started screening. The call SHALL draw one execution deposit from gateway fuel, store the deposit address on the payment, and request one TEE screening with the deposit address, `ref`, invoice, amount and `max_risk`.
 
 #### Scenario: Relay triggers screening
 - **WHEN** the relay calls `screen_intents` for a Pending `ref` payment on a gateway with fuel
@@ -135,8 +147,12 @@ The system SHALL let any account call `screen_intents(payment, deposit_address)`
 - **WHEN** `screen_intents` is called on a gateway with less fuel than the execution deposit
 - **THEN** the call fails with "gateway has no fuel for screening" and the payment stays Pending until `reclaim`
 
+#### Scenario: Other caller rejected
+- **WHEN** an account other than the relay calls `screen_intents` with a wrong deposit address before the relay does
+- **THEN** the call fails with "not the relay", no fuel is drawn, and the relay can still screen the payment
+
 ### Requirement: Deferred screening binds the 1Click deposit
-The enclave SHALL approve a deferred screening only if the 1Click status for the deposit address is `SUCCESS`, the quote's recipient is the Gateflow contract, its `customRecipientMsg` names the same gateway and `ref`, and the quoted output amount equals the payment amount. Otherwise it SHALL return false.
+The enclave SHALL approve a deferred screening only if the 1Click status for the deposit address is `SUCCESS`, the quote's recipient is the Gateflow contract, its `customRecipientMsg` names the same invoice and `ref`, and the quoted output amount equals the payment amount. Otherwise it SHALL return false.
 
 #### Scenario: Deposit from another quote
 - **WHEN** `screen_intents` is called with a deposit address whose quote carries a different `ref`
@@ -144,6 +160,10 @@ The enclave SHALL approve a deferred screening only if the 1Click status for the
 
 #### Scenario: Swap not finished
 - **WHEN** the 1Click status for the deposit address is `PROCESSING`
+- **THEN** screening returns false and the payment is refunded
+
+#### Scenario: Quote for another invoice
+- **WHEN** the deposit address's quote carries the same `ref` but a different invoice
 - **THEN** screening returns false and the payment is refunded
 
 ### Requirement: Deferred screening checks the origin senders
@@ -188,7 +208,7 @@ For a Zcash origin, the senders SHALL be the transparent input addresses of the 
 - **THEN** screening returns false and the payment is refunded
 
 ### Requirement: Failed payout transfer is retryable
-When the token transfer that settles or refunds a payment fails, the system SHALL mark the payment `SettleFailed` or `RefundFailed` and log it. Any account SHALL be able to call `retry(payment)` on such a payment to send the same amount to the same receiver again. A successful transfer SHALL leave the payment `Settled` or `Refunded`.
+When the token transfer that settles or refunds a payment fails, the system SHALL mark the payment `SettleFailed` or `RefundFailed` and emit `transfer_failed`. Any account SHALL be able to call `retry(payment)` on such a payment to send the same amount to the same receiver again. A successful transfer SHALL leave the payment `Settled` or `Refunded`.
 
 #### Scenario: Receiver without storage
 - **WHEN** a refund in `zec.omft.near` goes to a `refund_to` account that has no storage on that token
@@ -210,15 +230,15 @@ The system SHALL expose a read-only view returning the payment id and payment fo
 - **THEN** it returns the id and Pending payment opened with that `ref`
 
 ### Requirement: Operator token allowlist
-The system SHALL accept payments and invoices only in tokens on an allowlist. Only the Gateflow contract account SHALL add or remove a token. A read-only view SHALL return the allowlist.
+The system SHALL accept payments and invoices only in tokens on an allowlist. Only the operator SHALL add or remove a token. A read-only view SHALL return the allowlist.
 
 #### Scenario: Operator adds a token
-- **WHEN** the contract account calls `add_token("nbtc.bridge.near")`
+- **WHEN** the operator calls `add_token("nbtc.bridge.near")`
 - **THEN** `get_tokens` includes `nbtc.bridge.near` and nBTC payments are accepted
 
 #### Scenario: Other account rejected
 - **WHEN** any other account calls `add_token` or `remove_token`
-- **THEN** the call fails
+- **THEN** the call fails with "not the operator"
 
 ### Requirement: Payments by gateway
 The system SHALL expose a read-only view `get_payments(gateway, from_index, limit)` returning `[id, payment]` pairs of that gateway in open order, starting at position `from_index`, with at most `min(limit, 100)` entries. An unknown gateway or a position past the end SHALL return an empty list. Payments refunded at delivery SHALL be included.
@@ -230,3 +250,47 @@ The system SHALL expose a read-only view `get_payments(gateway, from_index, limi
 #### Scenario: Unknown gateway
 - **WHEN** `get_payments(42, 0, 10)` is called and gateway 42 does not exist
 - **THEN** it returns an empty list
+
+### Requirement: Operator role
+The system SHALL store an operator account, set at initialization and returned by a read-only view. Only the operator SHALL call `set_operator` to hand the role to another account. The contract SHALL expose no method that deploys code, adds access keys or deletes the contract account.
+
+#### Scenario: Operator rotated
+- **WHEN** the operator calls `set_operator("ops2.near")`
+- **THEN** `get_operator` returns `ops2.near` and only `ops2.near` can call operator methods
+
+#### Scenario: Non-operator rotation rejected
+- **WHEN** any other account calls `set_operator`
+- **THEN** the call fails with "not the operator"
+
+### Requirement: Relay account
+The system SHALL store a relay account, set at initialization and returned by a read-only view. Only the operator SHALL change it with `set_relay`. The relay can only start a deferred screening; it SHALL NOT be able to approve, settle or refund a payment.
+
+#### Scenario: Operator changes the relay
+- **WHEN** the operator calls `set_relay("relay2.near")`
+- **THEN** `get_relay` returns `relay2.near` and only `relay2.near` can call `screen_intents`
+
+#### Scenario: Non-operator rejected
+- **WHEN** any other account calls `set_relay`
+- **THEN** the call fails with "not the operator"
+
+### Requirement: Funds leave only to payout or refund
+The system SHALL transfer tokens out only to settle a payment to its gateway's `payout_to` or to refund it to its `refund_to`, at most once per successful transfer. No operator method SHALL transfer tokens or NEAR held for payments.
+
+#### Scenario: Operator cannot withdraw
+- **WHEN** the operator calls every operator method on a contract holding Pending payments
+- **THEN** no token transfer leaves the contract
+
+#### Scenario: Retry after success rejected
+- **WHEN** `retry` is called on a payment whose transfer already succeeded
+- **THEN** the call fails and no second transfer is sent
+
+### Requirement: Contract events
+The system SHALL log each state change as a NEP-297 event with standard `gateflow` and version `1.0.0`: `invoice_created {invoice, gateway}`, `payment_opened {payment, invoice, gateway, ref?}`, `payment_closed {payment, invoice, status}` and `transfer_failed {payment, receiver}`.
+
+#### Scenario: Payment opened event
+- **WHEN** a payment opens against invoice 7 of gateway 0
+- **THEN** the receipt logs `EVENT_JSON:{"standard":"gateflow","version":"1.0.0","event":"payment_opened","data":[{"payment":<id>,"invoice":7,"gateway":0}]}`
+
+#### Scenario: Refunded at delivery
+- **WHEN** a `ref` payment opens and is refunded in the same call
+- **THEN** the receipt logs `payment_opened` followed by `payment_closed` with status `Refunded`
