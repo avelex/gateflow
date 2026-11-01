@@ -150,7 +150,7 @@
      - `payment_lookup_by_ref`: `get_payment_by_ref("r1") == Some((0, payment))`, unknown → `None`.
   2. Run: FAIL. 3. Implement the `ref` branch per design decision 3. In `README.md`, change the direct-payment `ft_transfer_call` msg to `{invoice, refund_to?}`, add `sender = intents.near` to the 1Click delivery line, and replace `gateway` with `invoice` in the enclave binding note. 4. Run: all pass. 5. Commit `feat(contract): accept 1Click ref payments`.
 
-- [ ] 5.2 Add `screen_intents` in `contract/src/screening.rs`; verify `cargo test` passes the five tests below and the release build succeeds
+- [x] 5.2 Add `screen_intents` in `contract/src/screening.rs`; verify `cargo test` passes the five tests below and the release build succeeds
 
   **Interfaces:** Consumes `request_screening`. Produces `fn screen_intents(&mut self, payment: PaymentId, deposit_address: String) -> Promise`. Request JSON: `{"kind":"screen_intents","deposit_address":<s>,"invoice":<id>,"ref":<s>,"amount":<U128>,"max_risk":<n>}`.
 
