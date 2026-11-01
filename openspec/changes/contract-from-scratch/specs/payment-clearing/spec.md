@@ -85,7 +85,7 @@ A payment with a `ref` SHALL be accepted only when its `sender_id` is `intents.n
 - **THEN** the call fails with "ref payments only from intents.near", the funds return to her, and no payment is recorded
 
 ### Requirement: Deferred screening call
-The system SHALL let any account call `screen_intents(payment, deposit_address)` on a Pending payment with a `ref` that has not started screening. The call SHALL draw one execution deposit from gateway fuel, store the deposit address on the payment, and request one TEE screening with the deposit address, `ref`, invoice, amount and `max_risk`.
+The system SHALL let only the relay account call `screen_intents(payment, deposit_address)` on a Pending payment with a `ref` that has not started screening. The call SHALL draw one execution deposit from gateway fuel, store the deposit address on the payment, and request one TEE screening with the deposit address, `ref`, invoice, amount and `max_risk`.
 
 #### Scenario: Relay triggers screening
 - **WHEN** the relay calls `screen_intents` for a Pending `ref` payment on a gateway with fuel
@@ -102,6 +102,10 @@ The system SHALL let any account call `screen_intents(payment, deposit_address)`
 #### Scenario: No fuel
 - **WHEN** `screen_intents` is called on a gateway with less fuel than the execution deposit
 - **THEN** the call fails with "gateway has no fuel for screening" and the payment stays Pending until `reclaim`
+
+#### Scenario: Other caller rejected
+- **WHEN** an account other than the relay calls `screen_intents` with a wrong deposit address before the relay does
+- **THEN** the call fails with "not the relay", no fuel is drawn, and the relay can still screen the payment
 
 ### Requirement: Deferred screening binds the 1Click deposit
 The enclave SHALL approve a deferred screening only if the 1Click status for the deposit address is `SUCCESS`, the quote's recipient is the Gateflow contract, its `customRecipientMsg` names the same invoice and `ref`, and the quoted output amount equals the payment amount. Otherwise it SHALL return false.
@@ -155,6 +159,17 @@ The system SHALL store an operator account, set at initialization and returned b
 
 #### Scenario: Non-operator rotation rejected
 - **WHEN** any other account calls `set_operator`
+- **THEN** the call fails with "not the operator"
+
+### Requirement: Relay account
+The system SHALL store a relay account, set at initialization and returned by a read-only view. Only the operator SHALL change it with `set_relay`. The relay can only start a deferred screening; it SHALL NOT be able to approve, settle or refund a payment.
+
+#### Scenario: Operator changes the relay
+- **WHEN** the operator calls `set_relay("relay2.near")`
+- **THEN** `get_relay` returns `relay2.near` and only `relay2.near` can call `screen_intents`
+
+#### Scenario: Non-operator rejected
+- **WHEN** any other account calls `set_relay`
 - **THEN** the call fails with "not the operator"
 
 ### Requirement: Funds leave only to payout or refund

@@ -39,6 +39,7 @@ See proposal.md (Why). Requirements live in the main specs `payment-clearing`, `
 ```
 Gateflow {
   operator:   AccountId,
+  relay:      AccountId,                      // only caller of screen_intents; set_relay by operator
   intents:    AccountId,                      // fixed at new(): intents.near on mainnet
   enclave:    { outlayer: AccountId, project: String, secrets_owner: AccountId },
   execution_deposit: NearToken,               // fixed at new()
@@ -65,15 +66,16 @@ Payment { gateway, invoice, payer, refund_to, token, amount: U128, reference: Op
 
 | Caller | Method | Notes |
 |---|---|---|
-| init | `new(operator, intents, enclave, execution_deposit)` | `#[init]`, once; `intents` is the only accepted `ref` sender (`intents.near` on mainnet, a test account on testnet, where `intents.near` does not exist) |
-| operator | `set_operator`, `add_token`, `remove_token`, `set_enclave(enclave)` | panic "not the operator" |
-| anyone (becomes owner) | `create_gateway(payout_to, policy) -> GatewayId` | payable, deposit = fuel |
-| owner | `set_policy`, `create_invoice(...) -> InvoiceId` | panic "not the gateway owner" |
+| init | `new(operator, relay, intents, enclave, execution_deposit)` | `#[init]`, once; `intents` is the only accepted `ref` sender (`intents.near` on mainnet, a test account on testnet, where `intents.near` does not exist) |
+| operator | `set_operator`, `set_relay`, `add_token`, `remove_token`, `set_enclave(enclave)` | panic "not the operator" |
+| anyone (becomes owner) | `create_gateway(payout_to, policy) -> GatewayId` | payable, deposit = fuel, at least one execution deposit |
+| owner | `set_policy`, `create_invoice(...) -> InvoiceId` | panic "not the gateway owner"; invoice storage is drawn from fuel |
 | anyone | `fund(gateway)` | payable |
 | token | `ft_on_transfer(sender_id, amount, msg) -> U128` | always `U128(0)` when it does not panic |
-| anyone | `screen_intents(payment, deposit_address)`, `reclaim(payment)`, `retry(payment)` | permissionless |
+| relay | `screen_intents(payment, deposit_address)` | panic "not the relay" |
+| anyone | `reclaim(payment)`, `retry(payment)` | permissionless |
 | self | `on_screened(payment)`, `on_closed(payment)` | `#[private]` callbacks |
-| view | `get_operator`, `get_tokens`, `get_gateway`, `get_invoice`, `get_invoices`, `get_payment`, `get_payment_by_ref`, `get_payments` | pages capped at 100 |
+| view | `get_operator`, `get_relay`, `get_tokens`, `get_gateway`, `get_invoice`, `get_invoices`, `get_payment`, `get_payment_by_ref`, `get_payments` | pages capped at 100 |
 
 **3. `ft_on_transfer` order of checks.** The cheap checks come first and panic without writing state. The `ref` branch only reaches open-and-refund after the token, `msg`, invoice existence and sender are known good. This bounds storage growth to invoices plus paid-for 1Click deliveries.
 
@@ -110,12 +112,24 @@ no ref: invoice check, fuel check  -> panic on failure
 - `secrets_ref` needs the secrets owner's account, so the enclave setting is `{outlayer, project, secrets_owner}`.
 - `ref` sender: when 1Click delivers with `customRecipientMsg`, `intents.near` withdraws with a non-null `msg`, which the Verifier sends as `ft_transfer_call` with no refund on failure (docs.near-intents.org, withdrawals). Under NEP-141 the receiver's `ft_on_transfer` gets `sender_id` = the caller of `ft_transfer_call`, which is `intents.near`. `mainnet-launch` 2.1 records a live delivery to confirm it.
 
+**11. Only the relay calls `screen_intents`** (final review, 2026-11-01). The first call fixes the deposit address, and a wrong one makes the enclave return false and refund. A permissionless call let anyone watching the chain refund every cross-chain payment.
+- The operator sets `relay` at `new()` and can change it with `set_relay`.
+- The relay can still only delay. The verdict comes from the enclave, and `reclaim` covers a relay that never calls.
+- *Rejected:* a re-screen after a binding failure. The enclave would need a third result, and every griefing attempt would burn gateway fuel that the operator tops up.
+
+**12. Merchants pay for their own storage** (final review, 2026-11-01). Anyone can create a gateway, so "only onboarded merchants invoice" is not a bound.
+- `create_gateway` requires at least one execution deposit, which is more than a gateway's own storage.
+- `create_invoice` measures `env::storage_usage()` before and after writing and deducts `bytes * env::storage_byte_cost()` from gateway fuel, failing with "gateway has no fuel for invoice storage". The relay's existing top-up keeps onboarded merchants' fuel above the target, so they never see this.
+- Payment records stay on the contract balance: each accepted payment needs an invoice, and a `ref` refund needs a paid 1Click delivery.
+- *Rejected:* operator-approved gateway owners, which adds an onboarding step and makes the operator a gatekeeper.
+
 ## Risks / Trade-offs
 
 - [A bug in the deployed contract cannot be patched] → Pending payments live at most 15 minutes, so a new contract can replace it: stop quoting, wait for `reclaim`, point the relay at the new account. `SettleFailed` and `RefundFailed` payments stay retryable on the old contract.
 - [A lost operator key freezes the allowlist and the enclave setting] → payments keep working. Keep the operator key in a multisig or cold storage, and rotate it with `set_operator`.
 - [Contract balance runs out of storage] → storage per invoice and per payment is about 200–300 bytes. The operator watches the balance; a plain transfer tops it up.
 - [`intents.near` is the only accepted `ref` sender] → if 1Click starts delivering from another account, `ref` payments panic and 1Click loses funds. Mitigation: the relay's quote test (mainnet-launch 2.1) checks the real `sender_id`. A changed sender needs a new contract.
+- [The relay is down or its key is lost] → `ref` payments refund through `reclaim` after 15 minutes; the operator points `set_relay` at a new account.
 - [A malicious enclave set by the operator] → it can approve flagged payers or refund clean ones, but it cannot redirect funds (decision 4).
 
 ## Migration Plan

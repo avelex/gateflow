@@ -163,10 +163,31 @@
      - `reclaim_after_screening_started`: started, +901 s → `reclaim` refunds.
   2. Run: FAIL. 3. Implement. 4. Run: all pass, release build ok. 5. Commit `feat(contract): deferred screening for 1Click payments`.
 
-## 6. Testnet integration
+## 6. Review decisions
 
-- [ ] 6.1 Deploy to a fresh testnet account with `new(...)`, `add_token` a test token, `storage_deposit` the contract on it, then delete the account's full-access key; verify `near account list-keys <account>` shows no keys and `get_operator` returns the operator
-- [ ] 6.2 Run one direct invoice payment from a named testnet account; verify through the explorer that the receipt chain is `ft_on_transfer` → OutLayer → `on_screened` → `ft_transfer` → `on_closed`, the payment ends `Refunded` (named accounts fail screening), the invoice is `Returned`, and the logs carry `payment_opened` and `payment_closed`; record the tx hash in `GOAL.md`
+- [ ] 6.1 Restrict `screen_intents` to the relay (design decision 11); verify `cargo test` passes the tests below and `cargo near build non-reproducible-wasm` succeeds
+
+  **Interfaces:** `new(operator: AccountId, relay: AccountId, intents: AccountId, enclave: Enclave, execution_deposit: NearToken)`; `fn set_relay(&mut self, relay: AccountId)` (operator only); view `get_relay() -> AccountId`.
+
+  1. Write the failing tests:
+     - `screen_intents_other_caller_rejected`: `alice.near` calls with `"wrong"` → "not the relay"; then the relay's call with `"dep1"` succeeds and fuel dropped once.
+     - `relay_rotated`: `set_relay("relay2.near")` by the operator → `get_relay() == "relay2.near"`, the old relay gets "not the relay".
+     - `non_operator_cannot_set_relay`: "not the operator".
+     - Existing `screen_intents` tests call as the relay given to `new`.
+  2. Run: FAIL. 3. Implement; the relay check comes first in `screen_intents`. 4. Run: all pass, build ok. 5. Commit `feat(contract): only the relay starts deferred screening`.
+- [ ] 6.2 Charge merchants for their storage (design decision 12); verify `cargo test` passes the tests below and `cargo near build non-reproducible-wasm` succeeds
+
+  1. Write the failing tests:
+     - `gateway_without_fuel_rejected`: `create_gateway` with 9 milliNEAR (below the 10 milliNEAR execution deposit) → "attach at least one execution deposit".
+     - `invoice_storage_paid_from_fuel`: fuel after `create_invoice` equals fuel before minus `storage_bytes * env::storage_byte_cost()`, and that cost is positive and below 0.01 NEAR.
+     - `invoice_without_storage_fuel_rejected`: a gateway whose fuel was drawn down to below one invoice's cost → "gateway has no fuel for invoice storage", `get_gateway(0).invoices` unchanged.
+     - Existing helpers that create gateways attach at least 10 milliNEAR.
+  2. Run: FAIL. 3. Implement: measure `env::storage_usage()` around the writes in `create_invoice`; on shortfall `env::panic_str` so the writes roll back. 4. Run: all pass, build ok. 5. Commit `feat(contract): merchants pay invoice storage from fuel`.
+
+## 7. Testnet integration
+
+- [ ] 7.1 Deploy to a fresh testnet account with `new(...)`, `add_token` a test token, `storage_deposit` the contract on it, set the relay, then delete the account's full-access key; verify `near account list-keys <account>` shows no keys and `get_operator` returns the operator
+- [ ] 7.2 Run one direct invoice payment from a named testnet account; verify through the explorer that the receipt chain is `ft_on_transfer` → OutLayer → `on_screened` → `ft_transfer` → `on_closed`, the payment ends `Refunded` (named accounts fail screening), the invoice is `Returned`, and the logs carry `payment_opened` and `payment_closed`; record the tx hash in `GOAL.md`
 
 ## Workflow follow-up
 
