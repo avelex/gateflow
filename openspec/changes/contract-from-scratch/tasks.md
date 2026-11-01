@@ -165,7 +165,7 @@
 
 ## 6. Review decisions
 
-- [ ] 6.1 Restrict `screen_intents` to the relay (design decision 11); verify `cargo test` passes the tests below and `cargo near build non-reproducible-wasm` succeeds
+- [x] 6.1 Restrict `screen_intents` to the relay (design decision 11); verify `cargo test` passes the tests below and `cargo near build non-reproducible-wasm` succeeds
 
   **Interfaces:** `new(operator: AccountId, relay: AccountId, intents: AccountId, enclave: Enclave, execution_deposit: NearToken)`; `fn set_relay(&mut self, relay: AccountId)` (operator only); view `get_relay() -> AccountId`.
 

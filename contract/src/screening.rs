@@ -9,9 +9,10 @@ pub const MAX_DEPOSIT_ADDRESS_BYTES: usize = 128;
 
 #[near]
 impl Gateflow {
-    /// Permissionless, once per `ref` payment: draws one execution deposit from gateway fuel,
+    /// Relay only (design decision 11), once per `ref` payment: draws one execution deposit from gateway fuel,
     /// stores the 1Click deposit address and asks the enclave to screen the origin senders.
     pub fn screen_intents(&mut self, payment: PaymentId, deposit_address: String) -> Promise {
+        require!(env::predecessor_account_id() == self.relay, "not the relay");
         let p = self.payment(payment);
         require!(p.status == PaymentStatus::Pending, "payment is not pending");
         let reference = p.reference.clone().unwrap_or_else(|| env::panic_str("payment has no ref"));
@@ -74,10 +75,6 @@ mod tests {
     use near_sdk::serde_json::{self, json};
     use near_sdk::NearToken;
 
-    fn relay() -> near_sdk::AccountId {
-        "relay.near".parse().unwrap()
-    }
-
     fn with_ref_payment() -> crate::Gateflow {
         let mut c = with_invoice();
         pay(&mut c, &usdc(), &intents(), TEN_USDC, r#"{"invoice":0,"ref":"r1","refund_to":"bob.near"}"#, T0);
@@ -117,6 +114,7 @@ mod tests {
     #[should_panic(expected = "payment has no ref")]
     fn screen_intents_without_ref_fails() {
         let mut c = with_payment();
+        call(&relay(), NearToken::from_yoctonear(0), T0 + 60);
         let _ = c.screen_intents(0, "dep1".into());
     }
 
@@ -169,5 +167,18 @@ mod tests {
     fn screen_intents_rejects_empty_address() {
         let mut c = with_ref_payment();
         let _ = c.screen_intents(0, String::new());
+    }
+
+    #[test]
+    fn screen_intents_other_caller_rejected() {
+        let mut c = with_ref_payment();
+        call(&"alice.near".parse().unwrap(), NearToken::from_yoctonear(0), T0 + 60);
+        let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| { let _ = c.screen_intents(0, "wrong".into()); }));
+        let err = *res.unwrap_err().downcast::<String>().unwrap();
+        assert!(err.contains("not the relay"), "{err}");
+        call(&relay(), NearToken::from_yoctonear(0), T0 + 61);
+        let _ = c.screen_intents(0, "dep1".into());
+        assert_eq!(c.get_payment(0).unwrap().deposit_address.as_deref(), Some("dep1"));
+        assert_eq!(c.get_gateway(0).unwrap().fuel, NearToken::from_millinear(40));
     }
 }

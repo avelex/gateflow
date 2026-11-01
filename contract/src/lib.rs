@@ -29,6 +29,8 @@ enum Key {
 #[derive(PanicOnDefault)]
 pub struct Gateflow {
     operator: AccountId,
+    /// The only caller of `screen_intents` (design decision 11).
+    relay: AccountId,
     /// The only account accepted as `sender_id` of a `ref` payment (`intents.near` on mainnet).
     intents: AccountId,
     enclave: Enclave,
@@ -45,9 +47,16 @@ pub struct Gateflow {
 #[near]
 impl Gateflow {
     #[init]
-    pub fn new(operator: AccountId, intents: AccountId, enclave: Enclave, execution_deposit: NearToken) -> Self {
+    pub fn new(
+        operator: AccountId,
+        relay: AccountId,
+        intents: AccountId,
+        enclave: Enclave,
+        execution_deposit: NearToken,
+    ) -> Self {
         Self {
             operator,
+            relay,
             intents,
             enclave,
             execution_deposit,
@@ -64,6 +73,11 @@ impl Gateflow {
     pub fn set_operator(&mut self, operator: AccountId) {
         self.assert_operator();
         self.operator = operator;
+    }
+
+    pub fn set_relay(&mut self, relay: AccountId) {
+        self.assert_operator();
+        self.relay = relay;
     }
 
     pub fn add_token(&mut self, token: AccountId) {
@@ -85,6 +99,10 @@ impl Gateflow {
         self.operator.clone()
     }
 
+    pub fn get_relay(&self) -> AccountId {
+        self.relay.clone()
+    }
+
     pub fn get_tokens(&self) -> Vec<AccountId> {
         self.tokens.iter().cloned().collect()
     }
@@ -101,6 +119,7 @@ mod tests {
     use super::*;
     use crate::testing::*;
     use near_sdk::test_utils::accounts;
+    use near_sdk::AccountId;
 
     #[test]
     fn operator_rotated() {
@@ -148,5 +167,21 @@ mod tests {
         assert_eq!(c.get_tokens(), vec!["nbtc.bridge.near".parse::<AccountId>().unwrap()]);
         c.remove_token("nbtc.bridge.near".parse().unwrap());
         assert!(c.get_tokens().is_empty());
+    }
+
+    #[test]
+    fn relay_rotated() {
+        let mut c = setup();
+        assert_eq!(c.get_relay(), relay());
+        c.set_relay("relay2.near".parse().unwrap());
+        assert_eq!(c.get_relay(), "relay2.near".parse::<AccountId>().unwrap());
+    }
+
+    #[test]
+    #[should_panic(expected = "not the operator")]
+    fn non_operator_cannot_set_relay() {
+        let mut c = setup();
+        as_caller(&accounts(0));
+        c.set_relay(accounts(0));
     }
 }

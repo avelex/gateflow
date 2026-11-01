@@ -10,6 +10,10 @@ pub fn op() -> AccountId {
     "ops.near".parse().unwrap()
 }
 
+pub fn relay() -> AccountId {
+    "relay.near".parse().unwrap()
+}
+
 pub fn merchant() -> AccountId {
     "kaja.near".parse().unwrap()
 }
@@ -31,6 +35,7 @@ pub fn setup() -> Gateflow {
     as_caller(&op());
     Gateflow::new(
         op(),
+        relay(),
         "intents.near".parse().unwrap(),
         Enclave { outlayer: "outlayer.near".parse().unwrap(), project: "ops.near/gateflow".into(), secrets_owner: op() },
         NearToken::from_millinear(10),
