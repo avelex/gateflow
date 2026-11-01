@@ -1,0 +1,26 @@
+schema: spec-driven
+
+# Project context (optional)
+# Add only constraints that should guide OpenSpec artifacts and workflows.
+# Include constraints an agent cannot infer by reading the code.
+# Keep general project documentation and discoverable codebase facts out.
+# Example:
+context: |
+  Write all artifacts in English.
+  Use Git conventional style commits, keep it short.
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+rules:
+  explore:
+    - Use grill-me skill, to help exploring the problems and ideas.
+  proposal:
+    - Keep proposals under 500 words
+  tasks:
+    - Use superpowers writing-plans skill, for composing tasks.
+
+# Per-operation guidance (optional)
+# Add advisory guidance for how apply and archive work should be conducted.
+# This is separate from artifact rules above.
+# Example:
