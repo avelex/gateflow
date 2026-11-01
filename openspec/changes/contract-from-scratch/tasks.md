@@ -37,7 +37,7 @@
   1. Read the OutLayer contract docs or source for the execution request call. Record the exact method, its args (project, input JSON, `secrets_ref`), the deposit and gas, and the shape of the callback result: the bytes of the verdict, and what a failed or timed-out execution looks like.
   2. Find one mainnet `ft_transfer_call` from 1Click to any contract in a NEAR explorer (receiver `*.omft.near` or USDC with a `customRecipientMsg`). Record its `sender_id`. If it is not `intents.near`, stop and revisit the `ref` sender rule with the user.
   3. Commit `docs(openspec): record OutLayer call shape`.
-- [ ] 1.2 Create the crate with state, `new`, the operator methods and the event helper; verify `cargo test` passes the six tests below and the release build succeeds
+- [x] 1.2 Create the crate with state, `new`, the operator methods and the event helper; verify `cargo test` passes the six tests below and the release build succeeds
 
   **Files:** create `contract/Cargo.toml` (`crate-type = ["cdylib", "rlib"]`, release profile `opt-level = "z"`, `lto = true`, `overflow-checks = true`, `panic = "abort"`), `contract/src/lib.rs`, `contract/src/types.rs`, `contract/src/events.rs`, `contract/.gitignore` (`target/`).
   **Interfaces (produces):**
