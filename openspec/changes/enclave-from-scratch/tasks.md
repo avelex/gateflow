@@ -116,7 +116,7 @@
      - `all_pass`: `[]` is false, `[Some(0), None]` is false, `[Some(0), Some(100)]` with 50 is false, `[Some(30), Some(0)]` with 50 is true.
      - `evm_rpc`: `base`, `eth` and `arb` map to the constants, and `polygon` gives `None`.
   2. Run: FAIL. 3. Implement. 4. Run: PASS. 5. Commit `feat(enclave): resolve origin senders and OFAC scores`.
-- [ ] 2.3 1Click binding and origin chain. Verify `cargo test` passes these tests
+- [x] 2.3 1Click binding and origin chain. Verify `cargo test` passes these tests
   **Files:** `enclave/src/oneclick.rs`.
   **Produces:**
   - `fn status_url(deposit_address: &str) -> String` (deposit address percent-encoded)

@@ -2,6 +2,7 @@
 
 pub mod goplus;
 pub mod ofac;
+pub mod oneclick;
 pub mod origin;
 pub mod request;
 
