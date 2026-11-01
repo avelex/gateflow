@@ -1,5 +1,6 @@
 //! Gateflow screening enclave: verdict rules for the OutLayer guest in `main.rs`.
 
+pub mod flows;
 pub mod goplus;
 pub mod ofac;
 pub mod oneclick;

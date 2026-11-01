@@ -136,7 +136,7 @@
 
 ## 3. Flows
 
-- [ ] 3.1 `screen` and `screen_intents` over a `fetch` closure. Verify `cargo test` passes these tests
+- [x] 3.1 `screen` and `screen_intents` over a `fetch` closure. Verify `cargo test` passes these tests
   **Files:** `enclave/src/flows.rs`.
   **Consumes:** everything from 2.1–2.3.
   **Produces:**
