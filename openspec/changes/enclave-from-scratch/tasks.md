@@ -159,7 +159,7 @@
 
 ## 4. Guest binary
 
-- [ ] 4.1 The `main` caller check, HTTP and output. Verify `cargo test` passes, `GATEFLOW_CONTRACT=gateflow.test cargo build --target wasm32-wasip2 --release` succeeds, and the same build without the variable fails with an `env!` error
+- [x] 4.1 The `main` caller check, HTTP and output. Verify `cargo test` passes, `GATEFLOW_CONTRACT=gateflow.test cargo build --target wasm32-wasip2 --release` succeeds, and the same build without the variable fails with an `env!` error
   **Files:** `enclave/src/lib.rs` (`pub fn run(stdin: &str, predecessor: Option<&str>, contract: &str, fetch) -> Option<bool>`), `enclave/src/main.rs`.
   **Consumes:** `parse_request` and `verdict`.
   - `run` behavior:
