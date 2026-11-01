@@ -1,5 +1,7 @@
 # Proposal
 
+> **Status: deferred past the hackathon (decided 2026-11-01).** The hackathon contract from `contract-from-scratch` has no access keys and no upgrade path, so this change needs a new contract deployment and a move of merchants to it. The design below targets the old contract (`execute()`, a global `secrets_owner`) and must be redone against `contract-from-scratch`: screening requests go through `request_screening`, and the default secrets owner is `enclave.secrets_owner`. Before shipping, also settle the fuel credit on a failed OutLayer execution (`payment-clearing`, scenario "Enclave fails"): with BYOK, a merchant could make every execution fail with a bogus profile and drain the contract balance through that credit.
+
 ## Why
 
 The console design's Settings has a "Bring your own keys" section: merchants screen with providers they already pay for. In Gateflow the screening happens inside the OutLayer TEE (secure enclave), so a merchant's provider key can be sealed to that enclave and used only there. Gateflow, the operator and the relay never see it.
