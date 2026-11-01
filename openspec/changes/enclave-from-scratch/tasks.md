@@ -77,7 +77,7 @@
 
 ## 2. Pure verdict rules
 
-- [ ] 2.1 Create the crate, plus requests and GoPlus scoring. Verify `cd enclave && cargo test` passes these tests
+- [x] 2.1 Create the crate, plus requests and GoPlus scoring. Verify `cd enclave && cargo test` passes these tests
   **Files:** `enclave/Cargo.toml`, `enclave/rust-toolchain.toml` (`channel = "1.86.0"`, `targets = ["wasm32-wasip2"]`), `enclave/.gitignore` (`target`), `enclave/src/lib.rs`, `enclave/src/request.rs`, `enclave/src/goplus.rs`.
   **Produces:**
   - `enum Request { Screen { payer: String, max_risk: u8 }, ScreenIntents { deposit_address: String, invoice: u64, reference: String, amount: String, max_risk: u8 } }` (serde, `tag = "kind"`, `rename_all = "snake_case"`)
