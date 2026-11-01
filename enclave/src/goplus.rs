@@ -57,10 +57,7 @@ fn is_set(v: &Value) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn fixture(name: &str) -> String {
-        std::fs::read_to_string(format!("{}/tests/fixtures/{name}", env!("CARGO_MANIFEST_DIR"))).unwrap()
-    }
+    use crate::testing::fixture;
 
     #[test]
     fn url() {

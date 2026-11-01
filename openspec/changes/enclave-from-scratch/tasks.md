@@ -93,7 +93,7 @@
      - `malicious_contracts_count`: `number_of_malicious_contracts_created: "2"` gives `Some(70)`.
      - `goplus_error`: `{"code":2}` gives `None`.
   2. Run: FAIL. 3. Implement. 4. Run: PASS. 5. Commit `feat(enclave): parse requests and score GoPlus`.
-- [ ] 2.2 Sender resolvers, OFAC and `all_pass`. Verify `cargo test` passes these tests
+- [x] 2.2 Sender resolvers, OFAC and `all_pass`. Verify `cargo test` passes these tests
   **Files:** `enclave/src/origin.rs`, `enclave/src/ofac.rs`.
   **Produces:**
   - `fn evm_rpc(chain: &str) -> Option<&'static str>`
