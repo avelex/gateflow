@@ -118,7 +118,7 @@
      - `late_verdict_after_reclaim_ignored`: reclaim, then `on_screened` with `true` → still Refunded, no new promise, one `payment_closed` log in total.
      - `removed_token_still_settles`: `remove_token` while Pending, then `true` → `ft_transfer` goes to the payment's token.
   2. Run: FAIL. 3. Implement. 4. Run: all pass. 5. Commit `feat(contract): settle, refund and reclaim`.
-- [ ] 4.2 Add `on_closed` and `retry`; verify `cargo test` passes the tests below and that `grep -n "ft_transfer" contract/src/*.rs` shows the call built only in `closing.rs`
+- [x] 4.2 Add `on_closed` and `retry`; verify `cargo test` passes the tests below and that `grep -n "ft_transfer" contract/src/*.rs` shows the call built only in `closing.rs`
 
   **Interfaces (produces):** `#[private] fn on_closed(&mut self, payment: PaymentId)`; `fn retry(&mut self, payment: PaymentId) -> Promise`.
 

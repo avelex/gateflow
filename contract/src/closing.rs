@@ -40,6 +40,34 @@ impl Gateflow {
         require!(now_sec() >= p.opened_at_sec + CLEARING_WINDOW_SEC, "clearing window is still open");
         self.close(payment, false)
     }
+
+    /// Token transfer callback. A failed transfer moves Settled to SettleFailed and Refunded to
+    /// RefundFailed, so the funds stay retryable instead of looking delivered.
+    #[private]
+    pub fn on_closed(&mut self, payment: PaymentId) {
+        if env::promise_result_checked(0, MAX_VERDICT_BYTES).is_ok() {
+            return;
+        }
+        let p = self.payments.get_mut(payment as u32).unwrap();
+        p.status = match p.status {
+            PaymentStatus::Settled => PaymentStatus::SettleFailed,
+            PaymentStatus::Refunded => PaymentStatus::RefundFailed,
+            other => other,
+        };
+        let receiver = self.receiver(payment);
+        events::emit("transfer_failed", json!({"payment": payment, "receiver": receiver}));
+    }
+
+    /// Anyone may resend a failed settle or refund to the same receiver.
+    pub fn retry(&mut self, payment: PaymentId) -> Promise {
+        let p = self.payments.get_mut(payment as u32).unwrap_or_else(|| env::panic_str("unknown payment"));
+        p.status = match p.status {
+            PaymentStatus::SettleFailed => PaymentStatus::Settled,
+            PaymentStatus::RefundFailed => PaymentStatus::Refunded,
+            _ => env::panic_str("payment has no failed transfer"),
+        };
+        self.transfer(payment)
+    }
 }
 
 impl Gateflow {
@@ -63,14 +91,19 @@ impl Gateflow {
         self.transfer(id)
     }
 
+    /// The gateway's `payout_to` for a settle, the payment's `refund_to` for a refund.
+    fn receiver(&self, id: PaymentId) -> AccountId {
+        let p = self.payment(id);
+        match p.status {
+            PaymentStatus::Settled | PaymentStatus::SettleFailed => self.gateways.get(p.gateway).unwrap().payout_to.clone(),
+            _ => p.refund_to,
+        }
+    }
+
     /// `ft_transfer` of the payment's amount in its token to its receiver, then `on_closed(id)`.
-    /// The receiver is the gateway's `payout_to` for a settle and the payment's `refund_to` otherwise.
     pub(crate) fn transfer(&self, id: PaymentId) -> Promise {
         let p = self.payment(id);
-        let receiver = match p.status {
-            PaymentStatus::Settled | PaymentStatus::SettleFailed => self.gateways.get(p.gateway).unwrap().payout_to.clone(),
-            _ => p.refund_to.clone(),
-        };
+        let receiver = self.receiver(id);
         Promise::new(p.token.clone())
             .function_call(
                 "ft_transfer",
@@ -185,5 +218,106 @@ mod tests {
         as_callback(ok(b"true"), T0 + 30);
         let _ = c.on_screened(0);
         assert_eq!(ft_transfer().0, usdc());
+    }
+
+    fn refunded() -> crate::Gateflow {
+        let mut c = with_payment();
+        as_callback(ok(b"false"), T0 + 30);
+        let _ = c.on_screened(0);
+        c
+    }
+
+    #[test]
+    fn failed_refund_marks_refund_failed() {
+        let mut c = refunded();
+        as_callback(PromiseResult::Failed, T0 + 31);
+        c.on_closed(0);
+        assert_eq!(c.get_payment(0).unwrap().status, PaymentStatus::RefundFailed);
+        assert_eq!(
+            get_logs(),
+            vec![format!(
+                r#"EVENT_JSON:{{"standard":"gateflow","version":"1.0.0","event":"transfer_failed","data":[{{"payment":0,"receiver":"{}"}}]}}"#,
+                payer()
+            )]
+        );
+    }
+
+    #[test]
+    fn failed_settle_marks_settle_failed() {
+        let mut c = with_payment();
+        as_callback(ok(b"true"), T0 + 30);
+        let _ = c.on_screened(0);
+        as_callback(PromiseResult::Failed, T0 + 31);
+        c.on_closed(0);
+        assert_eq!(c.get_payment(0).unwrap().status, PaymentStatus::SettleFailed);
+        assert_eq!(c.get_invoice(0).unwrap().status, InvoiceStatus::Paid);
+    }
+
+    #[test]
+    fn successful_transfer_keeps_status() {
+        let mut c = refunded();
+        as_callback(ok(b""), T0 + 31);
+        c.on_closed(0);
+        assert_eq!(c.get_payment(0).unwrap().status, PaymentStatus::Refunded);
+        assert!(get_logs().is_empty());
+    }
+
+    fn refund_failed() -> crate::Gateflow {
+        let mut c = refunded();
+        as_callback(PromiseResult::Failed, T0 + 31);
+        c.on_closed(0);
+        c
+    }
+
+    #[test]
+    fn retry_resends_failed_refund() {
+        let mut c = refund_failed();
+        as_caller(&op());
+        let _ = c.retry(0);
+        assert_eq!(c.get_payment(0).unwrap().status, PaymentStatus::Refunded);
+        assert_eq!(ft_transfer(), (usdc(), payer().to_string(), TEN_USDC.to_string()));
+    }
+
+    #[test]
+    #[should_panic(expected = "payment has no failed transfer")]
+    fn retry_twice_fails() {
+        let mut c = refund_failed();
+        as_caller(&op());
+        let _ = c.retry(0);
+        as_caller(&op());
+        let _ = c.retry(0);
+    }
+
+    #[test]
+    #[should_panic(expected = "payment has no failed transfer")]
+    fn retry_on_settled_fails() {
+        let mut c = with_payment();
+        as_callback(ok(b"true"), T0 + 30);
+        let _ = c.on_screened(0);
+        as_caller(&payer());
+        let _ = c.retry(0);
+    }
+
+    #[test]
+    fn operator_cannot_withdraw() {
+        let mut c = with_payment();
+        let ops: Vec<Box<dyn Fn(&mut crate::Gateflow)>> = vec![
+            Box::new(|c| c.add_token("nbtc.bridge.near".parse().unwrap())),
+            Box::new(|c| c.remove_token(usdc())),
+            Box::new(|c| {
+                c.set_enclave(crate::Enclave {
+                    outlayer: op(),
+                    project: "ops.near/other".into(),
+                    secrets_owner: op(),
+                })
+            }),
+            Box::new(|c| c.set_operator(op())),
+        ];
+        for f in ops {
+            as_caller(&op());
+            f(&mut c);
+            assert!(near_sdk::test_utils::get_created_receipts().is_empty());
+        }
+        assert_eq!(c.get_payment(0).unwrap().status, PaymentStatus::Pending);
     }
 }
