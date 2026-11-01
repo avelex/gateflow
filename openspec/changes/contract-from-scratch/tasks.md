@@ -57,7 +57,7 @@
 
 ## 2. Gateways and invoices
 
-- [ ] 2.1 Add gateways in `contract/src/gateways.rs`; verify `cargo test` passes the five tests below
+- [x] 2.1 Add gateways in `contract/src/gateways.rs`; verify `cargo test` passes the five tests below
 
   **Interfaces (produces):** `#[payable] fn create_gateway(&mut self, payout_to: AccountId, policy: Policy) -> GatewayId`, `fn set_policy(&mut self, gateway: GatewayId, policy: Policy)`, `#[payable] fn fund(&mut self, gateway: GatewayId)`, `fn get_gateway(&self, gateway: GatewayId) -> Option<Gateway>`, helper `fn gateway_mut(&mut self, id) -> &mut Gateway` (panics "unknown gateway").
 

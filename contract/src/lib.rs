@@ -1,5 +1,9 @@
 pub mod events;
+pub mod gateways;
 pub mod types;
+
+#[cfg(test)]
+mod testing;
 
 use near_sdk::store::{IterableSet, LookupMap, Vector};
 use near_sdk::{env, near, require, AccountId, BorshStorageKey, NearToken, PanicOnDefault};
@@ -91,30 +95,8 @@ impl Gateflow {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use near_sdk::test_utils::{accounts, VMContextBuilder};
-    use near_sdk::{testing_env, AccountId, NearToken};
-
-    pub fn op() -> AccountId {
-        "ops.near".parse().unwrap()
-    }
-
-    pub fn setup() -> Gateflow {
-        testing_env!(VMContextBuilder::new().predecessor_account_id(op()).build());
-        Gateflow::new(
-            op(),
-            "intents.near".parse().unwrap(),
-            Enclave {
-                outlayer: "outlayer.near".parse().unwrap(),
-                project: "ops.near/gateflow".into(),
-                secrets_owner: op(),
-            },
-            NearToken::from_millinear(10),
-        )
-    }
-
-    pub fn as_caller(account: &AccountId) {
-        testing_env!(VMContextBuilder::new().predecessor_account_id(account.clone()).build());
-    }
+    use crate::testing::*;
+    use near_sdk::test_utils::accounts;
 
     #[test]
     fn operator_rotated() {
