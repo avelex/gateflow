@@ -14,18 +14,37 @@ impl Gateflow {
         let invoice = self.get_invoice(msg.invoice).unwrap_or_else(|| env::panic_str("unknown invoice"));
         let refund_to = msg.refund_to.unwrap_or_else(|| sender_id.clone());
 
+        if let Some(reference) = msg.reference {
+            // 1Click delivery: never panic from here on, or 1Click loses the funds.
+            require!(sender_id == self.intents, "ref payments only from intents.near");
+            let duplicate = self.refs.contains_key(&reference);
+            let accepted = !duplicate && check_invoice(&invoice, &token, amount).is_ok();
+            let id = self.open_payment(msg.invoice, &invoice, sender_id, refund_to, token, amount, Some(reference.clone()), accepted);
+            if !duplicate {
+                self.refs.insert(reference, id);
+            }
+            if !accepted {
+                self.close(id, false).detach();
+            }
+            return PromiseOrValue::Value(U128(0));
+        }
+
         if let Err(e) = check_invoice(&invoice, &token, amount) {
             env::panic_str(e);
         }
         self.draw_fuel(invoice.gateway);
         let max_risk = self.gateways.get(invoice.gateway).unwrap().policy.max_risk;
-        let id = self.open_payment(msg.invoice, &invoice, sender_id.clone(), refund_to, token, amount, None);
+        let id = self.open_payment(msg.invoice, &invoice, sender_id.clone(), refund_to, token, amount, None, true);
         self.request_screening(id, json!({"kind": "screen", "payer": sender_id, "max_risk": max_risk})).detach();
         PromiseOrValue::Value(U128(0))
     }
 
     pub fn get_payment(&self, payment: PaymentId) -> Option<Payment> {
         u32::try_from(payment).ok().and_then(|i| self.payments.get(i)).cloned()
+    }
+
+    pub fn get_payment_by_ref(&self, reference: String) -> Option<(PaymentId, Payment)> {
+        self.refs.get(&reference).map(|&id| (id, self.get_payment(id).unwrap()))
     }
 
     pub fn get_payments(&self, gateway: GatewayId, from_index: u32, limit: u32) -> Vec<(PaymentId, Payment)> {
@@ -38,8 +57,8 @@ impl Gateflow {
 }
 
 impl Gateflow {
-    /// Records a Pending payment, indexes it under its gateway, moves the invoice to Paying
-    /// and emits `payment_opened`.
+    /// Records a Pending payment, indexes it under its gateway and emits `payment_opened`.
+    /// With `link_invoice` the invoice moves to Paying; a payment refunded at delivery leaves it untouched.
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn open_payment(
         &mut self,
@@ -50,6 +69,7 @@ impl Gateflow {
         token: AccountId,
         amount: U128,
         reference: Option<String>,
+        link_invoice: bool,
     ) -> PaymentId {
         let id = PaymentId::from(self.payments.len());
         let g = self.gateway_mut(invoice.gateway);
@@ -74,9 +94,11 @@ impl Gateflow {
             max_risk,
             status: PaymentStatus::Pending,
         });
-        let inv = self.invoices.get_mut(invoice_id as u32).unwrap();
-        inv.status = InvoiceStatus::Paying;
-        inv.payment = Some(id);
+        if link_invoice {
+            let inv = self.invoices.get_mut(invoice_id as u32).unwrap();
+            inv.status = InvoiceStatus::Paying;
+            inv.payment = Some(id);
+        }
         events::emit("payment_opened", data);
         id
     }
@@ -232,5 +254,97 @@ mod tests {
         let mut c = with_invoice();
         pay(&mut c, &usdc(), &payer(), TEN_USDC, r#"{"invoice":0,"refund_to":"bob.near"}"#, T0);
         assert_eq!(c.get_payment(0).unwrap().refund_to.as_str(), "bob.near");
+    }
+
+    const REF_MSG: &str = r#"{"invoice":0,"ref":"r1","refund_to":"bob.near"}"#;
+
+    #[test]
+    fn ref_payment_opens_pending_without_fuel() {
+        let mut c = with_invoice();
+        assert_eq!(pay(&mut c, &usdc(), &intents(), TEN_USDC, REF_MSG, T0), 0);
+        let p = c.get_payment(0).unwrap();
+        assert_eq!((p.status, p.reference.as_deref()), (PaymentStatus::Pending, Some("r1")));
+        assert_eq!((p.payer.clone(), p.refund_to.as_str()), (intents(), "bob.near"));
+        let i = c.get_invoice(0).unwrap();
+        assert_eq!((i.status, i.payment), (InvoiceStatus::Paying, Some(0)));
+        assert_eq!(c.get_gateway(0).unwrap().fuel, NearToken::from_millinear(50));
+        assert!(calls().is_empty());
+        assert_eq!(
+            get_logs(),
+            vec![r#"EVENT_JSON:{"standard":"gateflow","version":"1.0.0","event":"payment_opened","data":[{"payment":0,"invoice":0,"gateway":0,"ref":"r1"}]}"#]
+        );
+    }
+
+    #[test]
+    fn ref_from_other_sender_rejected() {
+        let mut c = with_invoice();
+        let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            pay(&mut c, &usdc(), &"alice.near".parse().unwrap(), TEN_USDC, REF_MSG, T0)
+        }));
+        let err = *res.unwrap_err().downcast::<String>().unwrap();
+        assert!(err.contains("ref payments only from intents.near"), "{err}");
+        assert!(c.get_payment(0).is_none());
+    }
+
+    #[test]
+    fn duplicate_ref_refunds() {
+        let mut c = with_invoice();
+        pay(&mut c, &usdc(), &intents(), TEN_USDC, REF_MSG, T0);
+        as_caller(&merchant());
+        c.create_invoice(0, usdc(), near_sdk::json_types::U128(TEN_USDC), 3600, None);
+        let msg = r#"{"invoice":1,"ref":"r1","refund_to":"bob.near"}"#;
+        assert_eq!(pay(&mut c, &usdc(), &intents(), TEN_USDC, msg, T0), 0);
+        assert_eq!(c.get_payment(1).unwrap().status, PaymentStatus::Refunded);
+        let i = c.get_invoice(1).unwrap();
+        assert_eq!((i.status, i.payment), (InvoiceStatus::Open, None));
+        let logs = get_logs();
+        assert_eq!(logs.len(), 2);
+        assert!(logs[0].contains(r#""event":"payment_opened""#) && logs[1].contains(r#""event":"payment_closed""#));
+        assert!(logs[1].contains(r#""status":"Refunded""#));
+        assert_eq!(ft_transfer(), (usdc(), "bob.near".to_string(), TEN_USDC.to_string()));
+        assert_eq!(c.get_payment_by_ref("r1".into()).unwrap().0, 0);
+    }
+
+    #[test]
+    fn second_ref_payment_refunds_keeps_invoice() {
+        let mut c = with_invoice();
+        pay(&mut c, &usdc(), &intents(), TEN_USDC, REF_MSG, T0);
+        let msg = r#"{"invoice":0,"ref":"r2","refund_to":"bob.near"}"#;
+        assert_eq!(pay(&mut c, &usdc(), &intents(), TEN_USDC, msg, T0), 0);
+        assert_eq!(c.get_payment(1).unwrap().status, PaymentStatus::Refunded);
+        let i = c.get_invoice(0).unwrap();
+        assert_eq!((i.status, i.payment), (InvoiceStatus::Paying, Some(0)));
+    }
+
+    #[test]
+    fn expired_invoice_with_ref_refunds() {
+        let mut c = with_invoice();
+        assert_eq!(pay(&mut c, &usdc(), &intents(), TEN_USDC, REF_MSG, T0 + 3600), 0);
+        assert_eq!(c.get_payment(0).unwrap().status, PaymentStatus::Refunded);
+        assert_eq!(c.get_invoice(0).unwrap().status, InvoiceStatus::Open);
+    }
+
+    #[test]
+    fn ref_amount_mismatch_refunds() {
+        let mut c = with_invoice();
+        assert_eq!(pay(&mut c, &usdc(), &intents(), TEN_USDC - 1, REF_MSG, T0), 0);
+        let p = c.get_payment(0).unwrap();
+        assert_eq!((p.status, p.amount.0), (PaymentStatus::Refunded, TEN_USDC - 1));
+        assert_eq!(ft_transfer().2, (TEN_USDC - 1).to_string());
+    }
+
+    #[test]
+    fn msg_with_gateway_field_accepted() {
+        let mut c = with_invoice();
+        pay(&mut c, &usdc(), &intents(), TEN_USDC, r#"{"gateway":0,"invoice":0,"ref":"r2"}"#, T0);
+        assert_eq!(c.get_payment(0).unwrap().status, PaymentStatus::Pending);
+    }
+
+    #[test]
+    fn payment_lookup_by_ref() {
+        let mut c = with_invoice();
+        pay(&mut c, &usdc(), &intents(), TEN_USDC, REF_MSG, T0);
+        assert_eq!(c.get_payment_by_ref("r1".into()), Some((0, c.get_payment(0).unwrap())));
+        assert!(c.get_payment_by_ref("nope".into()).is_none());
     }
 }

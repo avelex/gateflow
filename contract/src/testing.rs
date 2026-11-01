@@ -133,3 +133,7 @@ pub fn ft_transfer() -> (AccountId, String, String) {
     assert_eq!(deposit, NearToken::from_yoctonear(1));
     (token, args["receiver_id"].as_str().unwrap().into(), args["amount"].as_str().unwrap().into())
 }
+
+pub fn intents() -> AccountId {
+    "intents.near".parse().unwrap()
+}

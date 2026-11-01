@@ -134,7 +134,7 @@
 
 ## 5. 1Click payments
 
-- [ ] 5.1 Accept 1Click `ref` payments and add `get_payment_by_ref`; update README's payment flow to the new `msg`; verify `cargo test` passes the tests below and README no longer shows `{gateway, invoice?` in the diagram
+- [x] 5.1 Accept 1Click `ref` payments and add `get_payment_by_ref`; update README's payment flow to the new `msg`; verify `cargo test` passes the tests below and README no longer shows `{gateway, invoice?` in the diagram
 
   **Interfaces:**
   - Consumes: `open_payment`, `check_invoice`, and `close(id, approved: bool) -> Promise` from 4.1.
