@@ -84,7 +84,7 @@
 
 ## 3. Direct payments
 
-- [ ] 3.1 Accept direct payments in `contract/src/payments.rs` (`ft_on_transfer`, no `ref`) and request screening through `contract/src/screening.rs`; verify `cargo test` passes the tests below and the release build succeeds
+- [x] 3.1 Accept direct payments in `contract/src/payments.rs` (`ft_on_transfer`, no `ref`) and request screening through `contract/src/screening.rs`; verify `cargo test` passes the tests below and the release build succeeds
 
   **Interfaces:**
   - Consumes: decision 10 from 1.1 (OutLayer call shape); `gateway_mut`, `now_sec`, `events::emit`.

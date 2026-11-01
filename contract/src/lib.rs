@@ -1,6 +1,8 @@
 pub mod events;
 pub mod gateways;
 pub mod invoices;
+pub mod payments;
+pub mod screening;
 pub mod types;
 
 #[cfg(test)]
