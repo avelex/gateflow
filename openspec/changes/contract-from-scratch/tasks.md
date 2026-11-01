@@ -13,6 +13,7 @@
 ## Global Constraints
 
 - Release build: `cd contract && cargo build --target wasm32-unknown-unknown --release`. Tests: `cd contract && cargo test`. No warnings.
+- Deployable wasm: `cd contract && cargo near build non-reproducible-wasm` → `contract/target/near/gateflow.wasm`. The toolchain is pinned to Rust 1.86.0 in `contract/rust-toolchain.toml`, because wasm from rustc 1.87 or newer is rejected by the nearcore VM (cargo-near 0.19).
 - No method deploys code, adds or deletes access keys, or deletes the account. Only `close` and `retry` build `ft_transfer`.
 - Constants: `CLEARING_WINDOW_SEC = 900`, `MAX_RISK_CAP = 80`, `PAGE_LIMIT = 100`, `MIN_EXPIRY_SEC = 60`, `MAX_EXPIRY_SEC = 2_592_000`, `MAX_MEMO_BYTES = 140`, `SCREENED_CALLBACK_GAS = 40 Tgas`, `CLOSED_CALLBACK_GAS = 10 Tgas`, `FT_TRANSFER_GAS = 10 Tgas`.
 - `ref` = the JSON key `"ref"`; Rust field `reference` with `#[serde(rename = "ref")]`.
