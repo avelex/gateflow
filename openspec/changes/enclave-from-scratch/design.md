@@ -146,4 +146,4 @@ See proposal.md, "Why". Requirements: `payment-clearing` (the existing enclave r
 
 ## Open Questions
 
-- The exact field types in the GoPlus `address_security` result: strings `"0"`/`"1"`, or numbers. The parser accepts both, and the spike records which.
+- None. Resolved in task 1.2: GoPlus returns flags as strings `"0"`/`"1"` (the parser accepts numbers too), and `data_source` is a free-form string.

@@ -1,0 +1,46 @@
+{
+  "correlationId": "00000000-0000-4000-8000-000000000000",
+  "quoteResponse": {
+    "timestamp": "2026-11-01T12:00:00.000Z",
+    "signature": "ed25519:fixture",
+    "quoteRequest": {
+      "dry": false,
+      "swapType": "EXACT_OUTPUT",
+      "slippageTolerance": 100,
+      "originAsset": "nep141:base-0x833589fcd6edb6e08f4c7c32d4f71b54bda02913.omft.near",
+      "depositType": "ORIGIN_CHAIN",
+      "destinationAsset": "nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
+      "amount": "10000000",
+      "refundTo": "0x0000000000000000000000000000000000000001",
+      "refundType": "ORIGIN_CHAIN",
+      "recipient": "gateflow.test",
+      "recipientType": "DESTINATION_CHAIN",
+      "deadline": "2026-11-01T13:00:00.000Z",
+      "customRecipientMsg": "{\"invoice\":0,\"ref\":\"r1\",\"refund_to\":\"bob.near\"}"
+    },
+    "quote": {
+      "depositAddress": "0x1111111111111111111111111111111111111111",
+      "amountIn": "10050000",
+      "amountInFormatted": "10.05",
+      "amountOut": "10000000",
+      "amountOutFormatted": "10.0",
+      "deadline": "2026-11-01T13:00:00.000Z",
+      "timeEstimate": 20
+    }
+  },
+  "status": "PROCESSING",
+  "updatedAt": "2026-11-01T12:01:00.000Z",
+  "swapDetails": {
+    "intentHashes": [
+      "fixture"
+    ],
+    "nearTxHashes": [
+      "fixture"
+    ],
+    "amountIn": "10050000",
+    "amountOut": "10000000",
+    "originChainTxHashes": [],
+    "destinationChainTxHashes": [],
+    "refundedAmount": "0"
+  }
+}

@@ -61,9 +61,9 @@
      - (c) the `http` run returns `true`;
      - (d) note whether any run failed with a secrets error.
   5. **Stop condition:** (a), (b) or (c) fails. Stop and revise the design with the user. If only (d) fails, the placeholder profile is added to task 5.2.
-- [ ] 1.2 Capture live fixtures into `enclave/tests/fixtures/` with `curl`, and hand-write the 1Click ones. Verify each `jq -e` check below exits 0
+- [x] 1.2 Capture live fixtures into `enclave/tests/fixtures/` with `curl`, and hand-write the 1Click ones. Verify each `jq -e` check below exits 0
   - `goplus-clean.json`: any fresh EOA. `.code==1`
-  - `goplus-severe.json`: the Tornado Cash address `0x8589427373d6d84e98730d7795d8f6f8731fda16`. `.result.sanctioned=="1"` (or `1`; record the type in the design's Open Questions)
+  - `goplus-severe.json`: the Ronin exploiter `0x098b716b8aaf21512996dc57eb0615e2383e2f96` (OFAC SDN; the Tornado Cash router is no longer flagged). `.result.sanctioned=="1"`
   - `goplus-low.json`: a copy of `goplus-clean.json` with only `blacklist_doubt` set
   - `evm-tx.json`: `eth_getTransactionByHash` for a recent Base USDC transfer. `.result.from`
   - `btc-tx.json`: any P2WPKH spend. `.vin[0].prevout.scriptpubkey_address`
@@ -186,7 +186,7 @@
   2. As `<test account>`, call `request_execution` with the design's call shape:
      - `screen` with `payer: "alice.testnet"` → `false`
      - `screen` with a clean `0x…` EOA → `true`
-     - `screen` with `0x8589427373d6d84e98730d7795d8f6f8731fda16` → `false`
+     - `screen` with `0x098b716b8aaf21512996dc57eb0615e2383e2f96` → `false`
      - `screen_intents` with `deposit_address: "0x0000000000000000000000000000000000000000"` → `false`
   3. As a second account, run the clean `screen` → `null`.
   4. Write `enclave/README.md`: what the guest does (pointing to the spec), build per network, the upload and deploy commands, and the recorded hashes. Commit `docs(enclave): testnet deployment`.
