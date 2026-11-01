@@ -104,7 +104,7 @@
   2. Run: FAIL. 3. Implement the no-`ref` branch in the order of design decision 3. 4. Run: all pass, release build ok. 5. Commit `feat(contract): accept direct invoice payments`.
 ## 4. Closing payments
 
-- [ ] 4.1 Add `close`, `on_screened` and `reclaim` in `contract/src/closing.rs`; verify `cargo test` passes the tests below
+- [x] 4.1 Add `close`, `on_screened` and `reclaim` in `contract/src/closing.rs`; verify `cargo test` passes the tests below
 
   **Interfaces (produces):** `fn close(&mut self, payment: PaymentId, approved: bool) -> Promise` (sets Settled or Refunded, moves the invoice to Paid or Returned, emits `payment_closed`, returns `ft_transfer(receiver, amount)` with 1 yocto and `FT_TRANSFER_GAS`, then `on_closed(payment)` with `CLOSED_CALLBACK_GAS`); `#[private] fn on_screened(&mut self, payment: PaymentId) -> PromiseOrValue<()>`; `fn reclaim(&mut self, payment: PaymentId) -> Promise`.
 

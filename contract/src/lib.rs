@@ -1,3 +1,4 @@
+pub mod closing;
 pub mod events;
 pub mod gateways;
 pub mod invoices;

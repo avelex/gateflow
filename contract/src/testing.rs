@@ -103,3 +103,33 @@ pub fn calls() -> Vec<(AccountId, String, near_sdk::serde_json::Value, NearToken
         })
         .collect()
 }
+
+/// Resumes as a callback on this contract at `at_sec`, with `result` as promise result 0.
+pub fn as_callback(result: near_sdk::PromiseResult, at_sec: u64) {
+    let ctx = VMContextBuilder::new()
+        .predecessor_account_id(near_sdk::test_utils::accounts(0)) // the contract's own account in tests
+        .current_account_id(near_sdk::test_utils::accounts(0))
+        .block_timestamp(at_sec * SEC)
+        .build();
+    testing_env!(ctx, near_sdk::test_vm_config(), near_sdk::RuntimeFeesConfig::test(), Default::default(), vec![result]);
+}
+
+pub fn ok(bytes: &[u8]) -> near_sdk::PromiseResult {
+    near_sdk::PromiseResult::Successful(bytes.to_vec())
+}
+
+/// `with_invoice()` plus payment 0: a direct 10 USDC payment from `payer()` at `T0`, Pending.
+pub fn with_payment() -> Gateflow {
+    let mut c = with_invoice();
+    pay(&mut c, &usdc(), &payer(), TEN_USDC, r#"{"invoice":0}"#, T0);
+    c
+}
+
+/// The single `ft_transfer` the last call created: (token, receiver_id, amount).
+pub fn ft_transfer() -> (AccountId, String, String) {
+    let t: Vec<_> = calls().into_iter().filter(|(_, m, _, _)| m == "ft_transfer").collect();
+    assert_eq!(t.len(), 1, "expected exactly one ft_transfer");
+    let (token, _, args, deposit) = t[0].clone();
+    assert_eq!(deposit, NearToken::from_yoctonear(1));
+    (token, args["receiver_id"].as_str().unwrap().into(), args["amount"].as_str().unwrap().into())
+}
