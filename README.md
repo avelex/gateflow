@@ -19,9 +19,9 @@ sequenceDiagram
     participant Chain as Origin chain API
 
     alt Direct NEAR payment (no ref)
-        Payer->>Token: ft_transfer_call(Gateflow, amount, {gateway, invoice?, refund_to?})
+        Payer->>Token: ft_transfer_call(Gateflow, amount, {invoice, refund_to?})
         Token->>Gateflow: ft_on_transfer(sender_id, amount, msg)
-        Gateflow->>Gateflow: check token allowlist, invoice and fuel (panic = funds return)
+        Gateflow->>Gateflow: check token allowlist, invoice (required) and fuel (panic = funds return)
         Gateflow->>Gateflow: draw fuel, open Payment Pending, invoice Paying, log OPENED
         Gateflow->>OutLayer: request_execution {kind: screen, payer: sender_id, max_risk}
         OutLayer->>OutLayer: GoPlus risk(sender_id) <= max_risk (EVM addresses only)
@@ -37,8 +37,9 @@ sequenceDiagram
         Relay-->>Page: depositAddress, amountIn, ref
         Payer->>OneClick: send amountIn on origin chain to depositAddress
         OneClick->>OneClick: bridge in, solver swap if needed
-        OneClick->>Token: ft_transfer_call(Gateflow, amount, msg with ref)
+        OneClick->>Token: ft_transfer_call(Gateflow, amount, msg with invoice + ref), sender = intents.near
         Token->>Gateflow: ft_on_transfer(intents.near, amount, msg)
+        Note over Gateflow: a ref from any other sender panics
         alt duplicate ref or invoice mismatch
             Gateflow->>Gateflow: open and close as Refunded (never panics), invoice unchanged
         else
@@ -49,9 +50,9 @@ sequenceDiagram
         Relay->>OneClick: GET /v0/status (409 unless SUCCESS)
         Relay->>Gateflow: screen_intents(payment, depositAddress), signed by relay account
         Gateflow->>Gateflow: once per payment, draw fuel, store depositAddress
-        Gateflow->>OutLayer: request_execution {kind: screen_intents, deposit_address, gateway, ref, amount, max_risk}
+        Gateflow->>OutLayer: request_execution {kind: screen_intents, deposit_address, invoice, ref, amount, max_risk}
         OutLayer->>OneClick: GET /v0/status
-        Note over OutLayer: binding: SUCCESS, recipient = Gateflow, same gateway + ref, amountOut = amount
+        Note over OutLayer: binding: SUCCESS, recipient = Gateflow, same invoice + ref, amountOut = amount
         OutLayer->>OneClick: GET /v0/tokens (originAsset to chain)
         alt EVM (base / eth / arb)
             OutLayer->>Chain: eth_getTransactionByHash: from
@@ -83,10 +84,12 @@ sequenceDiagram
 ```
 
 - On the 1Click path the payer needs no NEAR: the relay signs `screen_intents` and pays its gas. The relay can only delay a payment, never approve one; the verdict comes from the enclave.
-- The random `ref` binds the NEAR payment to its 1Click deposit. The enclave accepts a deposit address only if 1Click's stored quote carries the same gateway, `ref`, recipient and amount.
+- The random `ref` binds the NEAR payment to its 1Click deposit. The enclave accepts a deposit address only if 1Click's stored quote carries the same invoice, `ref`, recipient and amount.
 - Refunds go to `refund_to` on NEAR in the payment's token, not back to the origin chain.
 - An invoice is Open, Paying, then Paid or Returned. Returned is final: the merchant issues a new invoice. Expiry is not a status; an Open invoice past `expires_at_sec` accepts no payment.
 - Shielded Zcash senders cannot be screened, so they are always refunded.
+- Every payment names an invoice, and only `intents.near` may deliver a `ref` payment, so contract storage grows only with merchant invoices and paid 1Click deliveries.
+- The contract account holds no access keys and has no upgrade path. Tokens leave it only to the gateway's `payout_to` or the payment's `refund_to`.
 - No KYC: there is no per-person limit; large payments are gated only by screening.
 
 ## Modules
@@ -132,7 +135,7 @@ cd ../relay && GATEFLOW_CONTRACT=<contract> RELAY_ACCOUNT_ID=<operator> RELAY_PR
 | `NEAR_RPC_URL` | `https://rpc.testnet.fastnear.com` | NEAR RPC |
 | `ONECLICK_URL`, `ONECLICK_API_KEY`, `EVM_CHAINS` | 1Click v0, none, `base,eth,arb` | NEAR Intents 1Click endpoint, optional key, and the EVM origins the enclave can screen |
 | `VITE_NEAR_NETWORK` (web build) | `testnet` | Network for the checkout's NEAR wallets |
-| `VITE_REOWN_PROJECT_ID` (web build) | none | Reserved for the Ethereum-wallet payer option, which is not wired yet (follow-up in `openspec/changes/web-console-checkout/tasks.md`) |
+| `VITE_REOWN_PROJECT_ID` (web build) | none | Reserved for the Ethereum-wallet payer option, which is not wired yet (follow-up in `openspec/changes/archive/2026-11-01-web-console-checkout/tasks.md`) |
 
 ### The merchant's side
 
@@ -150,4 +153,4 @@ Running the relay, the enclave secrets and the deployment steps (testnet and mai
 
 - Contract, enclave and relay for the cross-chain path are implemented and unit-tested. The relay's quotes and its NEAR signer have been run against live 1Click and testnet.
 - The web console and checkout run end to end on testnet: onboarding, invoices, and a direct payment from a named account, which current screening returns.
-- Not yet run on mainnet: deployment, enclave registration and live USDC / BTC / ZEC payments. See tasks 6.1–6.5 in [`openspec/changes/screen-cross-chain-payer/tasks.md`](openspec/changes/screen-cross-chain-payer/tasks.md).
+- Not yet run on mainnet: deployment, enclave registration and live USDC / BTC / ZEC payments. Tracked in [`openspec/changes/mainnet-launch/tasks.md`](openspec/changes/mainnet-launch/tasks.md).
