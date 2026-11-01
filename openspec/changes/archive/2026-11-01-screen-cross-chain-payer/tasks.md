@@ -184,11 +184,7 @@
 
 ## 6. Mainnet integration
 
-- [ ] 6.1 Deploy a fresh mainnet `gateflow`, `storage_deposit` it on the USDC, `nbtc.bridge.near` and `zec.omft.near` tokens, create one gateway per token, and register the enclave with its secrets; verify `get_gateway` for ids 0–2 returns those three tokens
-- [ ] 6.2 Pay 1 USDC from Base through the relay; verify `get_payment` shows `Settled` and the merchant gains 1 USDC; save the `/v0/status` response as `enclave/tests/fixtures/oneclick-status-success.json` (check `jq -e '.status=="SUCCESS" and (.swapDetails.originChainTxHashes|length>0)'`); record the tx hashes in `GOAL.md`
-- [ ] 6.3 Pay 0.0001 nBTC from native BTC through the relay; verify `Settled` and that the merchant gains nBTC; record the tx hashes in `GOAL.md`
-- [ ] 6.4 Pay ZEC from a transparent address through the relay; verify `Settled` and that the merchant gains `zec.omft.near`; record the tx hashes in `GOAL.md`
-- [ ] 6.5 Call `screen_intents` on a Pending `ref` payment with the deposit address of a different quote; verify the payment becomes `Refunded` to its `refund_to`; record the tx hash in `GOAL.md`
+Moved to the `mainnet-launch` change and rewritten for the token allowlist model. Main specs already carried this change's requirements, so it was archived with `--skip-specs`.
 
 ## Workflow follow-up
 
