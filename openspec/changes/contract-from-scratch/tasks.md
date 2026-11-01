@@ -175,7 +175,7 @@
      - `non_operator_cannot_set_relay`: "not the operator".
      - Existing `screen_intents` tests call as the relay given to `new`.
   2. Run: FAIL. 3. Implement; the relay check comes first in `screen_intents`. 4. Run: all pass, build ok. 5. Commit `feat(contract): only the relay starts deferred screening`.
-- [ ] 6.2 Charge merchants for their storage (design decision 12); verify `cargo test` passes the tests below and `cargo near build non-reproducible-wasm` succeeds
+- [x] 6.2 Charge merchants for their storage (design decision 12); verify `cargo test` passes the tests below and `cargo near build non-reproducible-wasm` succeeds
 
   1. Write the failing tests:
      - `gateway_without_fuel_rejected`: `create_gateway` with 9 milliNEAR (below the 10 milliNEAR execution deposit) → "attach at least one execution deposit".

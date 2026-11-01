@@ -119,7 +119,7 @@ no ref: invoice check, fuel check  -> panic on failure
 
 **12. Merchants pay for their own storage** (final review, 2026-11-01). Anyone can create a gateway, so "only onboarded merchants invoice" is not a bound.
 - `create_gateway` requires at least one execution deposit, which is more than a gateway's own storage.
-- `create_invoice` measures `env::storage_usage()` before and after writing and deducts `bytes * env::storage_byte_cost()` from gateway fuel, failing with "gateway has no fuel for invoice storage". The relay's existing top-up keeps onboarded merchants' fuel above the target, so they never see this.
+- `create_invoice` first requires fuel for an upper bound of 512 bytes (memo ≤ 140 B, token ≤ 64 B, index entry, record overheads), failing with "gateway has no fuel for invoice storage". It then flushes the invoice and index collections, measures `env::storage_usage()` before and after, and deducts `bytes * env::storage_byte_cost()` from fuel (about 146 bytes, 0.0015 NEAR, for a memo-less invoice). Checking the bound before writing keeps the failure path free of writes. The relay's existing top-up keeps onboarded merchants' fuel above the target, so they never see this.
 - Payment records stay on the contract balance: each accepted payment needs an invoice, and a `ref` refund needs a paid 1Click delivery.
 - *Rejected:* operator-approved gateway owners, which adds an onboarding step and makes the operator a gatekeeper.
 

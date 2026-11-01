@@ -4,10 +4,12 @@ pub const MAX_RISK_CAP: u8 = 80;
 
 #[near]
 impl Gateflow {
-    /// Creates a gateway owned by the caller; the attached deposit becomes its screening fuel.
+    /// Creates a gateway owned by the caller; the attached deposit (at least one execution
+    /// deposit) becomes its screening fuel.
     #[payable]
     pub fn create_gateway(&mut self, payout_to: AccountId, policy: Policy) -> GatewayId {
         validate_policy(&policy);
+        require!(env::attached_deposit() >= self.execution_deposit, "attach at least one execution deposit");
         let id = self.gateways.len();
         self.gateways.push(Gateway {
             owner: env::predecessor_account_id(),
@@ -117,5 +119,13 @@ mod tests {
         let mut c = with_gateway();
         call(&accounts(3), NearToken::from_millinear(100), T0);
         c.fund(42);
+    }
+
+    #[test]
+    #[should_panic(expected = "attach at least one execution deposit")]
+    fn gateway_without_fuel_rejected() {
+        let mut c = setup();
+        call(&merchant(), NearToken::from_millinear(9), T0);
+        c.create_gateway(merchant(), policy(50));
     }
 }

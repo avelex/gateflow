@@ -71,10 +71,20 @@ pub fn with_usdc() -> Gateflow {
 pub const TEN_USDC: u128 = 10_000_000;
 
 /// `with_usdc()` plus invoice 0: 10 USDC on gateway 0, expiring at `T0 + 3600`.
+/// Fuel is topped back up to 0.05 NEAR after the invoice's storage, as the relay does.
 pub fn with_invoice() -> Gateflow {
     let mut c = with_usdc();
     c.create_invoice(0, usdc(), near_sdk::json_types::U128(TEN_USDC), 3600, None);
+    top_up(&mut c, NearToken::from_millinear(50));
+    as_caller(&merchant());
     c
+}
+
+/// Funds gateway 0 back to `target` fuel.
+pub fn top_up(c: &mut Gateflow, target: NearToken) {
+    let missing = target.saturating_sub(c.get_gateway(0).unwrap().fuel);
+    call(&op(), missing, T0);
+    c.fund(0);
 }
 
 pub fn payer() -> AccountId {

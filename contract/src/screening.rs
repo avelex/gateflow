@@ -121,7 +121,7 @@ mod tests {
     #[test]
     fn screen_intents_without_fuel_fails() {
         let mut c = setup();
-        call(&merchant(), NearToken::from_millinear(9), T0);
+        call(&merchant(), NearToken::from_millinear(10), T0); // invoice storage then takes fuel below one deposit
         c.create_gateway(merchant(), policy(50));
         as_caller(&op());
         c.add_token(usdc());
