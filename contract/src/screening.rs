@@ -4,6 +4,8 @@ use near_sdk::{Gas, Promise};
 
 pub const OUTLAYER_GAS: Gas = Gas::from_tgas(100);
 pub const SCREENED_CALLBACK_GAS: Gas = Gas::from_tgas(40);
+/// Longest 1Click deposit address stored; real ones (EVM, BTC, ZEC) are under 100 bytes.
+pub const MAX_DEPOSIT_ADDRESS_BYTES: usize = 128;
 
 #[near]
 impl Gateflow {
@@ -14,6 +16,10 @@ impl Gateflow {
         require!(p.status == PaymentStatus::Pending, "payment is not pending");
         let reference = p.reference.clone().unwrap_or_else(|| env::panic_str("payment has no ref"));
         require!(p.deposit_address.is_none(), "screening already started");
+        require!(
+            (1..=MAX_DEPOSIT_ADDRESS_BYTES).contains(&deposit_address.len()),
+            "invalid deposit address"
+        );
         self.draw_fuel(p.gateway);
         self.payments.get_mut(payment as u32).unwrap().deposit_address = Some(deposit_address.clone());
         self.request_screening(
@@ -149,5 +155,19 @@ mod tests {
         let _ = c.reclaim(0);
         assert_eq!(c.get_payment(0).unwrap().status, PaymentStatus::Refunded);
         assert_eq!(ft_transfer().1, "bob.near");
+    }
+
+    #[test]
+    #[should_panic(expected = "invalid deposit address")]
+    fn screen_intents_rejects_oversized_address() {
+        let mut c = with_ref_payment();
+        let _ = c.screen_intents(0, "x".repeat(129));
+    }
+
+    #[test]
+    #[should_panic(expected = "invalid deposit address")]
+    fn screen_intents_rejects_empty_address() {
+        let mut c = with_ref_payment();
+        let _ = c.screen_intents(0, String::new());
     }
 }

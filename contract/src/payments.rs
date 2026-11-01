@@ -4,6 +4,9 @@ use near_sdk::json_types::U128;
 use near_sdk::serde_json::{self, json};
 use near_sdk::PromiseOrValue;
 
+/// Longest `ref` stored; the relay sends 32 hex characters.
+pub const MAX_REF_BYTES: usize = 64;
+
 #[near]
 impl Gateflow {
     /// NEP-141 receiver. Every payment names an invoice in `msg`; see design decision 3 for the order of checks.
@@ -17,10 +20,13 @@ impl Gateflow {
         if let Some(reference) = msg.reference {
             // 1Click delivery: never panic from here on, or 1Click loses the funds.
             require!(sender_id == self.intents, "ref payments only from intents.near");
-            let duplicate = self.refs.contains_key(&reference);
-            let accepted = !duplicate && check_invoice(&invoice, &token, amount).is_ok();
-            let id = self.open_payment(msg.invoice, &invoice, sender_id, refund_to, token, amount, Some(reference.clone()), accepted);
-            if !duplicate {
+            // An oversized ref is refunded and not stored, so it cannot grow storage.
+            let valid = (1..=MAX_REF_BYTES).contains(&reference.len());
+            let duplicate = valid && self.refs.contains_key(&reference);
+            let accepted = valid && !duplicate && check_invoice(&invoice, &token, amount).is_ok();
+            let stored = valid.then(|| reference.clone());
+            let id = self.open_payment(msg.invoice, &invoice, sender_id, refund_to, token, amount, stored, accepted);
+            if valid && !duplicate {
                 self.refs.insert(reference, id);
             }
             if !accepted {
@@ -346,5 +352,16 @@ mod tests {
         pay(&mut c, &usdc(), &intents(), TEN_USDC, REF_MSG, T0);
         assert_eq!(c.get_payment_by_ref("r1".into()), Some((0, c.get_payment(0).unwrap())));
         assert!(c.get_payment_by_ref("nope".into()).is_none());
+    }
+
+    #[test]
+    fn oversized_ref_refunds_without_storing_it() {
+        let mut c = with_invoice();
+        let msg = format!(r#"{{"invoice":0,"ref":"{}","refund_to":"bob.near"}}"#, "r".repeat(65));
+        assert_eq!(pay(&mut c, &usdc(), &intents(), TEN_USDC, &msg, T0), 0);
+        let p = c.get_payment(0).unwrap();
+        assert_eq!((p.status, p.reference), (PaymentStatus::Refunded, None));
+        assert_eq!(c.get_invoice(0).unwrap().status, InvoiceStatus::Open);
+        assert!(c.get_payment_by_ref("r".repeat(65)).is_none());
     }
 }
