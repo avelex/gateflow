@@ -1,5 +1,6 @@
 pub mod events;
 pub mod gateways;
+pub mod invoices;
 pub mod types;
 
 #[cfg(test)]

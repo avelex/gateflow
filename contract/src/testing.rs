@@ -49,3 +49,16 @@ pub fn with_gateway() -> Gateflow {
     as_caller(&merchant());
     c
 }
+
+pub fn usdc() -> AccountId {
+    "usdc.near".parse().unwrap()
+}
+
+/// `with_gateway()` plus USDC on the allowlist; the next caller is `merchant()`.
+pub fn with_usdc() -> Gateflow {
+    let mut c = with_gateway();
+    as_caller(&op());
+    c.add_token(usdc());
+    as_caller(&merchant());
+    c
+}

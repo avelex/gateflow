@@ -68,7 +68,7 @@
      - `non_owner_cannot_set_policy`: panic "not the gateway owner".
      - `fund_adds_fuel`: `fund(0)` with 0.1 NEAR from any account → fuel grows by 0.1 NEAR; `get_gateway(42)` is `None`.
   2. Run: FAIL. 3. Implement. 4. Run: 5 passed. 5. Commit `feat(contract): gateways`.
-- [ ] 2.2 Add invoices in `contract/src/invoices.rs`; verify `cargo test` passes the six tests below
+- [x] 2.2 Add invoices in `contract/src/invoices.rs`; verify `cargo test` passes the six tests below
 
   **Interfaces (produces):** `fn create_invoice(&mut self, gateway: GatewayId, token: AccountId, amount: U128, expires_in_sec: u64, memo: Option<String>) -> InvoiceId`, `fn get_invoice(&self, invoice: InvoiceId) -> Option<Invoice>`, `fn get_invoices(&self, gateway: GatewayId, from_index: u32, limit: u32) -> Vec<(InvoiceId, Invoice)>`, helper `fn now_sec() -> u64` (block timestamp / 1e9).
 
