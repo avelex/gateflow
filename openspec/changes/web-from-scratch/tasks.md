@@ -232,7 +232,7 @@
      - `timeline_returned`: "Returned to you", with `detail` equal to `payment.refundTo`.
      - `timeline_origin_refund`: `REFUNDED` with an Open invoice gives step 1 "Returned on the origin chain", and the later steps are `todo`.
   2. FAIL. 3. Implement the two-column design layout: the invoice card (merchant, amount, id, memo, countdown and the custody explanation), the unpayable cards, and the payment options. Poll every 5 s. 4. PASS, plus the manual check. 5. Commit `feat(web): checkout page and timeline`.
-- [ ] 5.2 Pay with a NEAR wallet (design decision 7). Verify that `npm test` passes `transfer_call_args` and that `npm run build` emits wallet-selector in a separate chunk. Then verify on testnet that choosing the option shows the named-account warning before the wallet modal, and that a payment from a named testnet account turns the timeline into "Returned to you". Also verify that the form with "Browser wallet" selected passes the screenshot check against the export
+- [x] 5.2 Pay with a NEAR wallet (design decision 7). Verify that `npm test` passes `transfer_call_args` and that `npm run build` emits wallet-selector in a separate chunk. Then verify on testnet that choosing the option shows the named-account warning before the wallet modal, and that a payment from a named testnet account turns the timeline into "Returned to you". Also verify that the form with "Browser wallet" selected passes the screenshot check against the export
   **Source:** Checkout form state, "Pay with" tiles, Pay button.
   **Files:** `web/src/checkout/NearPay.tsx`, `web/src/checkout/wallet.ts`, and `logic.ts` and `logic.test.ts`.
   **Produces:**

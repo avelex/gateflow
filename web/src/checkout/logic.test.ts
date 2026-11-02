@@ -47,3 +47,16 @@ test("timeline_origin_refund", () => {
   expect(t[0]).toMatchObject({ label: "Returned on the origin chain", state: "done" });
   expect(t.slice(1).map((s) => s.state)).toEqual(["todo", "todo", "todo"]);
 });
+
+import { transferCallArgs } from "./logic.ts";
+
+test("transfer_call_args", () => {
+  const a = transferCallArgs(inv({ id: 7, token: "wrap.testnet", contract: "gateflow-dev-v1.testnet", amount: "1000000000000000000000000" }));
+  expect(a).toEqual({
+    receiverId: "wrap.testnet",
+    method: "ft_transfer_call",
+    args: { receiver_id: "gateflow-dev-v1.testnet", amount: "1000000000000000000000000", msg: '{"invoice":7}' },
+    gas: "300000000000000",
+    deposit: "1",
+  });
+});

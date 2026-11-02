@@ -8,6 +8,10 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@near-wallet-selector/core": "10.1.4",
+    "@near-wallet-selector/meteor-wallet": "10.1.4",
+    "@near-wallet-selector/modal-ui": "10.1.4",
+    "@near-wallet-selector/my-near-wallet": "10.1.4",
     "lucide": "0.469.0",
     "react": "18.3.1",
     "react-dom": "18.3.1"

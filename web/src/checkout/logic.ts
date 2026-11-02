@@ -46,3 +46,15 @@ export function timeline(inv: CheckoutInvoice, quoteStatus?: string): Step[] {
   else steps.push({ label: "Released to merchant", state: inv.status === "Paid" ? "done" : "todo" });
   return steps;
 }
+
+/// The direct NEAR payment: ft_transfer_call on the invoice token to the Gateflow contract, msg naming the invoice only.
+export function transferCallArgs(inv: CheckoutInvoice) {
+  return {
+    receiverId: inv.token,
+    method: "ft_transfer_call" as const,
+    args: { receiver_id: inv.contract, amount: inv.amount, msg: JSON.stringify({ invoice: inv.id }) },
+    // 300 Tgas: ft_on_transfer forwards 100 Tgas to OutLayer plus its callback.
+    gas: "300000000000000",
+    deposit: "1",
+  };
+}

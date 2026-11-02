@@ -5,6 +5,7 @@ import { logo, tokenIcon } from "../assets.ts";
 import { Icon } from "../ds.jsx";
 import { formatAmount, initials, timeLeft } from "../format.ts";
 import { type CheckoutInvoice, type Step, timeline, unpayable } from "./logic.ts";
+import { NamedWarning, NearPayButton, wasSent } from "./NearPay.tsx";
 import Timeline, { type Headline } from "./Timeline.tsx";
 
 const SECTION = { fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--text-3)" } as const;
@@ -110,7 +111,7 @@ export function headline(inv: CheckoutInvoice, steps: Step[]): Headline {
   if (steps[0]?.label === "Returned on the origin chain") return { badge: "Returned", tone: "plain", title: "Payment returned", text: "The swap did not complete, so your deposit went back to your refund address on the origin chain." };
   if (inv.status === "Paying") return { badge: "Screening", tone: "live", title: "Checks in progress", text: `${amount} is held in the Gateflow contract while the enclave screens the payer.${close}` };
   if (steps[0]?.label === "Deposit detected" && steps[0].state === "done") return { badge: "Deposit detected", tone: "live", title: "Payment detected", text: `Your deposit is on its way to the Gateflow contract.${close}` };
-  return { badge: "Waiting", tone: "live", title: "Waiting for your payment", text: `Send the payment to continue.${close}` };
+  return { badge: "Sent", tone: "live", title: "Payment sent", text: `Waiting for your transfer to reach the Gateflow contract.${close}` };
 }
 
 const DESCRIPTIONS: Record<string, (inv: CheckoutInvoice) => string> = {
@@ -155,6 +156,7 @@ export const FOOTNOTE = "Gateflow never holds your funds. The payment waits in t
 export default function Checkout({ id }: { id: number }) {
   const [inv, setInv] = useState<CheckoutInvoice | null | undefined>();
   const [mode, setMode] = useState<"wallet" | "qr">("wallet");
+  const [sent, setSent] = useState(() => wasSent(id));
   const now = useNow(1000);
 
   useEffect(() => {
@@ -174,7 +176,7 @@ export default function Checkout({ id }: { id: number }) {
     return <Page right={<Message title="Invoice not found" text="Check the link with the merchant who sent it." />} />;
   }
   const blocked = unpayable(inv, now);
-  const processing = inv.status !== "Open";
+  const processing = inv.status !== "Open" || sent;
   return (
     <Page
       left={<InvoiceCard inv={inv} now={now} processing={processing} />}
@@ -185,8 +187,11 @@ export default function Checkout({ id }: { id: number }) {
           <Message title="This invoice has expired" text="Ask the merchant for a new invoice." />
         ) : (
           <>
-            <PayWith mode={mode} onMode={setMode} />
+            <PayWith mode={mode} onMode={setMode}>
+              {mode === "wallet" && <NamedWarning />}
+            </PayWith>
             <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 10 }}>
+              {mode === "wallet" && <NearPayButton inv={inv} onSent={() => setSent(true)} />}
               <span style={{ fontSize: 12, lineHeight: "18px", color: "var(--text-3)", textAlign: "center" }}>{FOOTNOTE}</span>
             </div>
           </>
