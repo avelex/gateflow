@@ -132,7 +132,7 @@
 
 ## 3. Console
 
-- [ ] 3.1 Email sessions. Verify that `npm test` passes `session_sets_cookie_flags`, `session_secure_on_https`, `session_rejects_bad_email` (400, no cookie), `me_requires_session` (401) and `logout_deletes_session` (the old cookie then gets 401)
+- [x] 3.1 Email sessions. Verify that `npm test` passes `session_sets_cookie_flags`, `session_secure_on_https`, `session_rejects_bad_email` (400, no cookie), `me_requires_session` (401) and `logout_deletes_session` (the old cookie then gets 401)
   **Files:** `relay/src/console.ts`, `relay/src/console.test.ts`, plus `relay/src/testing.ts` (`fakeDeps(overrides)` with a `":memory:"` DB, a recording fake `Near`, a fake `OneClick` and a fixed `now`).
   **Produces:** handlers `POST /console/session {email}` → `{step}`, `DELETE /console/session`, and `GET /console/me` → `{email, name, accountId, gatewayId, step}`. Also `requireMerchant(req, deps)`, which throws 401.
   Steps: 1. tests FAIL. 2. implement. 3. PASS. 4. Commit `feat(relay): demo email sessions`.
