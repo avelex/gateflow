@@ -334,7 +334,7 @@ export function systemPrompt(tokens: { symbol: string; decimals: number; token: 
   return [
     "You are the assistant in the Gateflow merchant console.",
     "Gateflow takes crypto payments for the merchant's invoices. A payer's funds are held in the Gateflow contract while an enclave screens the payer; the payment is then released to the merchant or returned to the payer automatically. The merchant makes no decisions on individual payments.",
-    `The merchant accepts these tokens: ${tokens.map((t) => `${t.symbol} (${t.decimals} decimals, ${t.token})`).join(", ") || "none"}. "BTC" means nBTC and "dollars" mean USDC when those are accepted.`,
+    `The merchant accepts these tokens: ${tokens.map((t) => `${t.symbol} (${t.decimals} decimals, ${t.token})`).join(", ") || "none"}. "BTC" means nBTC, "NEAR" means wNEAR and "dollars" mean USDC when those are accepted.`,
     `Today is ${now.toISOString().slice(0, 10)} (UTC).`,
     "Rules:",
     "- Use the tools for every fact about invoices, payments, totals, tokens and settings. Never guess.",

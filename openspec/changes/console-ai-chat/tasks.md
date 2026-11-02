@@ -120,7 +120,7 @@
 
 ## 3. Integration and docs
 
-- [ ] 3.1 Run a live check against NEAR AI Cloud. With `LLM_BASE_URL` at its default and the chosen `LLM_MODEL`, send the four hint prompts plus "What is the status of invoice #<real id>?" on testnet. Verify that:
+- [x] 3.1 Run a live check against NEAR AI Cloud. With `LLM_BASE_URL` at its default and the chosen `LLM_MODEL`, send the four hint prompts plus "What is the status of invoice #<real id>?" on testnet. Verify that:
   - every reply uses tools, and its trace is shown;
   - the invoice prompt yields a confirm card with the right token and amount;
   - no reply claims an action happened before it was confirmed.
