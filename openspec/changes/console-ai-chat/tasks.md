@@ -58,7 +58,7 @@
 
 ## 1. Assistant backend
 
-- [ ] 1.1 Add the chat tables and the model client, and pick the model. Verify that `cd relay && node --test src/*.test.ts` passes `chat_tables_roundtrip` and `complete_sends_tools_without_strict`. Also verify that `curl -s $LLM_BASE_URL/model/list -H "Authorization: Bearer $LLM_API_KEY"` lists the model written to `LLM_MODEL` in the README env table.
+- [x] 1.1 Add the chat tables and the model client, and pick the model. Verify that `cd relay && node --test src/*.test.ts` passes `chat_tables_roundtrip` and `complete_sends_tools_without_strict`. Also verify that `curl -s $LLM_BASE_URL/model/list -H "Authorization: Bearer $LLM_API_KEY"` lists the model written to `LLM_MODEL` in the README env table.
   1. Add `llmBaseUrl`, `llmApiKey`, `llmModel` and `chatDailyLimit` to `Config`/`loadConfig` in `relay/src/types.ts`. Add an optional `llm` port to `Deps`, built in `main.ts` only when `LLM_API_KEY` is set, and add a scripted fake to `testing.ts`.
   2. In `relay/src/db.ts`, add the three tables from design decision 3 with prepared helpers:
      - `createThread`, `threadsOf(email, limit)`, `thread(id, email)`
