@@ -2,7 +2,7 @@
 
 ## Why
 
-The console design is built around an assistant. The merchant asks "Generate invoice for 0.01 BTC" or "What is the status of invoice #123?" and gets answers and invoice cards in chat. `web-console-checkout` ships that composer disabled. This change turns it on as a natural-language way to run the same console actions, while keeping the existing guarantee that nothing changes on-chain without the merchant's passkey.
+The console design is built around an assistant. The merchant asks "Generate invoice for 0.01 BTC" or "What is the status of invoice #123?" and gets answers and invoice cards in chat. The console (`merchant-console`) ships that composer disabled. This change turns it on as a natural-language way to run the same console actions, while keeping the existing guarantee that nothing changes on-chain without the merchant's passkey.
 
 For the NEAR AI track, inference runs on NEAR AI Cloud, which serves OpenAI-compatible chat completions from TEEs. The merchant's payment data is therefore processed privately.
 
@@ -27,11 +27,11 @@ For the NEAR AI track, inference runs on NEAR AI Cloud, which serves OpenAI-comp
 - `console-assistant`: chat threads, the model endpoint, read tools, write proposals with confirm cards, and limits.
 
 ### Modified Capabilities
-- `merchant-console`: Home's composer is enabled with hints, the sidebar lists recent chats, and Search also finds chats. These requirements are introduced by `web-console-checkout`.
+- `merchant-console`: Home's composer is enabled with hints, the sidebar lists recent chats, and Search also finds chats.
 
 ## Impact
 
 - **Relay** (`relay/src/`): new `chat.ts` (tool loop and tool definitions), new tables in `db.ts`, and a `fetch` client for the model. No npm dependencies.
-- **Web** (`web/src/console/`): new `Chat.tsx` and card components. Home, Layout, Search and Invoices change.
+- **Web** (`web/src/`): new `console/Chat.tsx` and card components. Home, Layout, Search, Invoices and `console/logic.ts` change, and `App.tsx` gains a `/chat/<id>` route.
 - **Env:** `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`, `CHAT_DAILY_LIMIT`.
-- **Dependencies:** requires `web-console-checkout`, for sessions, the relayer, `signDelegate` and the console screens, and `contract-invoices-views`. Needs a NEAR AI Cloud API key. Without one, any OpenAI-compatible endpoint works, but inference is then not private.
+- **Dependencies:** builds on the current relay and web code; no pending change is required. Needs a NEAR AI Cloud API key. Without one, any OpenAI-compatible endpoint works, but inference is then not private.

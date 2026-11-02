@@ -4,12 +4,17 @@
 
 Motivation: see proposal.md. Requirements: `specs/console-assistant/spec.md` and `specs/merchant-console/spec.md`.
 
-This change builds on `web-console-checkout`. That change provides:
-- the relay as the one backend, with `node:sqlite` (`db.ts`), cookie sessions and `/console/*` routes;
-- the delegate relayer `POST /console/relay` with its allowlist;
-- `signDelegate()` and the passkey key in `web/src/near/`;
-- the console screens (Home with a disabled composer, Invoices, Screening, Search);
-- `formatAmount`/`parseAmount` in `web/src/format.ts`.
+This change builds on the current code:
+- **Relay:**
+  - `node:sqlite` in `db.ts`;
+  - `loadConfig` and the injected `Deps` (`near`, `oneclick`, `db`) in `types.ts`, with fakes in `testing.ts`;
+  - in `console.ts`: cookie sessions, `requireGateway`, `readGateway` (which tops up fuel), `newestFirst`, `withMeta`, `tokenMeta` and the operator `retry` checks;
+  - in `delegate.ts`: `decodeSignedDelegate` and the `refusal` allowlist. The decoder currently skips function-call args.
+- **Web:**
+  - `acquireKey(keyMode())` gives one passkey prompt in either key mode (PRF or stored), and `signAndRelay(key, actions)` posts `/console/relay`. Both are in `web/src/console/logic.ts`.
+  - The design-system components are in `web/src/ds.jsx`. `formatAmount`/`parseAmount` are in `web/src/format.ts`.
+  - Home has a disabled composer. Invoices, Screening, Settings and Search exist.
+  - Routes are in `App.tsx`.
 
 The relay has no npm dependencies, so the model client is plain `fetch`.
 
@@ -34,6 +39,7 @@ NEAR AI Cloud serves OpenAI-compatible `/v1/chat/completions` with tool calling 
 
 **2. The tool loop in `relay/src/chat.ts`.**
 - `runAssistant(ports, merchant, history, message): Promise<AssistantTurn>` takes injectable ports `{ complete(messages, tools), tools: Record<name, (args, merchant) => Promise<unknown>> }`, so tests use a fake model.
+- The model client is `Deps.llm`, the same pattern as `Deps.oneclick`: `main.ts` builds the `fetch` client, and `testing.ts` provides a scripted fake for route tests. It is absent when `LLM_API_KEY` is unset.
 - Each round sends the messages and the tools. Each `tool_calls` entry runs, and its JSON result is appended as a `tool` message. The loop ends on a plain assistant message, or after 6 rounds.
 - Malformed tool-argument JSON returns `{ error }` to the model instead of throwing.
 - Tool schemas leave out `strict`.
@@ -52,13 +58,13 @@ NEAR AI Cloud serves OpenAI-compatible `/v1/chat/completions` with tool calling 
 
 **5. Write proposals are bound to execution.**
 - A write tool validates its input and stores `chat_actions.params` in contract form:
-  - `create_invoice {gateway, token, amount (raw string), expires_in_sec, memo}`
+  - `create_invoice {gateway, token, amount (raw string), expires_in_sec, memo?}`, with `memo` left out when it is empty, as `invoiceArgs` does.
   - `set_policy {gateway, policy: {max_risk}}`
   - `retry {payment}`
 - It then returns `{ actionId, summary }` to the model, and the backend attaches a confirm card.
 - On Confirm:
-  - **Passkey actions:** the browser loads the action, calls `signDelegate` with exactly `params`, and posts `/console/relay` with `actionId`. The relayer, besides its allowlist, requires that the delegate holds exactly one function call whose method and JSON args deep-equal the stored params. It also requires `UPDATE chat_actions SET status='done' WHERE id=? AND status='pending'` to change one row, or it answers 409. If the transaction fails, the status becomes `failed` with the 422 message.
-  - **`retry`:** `POST /console/actions/:id/confirm` runs the operator `retry` with the same single-row status claim.
+  - **Passkey actions:** the browser loads the action and calls `signAndRelay(await acquireKey(keyMode()), [{ method, args: params, gas }], actionId)`. The optional `actionId` is new and is posted with the delegate. `decodeSignedDelegate` now also returns each function call's args bytes. The relayer, besides its allowlist, requires that the delegate holds exactly one function call whose method and JSON-parsed args deep-equal the stored params. It also requires `UPDATE chat_actions SET status='done' WHERE id=? AND status='pending'` to change one row, or it answers 409. If the transaction fails, the status becomes `failed` with the 422 message.
+  - **`retry`:** `POST /console/actions/:id/confirm` runs the operator `retry` with the same single-row status claim. It reuses the ownership and failed-status checks of `POST /console/retry`.
 - `POST /console/actions/:id/dismiss` sets the status to `dismissed`.
 - After success the backend appends an assistant message with the outcome card (the invoice card for `create_invoice`). This does not call the model.
 
@@ -74,10 +80,15 @@ NEAR AI Cloud serves OpenAI-compatible `/v1/chat/completions` with tool calling 
 
 **7. Model choice is env-only.**
 - `LLM_BASE_URL` defaults to `https://cloud-api.near.ai/v1`. `LLM_API_KEY` is required for chat; without it, `POST /console/chat` answers 503 "assistant not configured" and the composer shows that state. `LLM_MODEL` has no default.
-- Task 1.1 picks a model that supports tool calling from `/v1/model/list`, records it in README, and sets it in `.env.example`.
+- The four values are added to `Config`/`loadConfig`.
+- Task 1.1 picks a model that supports tool calling from `/v1/model/list` and records it in the README env table.
 
 **8. Daily limit from stored messages.**
 - The backend counts `role='user'` messages for the email since 00:00 UTC before calling the model. There is no separate counter table.
+
+**9. Settled totals use the payment's open time.**
+- The contract stores no settle time. `settled_totals` therefore sums `Settled` payments whose `opened_at_sec` falls in the period, measured in UTC.
+- Home's `settledToday` uses the same rule on the local calendar day.
 
 ## Risks / Trade-offs
 
@@ -89,7 +100,7 @@ NEAR AI Cloud serves OpenAI-compatible `/v1/chat/completions` with tool calling 
 
 ## Migration Plan
 
-1. `web-console-checkout` is deployed. The new tables are created with `CREATE TABLE IF NOT EXISTS` at startup.
+1. Deploy the relay. The new tables are created with `CREATE TABLE IF NOT EXISTS` at startup.
 2. Set `LLM_API_KEY` and `LLM_MODEL`, and optionally `LLM_BASE_URL` and `CHAT_DAILY_LIMIT`.
 3. Rollback: unset `LLM_API_KEY`. The composer shows "Assistant not configured" and the other screens work unchanged.
 

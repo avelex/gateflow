@@ -36,7 +36,7 @@ The assistant SHALL be able to call read tools without confirmation: list invoic
 - **THEN** the tool reports it as not found
 
 ### Requirement: Write tools only propose
-The tools `create_invoice`, `set_risk_tolerance` and `retry_payment` SHALL NOT change anything. They SHALL validate and normalize their input (token allowlisted and enabled, amount converted with the token's decimals, expiry 1 hour to 30 days, `max_risk` 0 to 80, payment failed and owned) and store a pending action shown as a confirm card with the exact values.
+The tools `create_invoice`, `set_risk_tolerance` and `retry_payment` SHALL NOT change anything. They SHALL validate and normalize their input (token allowlisted and enabled, amount converted with the token's decimals, expiry 1 hour to 30 days, memo at most 140 UTF-8 bytes, `max_risk` 0 to 80, payment failed and owned) and store a pending action shown as a confirm card with the exact values.
 
 #### Scenario: Invoice proposed
 - **WHEN** Kaja asks "Generate invoice for 0.01 BTC"
@@ -44,6 +44,10 @@ The tools `create_invoice`, `set_risk_tolerance` and `retry_payment` SHALL NOT c
 
 #### Scenario: Invalid amount
 - **WHEN** the model calls `create_invoice` with amount "0.000000001" for an 8-decimal token
+- **THEN** the tool returns an error to the model and no pending action is stored
+
+#### Scenario: Memo too long
+- **WHEN** the model calls `create_invoice` with a 200-byte memo
 - **THEN** the tool returns an error to the model and no pending action is stored
 
 ### Requirement: Merchant executes confirmed actions
