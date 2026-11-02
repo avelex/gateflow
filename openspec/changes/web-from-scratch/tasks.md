@@ -122,7 +122,7 @@
 
 ## 3. Merchant key
 
-- [ ] 3.1 Borsh and delegate signing (design decision 5). Verify that `npm test` passes the tests below
+- [x] 3.1 Borsh and delegate signing (design decision 5). Verify that `npm test` passes the tests below
   **Files:** `web/src/near/borsh.ts`, `web/src/near/delegate.ts`, `web/src/near/delegate.test.ts`.
   **Produces:**
   - `base58encode(b: Uint8Array): string` and `base58decode(s: string): Uint8Array`
