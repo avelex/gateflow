@@ -6,8 +6,8 @@ Lets a merchant register a payment gateway on the Gateflow contract that fixes w
 
 ## Requirements
 
-### Requirement: Create a gateway
-The system SHALL let any NEAR account create a gateway with a payout account and a policy, attaching at least one execution deposit. The caller becomes the gateway owner, the attached deposit becomes the gateway's screening fuel, and the system SHALL return a new sequential gateway id. A gateway SHALL NOT be tied to a token; it accepts every allowlisted token.
+### Requirement: Create a gateway with optional fuel
+The system SHALL let any NEAR account create a gateway with a payout account and a policy, with or without an attached deposit. The caller becomes the gateway owner, any attached deposit becomes the gateway's screening fuel, and the system SHALL return a new sequential gateway id. A gateway SHALL NOT be tied to a token; it accepts every allowlisted token.
 
 #### Scenario: Gateway created with fuel
 - **WHEN** an account calls `create_gateway` with a valid policy and attaches 0.05 NEAR
@@ -17,9 +17,9 @@ The system SHALL let any NEAR account create a gateway with a payout account and
 - **WHEN** the owner of gateway 0 creates one invoice in USDC and one in nBTC
 - **THEN** both invoices belong to gateway 0
 
-#### Scenario: Gateway without fuel rejected
-- **WHEN** an account calls `create_gateway` with less than one execution deposit attached
-- **THEN** the call fails with "attach at least one execution deposit" and no gateway is created
+#### Scenario: Gateway created without a deposit
+- **WHEN** a merchant account calls `create_gateway` with a valid policy and no deposit, as a relayed delegate action
+- **THEN** a gateway with the next id exists, its owner is the merchant account, and its fuel is 0
 
 ### Requirement: Owner-only policy updates
 The system SHALL let only the gateway owner replace the gateway's policy, applying the same validation as at creation.

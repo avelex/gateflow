@@ -7,7 +7,7 @@ The checkout API of the Gateflow backend: public invoice details, NEAR Intents 1
 ## Requirements
 
 ### Requirement: Cross-chain checkout quote
-`POST /checkout/quote` with `{invoice, originAsset, refundTo, refundOnNear}` SHALL read the invoice from the Gateflow contract, generate a random 128-bit hex `ref`, and request a 1Click `EXACT_OUTPUT` quote that delivers the invoice's amount in the invoice's token on NEAR, with the Gateflow contract as recipient and `{"gateway", "invoice", "ref", "refund_to"}` as `customRecipientMsg`. It SHALL return the deposit address, optional memo, input amount, deadline and `ref`.
+`POST /checkout/quote` with `{invoice, originAsset, refundTo, refundOnNear}` SHALL read the invoice from the Gateflow contract, generate a random 128-bit hex `ref`, and request a 1Click `EXACT_OUTPUT` quote that delivers the invoice's amount in the invoice's token on NEAR, with the Gateflow contract as recipient and `{"invoice", "ref", "refund_to"}` as `customRecipientMsg`. It SHALL return the deposit address, optional memo, input amount, deadline and `ref`.
 
 #### Scenario: Quote returned
 - **WHEN** the page asks for a quote on an Open invoice of 10 USDC
@@ -28,6 +28,10 @@ The checkout API of the Gateflow backend: public invoice details, NEAR Intents 1
 #### Scenario: Invoice not payable
 - **WHEN** the invoice is not Open or its expiry has passed
 - **THEN** the relay answers 409 and requests no quote
+
+#### Scenario: Message names the invoice, not the gateway
+- **WHEN** the relay requests a quote for invoice 7 with `refundOnNear` `bob.near`
+- **THEN** the quote's `customRecipientMsg` is exactly `{"invoice":7,"ref":<ref>,"refund_to":"bob.near"}`
 
 ### Requirement: Checkout status
 `GET /checkout/status?depositAddress=` SHALL return the 1Click execution status for that deposit address.
