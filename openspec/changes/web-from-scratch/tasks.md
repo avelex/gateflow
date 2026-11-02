@@ -190,7 +190,7 @@
        - a memo substring and a payer substring match, ignoring case;
        - `""` gives `[]`.
   2. FAIL. 3. Implement. The layout polls `me`, `gateway`, `invoices`, `payments` and `tokens`, and a 401 goes to SignIn. Home shows the greeting, a `Stat` per token, and the disabled composer with "Assistant coming soon". 4. PASS, plus the manual check. 5. Commit `feat(web): console layout, home, search`.
-- [ ] 4.3 Invoices. Verify that `npm test` passes `invoice_tab_expired` and `create_invoice_args`. Then verify against the dev relay that a 1 wNEAR invoice appears Open, with a copyable `<origin>/pay/<id>` link, after one passkey prompt; that cancelling the prompt keeps the form values; and that hashes appear only under Details. Also verify that the Invoices screen and its create form pass the screenshot check against the export
+- [x] 4.3 Invoices. Verify that `npm test` passes `invoice_tab_expired` and `create_invoice_args`. Then verify against the dev relay that a 1 wNEAR invoice appears Open, with a copyable `<origin>/pay/<id>` link, after one passkey prompt; that cancelling the prompt keeps the form values; and that hashes appear only under Details. Also verify that the Invoices screen and its create form pass the screenshot check against the export
   **Source:** Console "Invoices" block.
   **Produces:**
   - `invoiceTab(inv: Invoice, nowSec: number): "Open" | "Paying" | "Paid" | "Returned" | "Expired"`

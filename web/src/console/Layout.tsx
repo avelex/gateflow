@@ -1,9 +1,9 @@
 // The export's "Sidebar" and "Profile menu" (design/Gateflow Console.html) around the console screens.
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { api } from "../api.ts";
 import { navigate, type Route } from "../App.tsx";
 import { logo } from "../assets.ts";
-import { Icon, IconButton } from "../ds.jsx";
+import { Icon, IconButton, Toast } from "../ds.jsx";
 import Home from "./Home.tsx";
 import type { Invoice, Me, Payment } from "./logic.ts";
 import Search from "./Search.tsx";
@@ -14,7 +14,7 @@ export type Token = { token: string; symbol: string; decimals: number; enabled: 
 export type ConsoleData = { me: Me; gateway: Gateway; invoices: Invoice[]; payments: Payment[]; tokens: Token[] };
 export type Tab = Extract<Route, { page: "console" }>["tab"];
 /// What every console screen receives.
-export type ScreenProps = { data: ConsoleData; refresh(): void };
+export type ScreenProps = { data: ConsoleData; refresh(): void; toast(title: string, body?: string): void };
 
 const load = async (): Promise<ConsoleData> => {
   const [me, gateway, invoices, payments, tokens] = await Promise.all([
@@ -51,6 +51,13 @@ export default function Layout({
   const [profileOpen, setProfileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [toast, setToast] = useState<{ title: string; body?: string }>();
+  const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const showToast = (title: string, body?: string) => {
+    setToast({ title, body });
+    clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(undefined), 2600);
+  };
 
   useEffect(() => {
     if (error?.status === 401) onUnauthorized();
@@ -84,7 +91,7 @@ export default function Layout({
     fw: tab === n.key ? 600 : 500,
   }));
   const navPad = side ? "12px" : "10px";
-  const props = { data, refresh };
+  const props = { data, refresh, toast: showToast };
 
   return (
     <div style={{ display: "flex", height: "100vh", minHeight: 640, background: "var(--surface-page)", fontFamily: "var(--font-sans)", color: "var(--text-1)", overflow: "hidden", position: "relative" }}>
@@ -156,6 +163,13 @@ export default function Layout({
 
       {searchOpen && <Search data={data} onClose={() => setSearchOpen(false)} />}
       {settingsOpen && screens.settings?.({ ...props, onClose: () => setSettingsOpen(false) })}
+      {toast && (
+        <div style={{ position: "absolute", right: 24, bottom: 24, zIndex: 60 }}>
+          <Toast tone="success" title={toast.title}>
+            {toast.body}
+          </Toast>
+        </div>
+      )}
     </div>
   );
 }

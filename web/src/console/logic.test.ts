@@ -44,3 +44,24 @@ test("search_matches", () => {
   expect(ids("")).toEqual([]);
   expect(ids("  ")).toEqual([]);
 });
+
+import { invoiceArgs, invoiceTab } from "./logic.ts";
+
+test("invoice_tab_expired", () => {
+  const nowSec = 1_800_000_000;
+  expect(invoiceTab(inv(1, "1", USDC, { status: "Open", expires_at_sec: nowSec }), nowSec)).toBe("Expired");
+  expect(invoiceTab(inv(1, "1", USDC, { status: "Open", expires_at_sec: nowSec + 1 }), nowSec)).toBe("Open");
+  expect(invoiceTab(inv(1, "1", USDC, { status: "Paying", expires_at_sec: nowSec - 100 }), nowSec)).toBe("Paying");
+  expect(invoiceTab(inv(1, "1", USDC, { status: "Paid" }), nowSec)).toBe("Paid");
+  expect(invoiceTab(inv(1, "1", USDC, { status: "Returned" }), nowSec)).toBe("Returned");
+});
+
+test("create_invoice_args", () => {
+  const form = { gateway: 3, token: "nbtc.bridge.near", decimals: 8, amount: "0.01", expiresInSec: 3600 as const, memo: "" };
+  expect(invoiceArgs(form)).toEqual({ gateway: 3, token: "nbtc.bridge.near", amount: "1000000", expires_in_sec: 3600 });
+  expect(invoiceArgs({ ...form, memo: "Table 7" })).toEqual({ gateway: 3, token: "nbtc.bridge.near", amount: "1000000", expires_in_sec: 3600, memo: "Table 7" });
+  expect(() => invoiceArgs({ ...form, memo: "a".repeat(141) })).toThrow();
+  expect(() => invoiceArgs({ ...form, memo: "€".repeat(47) })).toThrow();
+  expect(invoiceArgs({ ...form, memo: "a".repeat(140) }).memo).toHaveLength(140);
+  expect(() => invoiceArgs({ ...form, amount: "0.000000001" })).toThrow();
+});

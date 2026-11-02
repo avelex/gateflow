@@ -1,6 +1,6 @@
 // Pure console rules (tested in logic.test.ts) and the delegate round trip.
 import { api } from "../api.ts";
-import { formatAmount } from "../format.ts";
+import { formatAmount, parseAmount } from "../format.ts";
 import { type DelegateParams, type MerchantKey, signDelegate } from "../near/delegate.ts";
 import { assertOwner, getPasskeyKey, loadStoredKey } from "../near/key.ts";
 
@@ -107,3 +107,25 @@ export function searchMatches(q: string, invoices: Invoice[], payments: Payment[
 
 /// The payer to show: the NEAR refund account for 1Click deliveries (sent by intents.near), else the sender.
 export const payerLabel = (p: Payment) => (p.reference ? p.refund_to : p.payer);
+
+export type InvoiceTab = "Open" | "Paying" | "Paid" | "Returned" | "Expired";
+
+/// The invoice's tab: Expired is an Open invoice at or past its expiry.
+export function invoiceTab(inv: Invoice, nowSec: number): InvoiceTab {
+  if (inv.status === "Open" && inv.expires_at_sec <= nowSec) return "Expired";
+  return inv.status as InvoiceTab;
+}
+
+export const EXPIRIES = [
+  { value: 3600, label: "1 hour" },
+  { value: 86400, label: "24 hours" },
+  { value: 604800, label: "7 days" },
+] as const;
+
+/// `create_invoice` arguments from the form. Throws on a bad amount or a memo over 140 UTF-8 bytes.
+export function invoiceArgs(form: { gateway: number; token: string; decimals: number; amount: string; expiresInSec: 3600 | 86400 | 604800; memo: string }) {
+  const amount = parseAmount(form.amount, form.decimals).toString();
+  const memo = form.memo.trim();
+  if (new TextEncoder().encode(memo).length > 140) throw new Error("memo must be at most 140 bytes");
+  return { gateway: form.gateway, token: form.token, amount, expires_in_sec: form.expiresInSec, ...(memo ? { memo } : {}) };
+}
