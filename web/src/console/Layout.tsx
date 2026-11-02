@@ -4,6 +4,7 @@ import { api } from "../api.ts";
 import { navigate, type Route } from "../App.tsx";
 import { logo } from "../assets.ts";
 import { Icon, IconButton, Toast } from "../ds.jsx";
+import { initials } from "../format.ts";
 import Home from "./Home.tsx";
 import type { Invoice, Me, Payment } from "./logic.ts";
 import Search from "./Search.tsx";
@@ -26,14 +27,6 @@ const load = async (): Promise<ConsoleData> => {
   ]);
   return { me, gateway, invoices, payments, tokens };
 };
-
-export const initials = (name: string) =>
-  name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0].toUpperCase())
-    .join("") || "G";
 
 export default function Layout({
   tab,

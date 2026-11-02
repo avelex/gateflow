@@ -216,7 +216,7 @@
 
 ## 5. Checkout
 
-- [ ] 5.1 Invoice page and timeline (design decision 9). Verify that `npm test` passes the tests below. Then verify manually that `/pay/999999` shows "Invoice not found" with no options, and that the dev invoice 0 shows "Kaja Coffee", its amount and the countdown. Also verify that the left card and the processing state pass the screenshot check against the export's "complete" and "returned" outcomes
+- [x] 5.1 Invoice page and timeline (design decision 9). Verify that `npm test` passes the tests below. Then verify manually that `/pay/999999` shows "Invoice not found" with no options, and that the dev invoice 0 shows "Kaja Coffee", its amount and the countdown. Also verify that the left card and the processing state pass the screenshot check against the export's "complete" and "returned" outcomes
   **Source:** Checkout left card and processing state.
   **Files:** `web/src/checkout/Checkout.tsx`, `Timeline.tsx`, `logic.ts`, `logic.test.ts`.
   **Produces:**

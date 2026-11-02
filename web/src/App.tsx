@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import Checkout from "./checkout/Checkout.tsx";
 import Console from "./console/Console.tsx";
 
 export type Route =
@@ -35,7 +36,7 @@ export default function App() {
   useEffect(() => {
     if (r.page === "redirect") history.replaceState(null, "", "/"), dispatchEvent(new PopStateEvent("popstate"));
   }, [r.page]);
-  if (r.page === "checkout") return <div>Checkout {r.invoice}</div>;
+  if (r.page === "checkout") return <Checkout id={r.invoice} />;
   if (r.page === "console") return <Console tab={r.tab} />;
   return null;
 }
