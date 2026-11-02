@@ -103,7 +103,7 @@
   4. Use static follow-up chips: the invoice card offers "What is the status of invoice #<id>?".
   5. Commit `feat(web): chat view and cards`.
 - [ ] 2.2 Add confirm cards and the chat entry points. Verify on testnet with the real model:
-  - Clicking "Create invoice for 0.01 BTC" on Home shows a confirm card with "0.01 nBTC".
+  - Clicking "Create invoice for 0.01 BTC" on Home shows a confirm card with "0.01 nBTC" when nBTC is accepted. The testnet contract `gateflow-dev-v1.testnet` lists only `wrap.testnet`, so there the reply says BTC is not accepted, lists wNEAR and does not offer 0.01 wNEAR; "Create invoice for 0.01 NEAR" shows a confirm card with "0.01 wNEAR".
   - Confirm plus the passkey creates the invoice, and the card shows Done.
   - A second Confirm is not possible.
   - Dismiss shows Dismissed.
