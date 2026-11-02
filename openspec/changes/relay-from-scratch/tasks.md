@@ -220,7 +220,7 @@
 
 ## 5. Live checks and docs
 
-- [ ] 5.1 Dev deployment and the testnet run (design decision 12). Verify each check below and record the tx hashes in `relay/README.md`
+- [x] 5.1 Dev deployment and the testnet run (design decision 12). Verify each check below and record the tx hashes in `relay/README.md`
   1. The owner creates `gateflow-op-<rand>.testnet` and `gateflow-dev-<rand>.testnet` with `near account create-account sponsor-by-faucet-service`. Build the contract (`cd contract && cargo near build non-reproducible-wasm`), deploy it to the dev account with `new(...)` as in decision 12, call `add_token("wrap.testnet")`, and `storage_deposit` the dev contract on `wrap.testnet`.
   2. Start the relay with `GATEFLOW_CONTRACT=<dev> RELAY_ACCOUNT_ID=<op> RELAY_PRIVATE_KEY=<op key>`.
   3. Write `relay/scripts/merchant.ts`. It generates a merchant key, calls `session`, `onboard`, then `delegate-params`, then signs and posts `create_gateway`, then `create_invoice` for 1 wNEAR.
