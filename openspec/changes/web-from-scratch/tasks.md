@@ -137,7 +137,7 @@
      - `delegate_matches_relay`: for a fixed seed and a `create_invoice` action, the result equals `signDelegate` from `../../../relay/src/delegate.ts` run with `secretFromSeed(seed)`. Ed25519 is deterministic, so the base64 strings are equal.
      - `relay_decodes_web_delegate`: `decodeSignedDelegate` gives the same sender, receiver, method, gas, deposit `0n` and nonce.
   2. FAIL. 3. Implement. Port `Writer` and base58 from `relay/src/near.ts` without `node:crypto`, and use `crypto.subtle` for SHA-256 and Ed25519. 4. PASS. 5. Commit `feat(web): sign NEP-366 delegate actions`.
-- [ ] 3.2 Passkey PRF and recovery-phrase keys (design decision 4). Verify that `npm test` passes the tests below. Then verify manually in Chrome, with the dev relay and a real passkey, that two `getPasskeyKey()` calls give the same `publicKey`
+- [x] 3.2 Passkey PRF and recovery-phrase keys (design decision 4). Verify that `npm test` passes the tests below. Then verify manually in Chrome, with the dev relay and a real passkey, that two `getPasskeyKey()` calls give the same `publicKey`
   **Files:** `web/src/near/key.ts`, `web/src/near/key.test.ts`.
   **Consumes:** `keyFromSeed`, `base58*`.
   **Produces:**
