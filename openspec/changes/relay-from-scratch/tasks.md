@@ -231,7 +231,7 @@
      - `GET /checkout/invoice?id=0` shows `Open` and the merchant name;
      - `GET /checkout/assets` contains BTC and no Solana asset;
      - a delegate with a Transfer gets 403.
-- [ ] 5.2 Live dry quote. Verify that `LIVE=1 node --test src/live.test.ts` passes: `quoteRequest({…, dry: true})` for 1 USDC (`nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1`, `amount "1000000"`) from Base USDC, with recipient `wrap.near`, gets 200 with `quote.amountIn`. Without `LIVE`, the test is skipped
+- [x] 5.2 Live dry quote. Verify that `LIVE=1 node --test src/live.test.ts` passes: `quoteRequest({…, dry: true})` for 1 USDC (`nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1`, `amount "1000000"`) from Base USDC, with recipient `wrap.near`, gets 200 with `quote.amountIn`. Without `LIVE`, the test is skipped
   - Commit `test(relay): live dry quote`.
 - [ ] 5.3 Docs. Verify that every README command in the relay sections runs as written, and that `openspec validate relay-from-scratch --strict` passes
   - `relay/README.md`: the module map, `npm test`, the 5.1 run steps, and the recorded hashes.
