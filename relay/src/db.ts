@@ -22,6 +22,21 @@ export type Quote = {
   screened: number;
 };
 
+export type Card = { type: "invoice"; invoiceId: number } | { type: "status"; invoiceId: number } | { type: "confirm"; actionId: number };
+export type Thread = { id: number; email: string; title: string; created_at: number };
+export type Message = {
+  id?: number;
+  thread_id: number;
+  role: "user" | "assistant";
+  text: string;
+  trace: string[];
+  cards: Card[];
+  created_at: number;
+};
+export type ActionKind = "create_invoice" | "set_policy" | "retry";
+export type ActionStatus = "pending" | "done" | "dismissed" | "failed";
+export type ChatAction = { id: number; thread_id: number; email: string; kind: ActionKind; params: any; status: ActionStatus; result: any };
+
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS merchants (
   email TEXT PRIMARY KEY,
@@ -40,7 +55,35 @@ CREATE TABLE IF NOT EXISTS quotes (
   deadline_ms INTEGER NOT NULL,
   status TEXT NOT NULL DEFAULT 'PENDING_DEPOSIT',
   screened INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS chat_threads (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  email TEXT NOT NULL,
+  title TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS chat_messages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  thread_id INTEGER NOT NULL,
+  role TEXT NOT NULL,
+  text TEXT NOT NULL,
+  trace TEXT NOT NULL DEFAULT '[]',
+  cards TEXT NOT NULL DEFAULT '[]',
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS chat_messages_thread ON chat_messages (thread_id, id);
+CREATE TABLE IF NOT EXISTS chat_actions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  thread_id INTEGER NOT NULL,
+  email TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  params TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  result TEXT
 );`;
+
+const toMessage = (row: any): Message => ({ ...row, trace: JSON.parse(row.trace), cards: JSON.parse(row.cards) });
+const toAction = (row: any): ChatAction | undefined => row && { ...row, params: JSON.parse(row.params), result: row.result === null ? null : JSON.parse(row.result) };
 
 const toMerchant = (row: any): Merchant | undefined =>
   row && { ...row, gateway_id: row.gateway_id ?? null, tokens_off: JSON.parse(row.tokens_off) };
@@ -66,6 +109,17 @@ export function openDb(path: string) {
   const open = q("SELECT * FROM quotes WHERE screened = 0 AND status NOT IN ('REFUNDED', 'FAILED') AND deadline_ms + 3600000 >= ?");
   const setStatus = q("UPDATE quotes SET status = ? WHERE ref = ?");
   const setScreened = q("UPDATE quotes SET screened = 1 WHERE ref = ?");
+  const newThread = q("INSERT INTO chat_threads (email, title, created_at) VALUES (?, ?, ?)");
+  const threadById = q("SELECT * FROM chat_threads WHERE id = ? AND email = ?");
+  const threadsOf = q("SELECT * FROM chat_threads WHERE email = ? ORDER BY id DESC LIMIT ?");
+  const newMessage = q("INSERT INTO chat_messages (thread_id, role, text, trace, cards, created_at) VALUES (?, ?, ?, ?, ?, ?)");
+  const lastMessages = q("SELECT * FROM (SELECT * FROM chat_messages WHERE thread_id = ? ORDER BY id DESC LIMIT ?) ORDER BY id");
+  const userSince = q(`SELECT COUNT(*) AS n FROM chat_messages m JOIN chat_threads t ON t.id = m.thread_id
+    WHERE t.email = ? AND m.role = 'user' AND m.created_at >= ?`);
+  const newAction = q("INSERT INTO chat_actions (thread_id, email, kind, params) VALUES (?, ?, ?, ?)");
+  const actionById = q("SELECT * FROM chat_actions WHERE id = ? AND email = ?");
+  const claim = q("UPDATE chat_actions SET status = 'done' WHERE id = ? AND status = 'pending'");
+  const finish = q("UPDATE chat_actions SET status = ?, result = ? WHERE id = ?");
 
   return {
     merchantByEmail: (email: string) => toMerchant(byEmail.get(email)),
@@ -87,6 +141,23 @@ export function openDb(path: string) {
       if (change.status) setStatus.run(change.status, ref);
       if (change.screened) setScreened.run(ref);
     },
+    createThread: (email: string, title: string, now: number) => Number(newThread.run(email, title, now).lastInsertRowid),
+    thread(id: number, email: string): Thread | undefined {
+      const row = threadById.get(id, email);
+      return row && ({ ...row } as Thread);
+    },
+    threadsOf: (email: string, limit: number) => threadsOf.all(email, limit).map((r) => ({ ...r }) as Thread),
+    addMessage: (m: Message) =>
+      Number(newMessage.run(m.thread_id, m.role, m.text, JSON.stringify(m.trace), JSON.stringify(m.cards), m.created_at).lastInsertRowid),
+    /// The thread's last `limit` messages, oldest first.
+    messages: (threadId: number, limit: number) => lastMessages.all(threadId, limit).map(toMessage),
+    userMessagesSince: (email: string, sinceSec: number) => Number((userSince.get(email, sinceSec) as any).n),
+    addAction: (a: { thread_id: number; email: string; kind: ActionKind; params: unknown }) =>
+      Number(newAction.run(a.thread_id, a.email, a.kind, JSON.stringify(a.params)).lastInsertRowid),
+    action: (id: number, email: string) => toAction(actionById.get(id, email)),
+    /// Marks a pending action done; false when it was not pending (already claimed, dismissed or failed).
+    claimAction: (id: number) => Number(claim.run(id).changes) === 1,
+    finishAction: (id: number, status: ActionStatus, result: unknown) => void finish.run(status, JSON.stringify(result ?? null), id),
   };
 }
 

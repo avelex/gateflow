@@ -1,5 +1,6 @@
 // The Gateflow backend: one node:http server for the console API, the checkout API and the web app.
 import { createServer, type IncomingMessage } from "node:http";
+import { llmClient } from "./chat.ts";
 import { checkoutRoutes } from "./checkout.ts";
 import { consoleRoutes } from "./console.ts";
 import { openDb } from "./db.ts";
@@ -106,6 +107,7 @@ if (import.meta.main) {
     db: openDb(cfg.dbPath),
     near: rpcNear({ rpcUrl: cfg.rpcUrl, accountId: cfg.accountId, secret: cfg.secret }),
     oneclick: oneClick(cfg.oneclickUrl, cfg.oneclickKey),
+    llm: cfg.llmApiKey ? llmClient(cfg) : undefined,
     now: Date.now,
   };
   serve(deps).listen(cfg.port, () => console.log(`gateflow relay on :${cfg.port} (contract ${cfg.gateflow})`));

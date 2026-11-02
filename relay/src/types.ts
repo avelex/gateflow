@@ -17,6 +17,10 @@ export type Config = {
   oneclickUrl: string;
   oneclickKey?: string;
   evmChains: string[];
+  llmBaseUrl: string;
+  llmApiKey?: string;
+  llmModel: string;
+  chatDailyLimit: number;
 };
 
 export interface OneClick {
@@ -25,7 +29,16 @@ export interface OneClick {
   status(depositAddress: string): Promise<any>;
 }
 
-export type Deps = { cfg: Config; db: Db; near: Near; oneclick: OneClick; now(): number };
+export type ChatMessage = { role: "system" | "user" | "assistant" | "tool"; content: string | null; tool_calls?: unknown[]; tool_call_id?: string };
+export type ToolDef = { name: string; description: string; parameters: object };
+export type Completion = { content?: string; toolCalls?: { id: string; name: string; arguments: string }[] };
+
+/// An OpenAI-compatible chat completions client.
+export interface Llm {
+  complete(messages: ChatMessage[], tools: ToolDef[]): Promise<Completion>;
+}
+
+export type Deps = { cfg: Config; db: Db; near: Near; oneclick: OneClick; llm?: Llm; now(): number };
 
 export type Req = {
   method: string;
@@ -73,5 +86,9 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     oneclickUrl: env.ONECLICK_URL ?? "https://1click.chaindefuser.com",
     oneclickKey: env.ONECLICK_API_KEY || undefined,
     evmChains: (env.EVM_CHAINS ?? "base,eth,arb").split(",").map((s) => s.trim()).filter(Boolean),
+    llmBaseUrl: env.LLM_BASE_URL || "https://cloud-api.near.ai/v1",
+    llmApiKey: env.LLM_API_KEY || undefined,
+    llmModel: env.LLM_MODEL ?? "",
+    chatDailyLimit: Number(env.CHAT_DAILY_LIMIT ?? 200),
   };
 }

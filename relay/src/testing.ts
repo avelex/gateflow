@@ -1,7 +1,7 @@
 // Test doubles: an in-memory DB, a recording fake NEAR client and a scripted 1Click client.
 import { openDb } from "./db.ts";
 import type { Action, Near, TxResult } from "./near.ts";
-import { type Config, type Deps, loadConfig, type OneClick, type Req } from "./types.ts";
+import { type ChatMessage, type Completion, type Config, type Deps, type Llm, loadConfig, type OneClick, type Req, type ToolDef } from "./types.ts";
 
 export const cfg = (over: Partial<Config> = {}): Config => ({
   ...loadConfig({ GATEFLOW_CONTRACT: "gateflow.testnet", RELAY_ACCOUNT_ID: "op.testnet", WEB_DIST: "/nonexistent" }),
@@ -84,11 +84,31 @@ export function fakeOneClick(): FakeOneClick {
   return o;
 }
 
-export type TestDeps = Deps & { near: FakeNear; oneclick: FakeOneClick; clock: { ms: number } };
+export type FakeLlm = Llm & {
+  /// Replies in order; an Error is thrown. When empty, the fake answers "ok".
+  replies: (Completion | Error)[];
+  calls: { messages: ChatMessage[]; tools: ToolDef[] }[];
+};
+
+export function fakeLlm(): FakeLlm {
+  const l: FakeLlm = {
+    replies: [],
+    calls: [],
+    async complete(messages, tools) {
+      l.calls.push({ messages: structuredClone(messages), tools });
+      const r = l.replies.shift() ?? { content: "ok" };
+      if (r instanceof Error) throw r;
+      return r;
+    },
+  };
+  return l;
+}
+
+export type TestDeps = Deps & { near: FakeNear; oneclick: FakeOneClick; llm: FakeLlm; clock: { ms: number } };
 
 export function fakeDeps(over: Partial<Config> = {}): TestDeps {
   const clock = { ms: Date.UTC(2026, 10, 2, 12) };
-  return { cfg: cfg(over), db: openDb(":memory:"), near: fakeNear(), oneclick: fakeOneClick(), now: () => clock.ms, clock };
+  return { cfg: cfg(over), db: openDb(":memory:"), near: fakeNear(), oneclick: fakeOneClick(), llm: fakeLlm(), now: () => clock.ms, clock };
 }
 
 export const req = (method: string, path: string, body?: any, cookies: Record<string, string> = {}): Req => {
