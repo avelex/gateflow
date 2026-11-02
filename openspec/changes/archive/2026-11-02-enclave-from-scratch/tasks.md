@@ -197,4 +197,6 @@
 
 ## Workflow follow-up
 
+- Tasks 1.1, 5.1 and 5.2 (except the no-panic audit, which passed) were carried over to `mainnet-launch` 0.3, 0.4, 1.2 and its README follow-up on 2026-11-02, because FastFS testnet returned 502 for the whole session.
+
 - Run `/opsx:archive enclave-from-scratch` after review. This syncs the three added requirements into `openspec/specs/payment-clearing/spec.md`.
