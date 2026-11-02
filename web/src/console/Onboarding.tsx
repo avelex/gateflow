@@ -4,7 +4,7 @@ import { api } from "../api.ts";
 import { Button, Checkbox, Input } from "../ds.jsx";
 import { isNearAccount } from "../format.ts";
 import type { MerchantKey } from "../near/delegate.ts";
-import { assertOwner, createFallbackKey, createPasskeyKey, getPasskeyKey, keyMode, PrfUnsupported, restoreFallbackKey } from "../near/key.ts";
+import { assertOwner, createFallbackKey, createPasskeyKey, getPasskeyKey, keyMode, PrfUnsupported, rememberPasskeyMode, restoreFallbackKey } from "../near/key.ts";
 import AuthCard, { ERROR_STYLE } from "./AuthCard.tsx";
 import { acquireKey, type Me, onboardingScreen, signAndRelay, TGAS } from "./logic.ts";
 
@@ -57,8 +57,15 @@ export default function Onboarding({ me, onChange }: { me: Me; onChange: () => v
     onChange();
   };
 
-  const confirmOwner = async (key: MerchantKey) => {
-    assertOwner(key, (await api<{ publicKey: string }>("GET", "/console/delegate-params")).publicKey);
+  const accountKey = async () => (await api<{ publicKey: string }>("GET", "/console/delegate-params")).publicKey;
+  // The device's key mode changes only after the key is checked against the account.
+  const resumeWithPasskey = async () => {
+    assertOwner(await getPasskeyKey(), await accountKey());
+    rememberPasskeyMode();
+    onChange();
+  };
+  const resumeWithPhrase = async () => {
+    await restoreFallbackKey(restoreText, me.email, await accountKey());
     onChange();
   };
 
@@ -89,13 +96,13 @@ export default function Onboarding({ me, onChange }: { me: Me; onChange: () => v
         {restoring ? (
           <>
             <Input label="Recovery phrase" mono placeholder="ed25519:…" value={restoreText} onChange={(e) => setRestoreText(e.target.value)} />
-            <Button variant="primary" fullWidth disabled={busy || !restoreText} onClick={() => run(async () => confirmOwner(await restoreFallbackKey(restoreText, me.email)))}>
+            <Button variant="primary" fullWidth disabled={busy || !restoreText} onClick={() => run(resumeWithPhrase)}>
               Restore
             </Button>
           </>
         ) : (
           <>
-            <Button variant="primary" fullWidth disabled={busy} onClick={() => run(async () => confirmOwner(await getPasskeyKey()))}>
+            <Button variant="primary" fullWidth disabled={busy} onClick={() => run(resumeWithPasskey)}>
               Use my passkey
             </Button>
             <Button variant="secondary" fullWidth onClick={() => setRestoring(true)}>

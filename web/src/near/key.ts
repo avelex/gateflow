@@ -107,13 +107,15 @@ export async function createPasskeyKey(email: string): Promise<MerchantKey> {
   return keyFromPrf(first);
 }
 
-/// One passkey prompt; the returned key signs without further prompts.
+/// One passkey prompt; the returned key signs without further prompts. Does not change the device's key mode:
+/// a resumed device calls `rememberPasskeyMode` only after the key is checked against the account.
 export async function getPasskeyKey(): Promise<MerchantKey> {
   const first = await passkeyGet(true);
   if (!first) throw new PrfUnsupported("This passkey cannot derive a key");
-  setMode("prf");
   return keyFromPrf(first);
 }
+
+export const rememberPasskeyMode = () => setMode("prf");
 
 // ---------- fallback key in IndexedDB ----------
 
@@ -158,8 +160,10 @@ export async function createFallbackKey(): Promise<{ key: MerchantKey; phrase: s
 }
 
 /// Stores the phrase's key on this device and creates a passkey here for its confirmation prompts.
-export async function restoreFallbackKey(phrase: string, email = "merchant"): Promise<MerchantKey> {
+/// With `expected`, a phrase for another account is refused before anything is stored.
+export async function restoreFallbackKey(phrase: string, email = "merchant", expected?: string): Promise<MerchantKey> {
   const seed = await parsePhrase(phrase);
+  if (expected && (await keyFromSeed(seed)).publicKey !== expected) throw new Error("This recovery phrase does not own this account");
   await createPasskey(email, false);
   return store(seed);
 }
