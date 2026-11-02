@@ -66,7 +66,7 @@
      - `addAction`, `action(id, email)`, `claimAction(id): boolean`, `finishAction(id, status, result)`
   3. In `relay/src/chat.ts`, export `complete(messages, tools): Promise<{ content?: string; toolCalls?: { id: string; name: string; arguments: string }[] }>`, which POSTs `${LLM_BASE_URL}/chat/completions` with `{model, messages, tools}`. Test it with a stubbed `fetch`.
   4. Commit `feat(relay): chat storage and model client`.
-- [ ] 1.2 Add the read tools, scoped to the merchant. Verify that `node --test` passes `list_invoices_expired_filter`, `get_invoice_foreign_not_found`, `get_payment_foreign_not_found`, `settled_totals_periods` and `gateway_settings_shape`.
+- [x] 1.2 Add the read tools, scoped to the merchant. Verify that `node --test` passes `list_invoices_expired_filter`, `get_invoice_foreign_not_found`, `get_payment_foreign_not_found`, `settled_totals_periods` and `gateway_settings_shape`.
   1. In `chat.ts`, export `readTools(deps)`, which returns handlers `(args, merchant) => Promise<unknown>`. Export `readGateway`, `newestFirst` and `withMeta` from `console.ts` and reuse them, together with `tokenMeta`. Single items come from the contract views `get_invoice` and `get_payment`, checked against the merchant's `gateway_id`. Tests use `fakeNear` view tables.
   2. `settled_totals` follows design decision 9.
   3. Results use decimal amounts with symbols, and statuses are lowercase. Foreign ids return `{ error: "not found" }`.
