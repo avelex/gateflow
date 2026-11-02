@@ -243,3 +243,107 @@ test("create_gateway_failure_keeps_step", async () => {
   assert.equal(deps.db.merchantByEmail("kaja@example.com")?.step, "gateway");
   assert.equal(deps.near.sent.length, sentBefore + 1);
 });
+
+// ---------- console data ----------
+
+import { needsTopUp } from "./console.ts";
+
+async function withGateway(deps: TestDeps, g: Partial<{ fuel: string; invoices: number; payments: number }> = {}) {
+  const { cookies } = await onboarded(deps);
+  const m = deps.db.merchantByEmail("kaja@example.com")!;
+  deps.db.upsertMerchant({ ...m, gateway_id: 0, step: "done" });
+  deps.near.viewTable["gateflow.testnet.get_gateway"] = {
+    owner: "kaja-coffee.op.testnet",
+    payout_to: "kaja-coffee.op.testnet",
+    policy: { max_risk: 50 },
+    fuel: "100000000000000000000000",
+    invoices: 0,
+    payments: 0,
+    ...g,
+  };
+  for (const t of ["wrap.testnet", "usdc.testnet"]) deps.near.viewTable[`${t}.ft_metadata`] = { symbol: t.split(".")[0].toUpperCase(), decimals: 24 };
+  deps.near.sent.length = 0;
+  return cookies;
+}
+
+test("needs_top_up", () => {
+  assert.equal(needsTopUp(19n, 10n), true);
+  assert.equal(needsTopUp(20n, 10n), false);
+});
+
+test("gateway_tops_up_before_return", async () => {
+  const deps = fakeDeps();
+  const cookies = await withGateway(deps, { fuel: "15000000000000000000000" });
+  const res = await call(deps, "GET", "/console/gateway", undefined, cookies);
+  assert.equal((res.json as any).fuel, "100000000000000000000000");
+  assert.equal((res.json as any).fuelReady, true);
+  const fc = (deps.near.sent[0].actions[0] as any).functionCall;
+  assert.equal(fc.method, "fund");
+  assert.equal(fc.deposit, 85000000000000000000000n);
+  await call(deps, "GET", "/console/gateway", undefined, cookies);
+  assert.equal(deps.near.sent.length, 2);
+});
+
+test("gateway_full_no_top_up", async () => {
+  const deps = fakeDeps();
+  const cookies = await withGateway(deps);
+  await call(deps, "GET", "/console/gateway", undefined, cookies);
+  assert.equal(deps.near.sent.length, 0);
+});
+
+test("invoices_newest_first_paged", async () => {
+  const deps = fakeDeps();
+  const cookies = await withGateway(deps, { invoices: 150 });
+  deps.near.viewTable["gateflow.testnet.get_invoices"] = ({ from_index, limit }: any) =>
+    Array.from({ length: limit }, (_, i) => [from_index + i, { token: "wrap.testnet", amount: "1", status: "Open" }]);
+  const res = await call(deps, "GET", "/console/invoices", undefined, cookies);
+  const ids = (res.json as any[]).map((x) => x.id);
+  assert.equal(ids.length, 150);
+  assert.equal(ids[0], 149);
+  assert.equal(ids.at(-1), 0);
+  assert.equal(deps.near.views.filter((v) => v.method === "get_invoices").length, 2);
+  assert.deepEqual((res.json as any[])[0].tokenMeta, { symbol: "WRAP", decimals: 24 });
+});
+
+test("tokens_respect_preferences", async () => {
+  const deps = fakeDeps();
+  const cookies = await withGateway(deps);
+  assert.equal((await call(deps, "PUT", "/console/preferences", { tokensOff: ["usdc.testnet"] }, cookies)).status, 200);
+  const res = await call(deps, "GET", "/console/tokens", undefined, cookies);
+  assert.deepEqual((res.json as any[]).map((t) => [t.token, t.enabled]), [["wrap.testnet", true], ["usdc.testnet", false]]);
+});
+
+test("preferences_reject_unknown_token", async () => {
+  const deps = fakeDeps();
+  const cookies = await withGateway(deps);
+  assert.equal((await call(deps, "PUT", "/console/preferences", { tokensOff: ["evil.testnet"] }, cookies)).status, 400);
+  assert.equal((await call(deps, "PUT", "/console/preferences", { tokensOff: "wrap.testnet" }, cookies)).status, 400);
+});
+
+test("retry_only_failed_own_payment", async () => {
+  const deps = fakeDeps();
+  const cookies = await withGateway(deps);
+  const payments: Record<number, any> = { 1: { gateway: 0, status: "RefundFailed" }, 2: { gateway: 9, status: "RefundFailed" }, 3: { gateway: 0, status: "Settled" } };
+  deps.near.viewTable["gateflow.testnet.get_payment"] = ({ payment }: any) => payments[payment] ?? null;
+  assert.equal((await call(deps, "POST", "/console/retry", { payment: 2 }, cookies)).status, 403);
+  assert.equal((await call(deps, "POST", "/console/retry", { payment: 3 }, cookies)).status, 403);
+  assert.equal((await call(deps, "POST", "/console/retry", { payment: 7 }, cookies)).status, 403);
+  assert.equal(deps.near.sent.length, 0);
+  const ok = await call(deps, "POST", "/console/retry", { payment: 1 }, cookies);
+  assert.equal(ok.status, 200);
+  assert.deepEqual((deps.near.sent[0].actions[0] as any).functionCall.args, { payment: 1 });
+});
+
+test("metadata_cached", async () => {
+  const deps = fakeDeps();
+  const cookies = await withGateway(deps);
+  await call(deps, "GET", "/console/tokens", undefined, cookies);
+  await call(deps, "GET", "/console/tokens", undefined, cookies);
+  assert.equal(deps.near.views.filter((v) => v.method === "ft_metadata").length, 2);
+});
+
+test("console_data_requires_gateway", async () => {
+  const deps = fakeDeps();
+  const { cookies } = await onboarded(deps);
+  assert.equal((await call(deps, "GET", "/console/gateway", undefined, cookies)).status, 409);
+});

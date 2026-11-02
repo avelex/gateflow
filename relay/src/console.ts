@@ -173,6 +173,106 @@ const relay: Handler = async (req, deps) => {
   return ok({ txHash: r.hash, value: r.value ?? null });
 };
 
+export const needsTopUp = (fuel: bigint, deposit: bigint) => fuel < 2n * deposit;
+
+export type TokenMeta = { symbol: string; decimals: number };
+const metaCache = new WeakMap<object, Map<string, Promise<TokenMeta>>>();
+
+/// `ft_metadata` symbol and decimals, cached for the life of the process.
+export function tokenMeta(deps: Deps, token: string): Promise<TokenMeta> {
+  let cache = metaCache.get(deps.near);
+  if (!cache) metaCache.set(deps.near, (cache = new Map()));
+  let p = cache.get(token);
+  if (!p) {
+    p = deps.near.view(token, "ft_metadata", {}).then((m: any) => ({ symbol: String(m.symbol), decimals: Number(m.decimals) }));
+    p.catch(() => cache.delete(token));
+    cache.set(token, p);
+  }
+  return p;
+}
+
+function requireGateway(req: Req, deps: Deps) {
+  const m = requireMerchant(req, deps);
+  if (m.gateway_id === null) throw new HttpError(409, "finish onboarding first");
+  return { ...m, gateway_id: m.gateway_id };
+}
+
+/// The merchant's gateway, topped up to the fuel target first when it is low.
+async function readGateway(deps: Deps, id: number) {
+  const g = await deps.near.view(deps.cfg.gateflow, "get_gateway", { gateway: id });
+  if (!g) throw new HttpError(404, "gateway not found");
+  let fuel = BigInt(g.fuel);
+  if (needsTopUp(fuel, deps.cfg.executionDeposit)) {
+    const r = await fund(deps, id, deps.cfg.fuelTarget - fuel);
+    if (r.error) console.error(`top-up of gateway ${id} failed: ${r.error}`);
+    else fuel = deps.cfg.fuelTarget;
+  }
+  return { ...g, fuel: String(fuel), fuelReady: !needsTopUp(fuel, deps.cfg.executionDeposit) };
+}
+
+const PAGE = 100;
+
+/// Every `[id, item]` of a paged contract list, newest first.
+async function newestFirst(deps: Deps, method: string, gateway: number, count: number): Promise<[number, any][]> {
+  const out: [number, any][] = [];
+  for (let end = count; end > 0; end -= PAGE) {
+    const from = Math.max(0, end - PAGE);
+    const page: [number, any][] = await deps.near.view(deps.cfg.gateflow, method, { gateway, from_index: from, limit: end - from });
+    out.push(...page.reverse());
+  }
+  return out;
+}
+
+async function withMeta(deps: Deps, rows: [number, any][]) {
+  return Promise.all(rows.map(async ([id, x]) => ({ id, ...x, tokenMeta: await tokenMeta(deps, x.token) })));
+}
+
+const gateway: Handler = async (req, deps) => {
+  const m = requireGateway(req, deps);
+  return ok({ id: m.gateway_id, ...(await readGateway(deps, m.gateway_id)) });
+};
+
+const invoices: Handler = async (req, deps) => {
+  const m = requireGateway(req, deps);
+  const g = await readGateway(deps, m.gateway_id);
+  return ok(await withMeta(deps, await newestFirst(deps, "get_invoices", m.gateway_id, g.invoices)));
+};
+
+const payments: Handler = async (req, deps) => {
+  const m = requireGateway(req, deps);
+  const g = await readGateway(deps, m.gateway_id);
+  return ok(await withMeta(deps, await newestFirst(deps, "get_payments", m.gateway_id, g.payments)));
+};
+
+const tokens: Handler = async (req, deps) => {
+  const m = requireMerchant(req, deps);
+  const list: string[] = await deps.near.view(deps.cfg.gateflow, "get_tokens", {});
+  return ok(await Promise.all(list.map(async (token) => ({ token, ...(await tokenMeta(deps, token)), enabled: !m.tokens_off.includes(token) }))));
+};
+
+const preferences: Handler = async (req, deps) => {
+  const m = requireMerchant(req, deps);
+  const off = req.body?.tokensOff;
+  const list: string[] = await deps.near.view(deps.cfg.gateflow, "get_tokens", {});
+  if (!Array.isArray(off) || !off.every((t) => typeof t === "string" && list.includes(t))) {
+    throw new HttpError(400, "tokensOff must list allowlisted tokens");
+  }
+  deps.db.upsertMerchant({ ...m, tokens_off: [...new Set(off as string[])] });
+  return ok({ tokensOff: off });
+};
+
+const retry: Handler = async (req, deps) => {
+  const m = requireGateway(req, deps);
+  const id = req.body?.payment;
+  if (!Number.isSafeInteger(id) || id < 0) throw new HttpError(400, "payment must be an id");
+  const p = await deps.near.view(deps.cfg.gateflow, "get_payment", { payment: id });
+  if (!p || p.gateway !== m.gateway_id) throw new HttpError(403, "not a payment of your gateway");
+  if (p.status !== "SettleFailed" && p.status !== "RefundFailed") throw new HttpError(403, "only failed payments can be retried");
+  const r = await deps.near.send(deps.cfg.gateflow, [{ functionCall: { method: "retry", args: { payment: id }, gas: 50n * TGAS, deposit: 0n } }]);
+  if (r.error) throw new HttpError(422, r.error);
+  return ok({ txHash: r.hash });
+};
+
 export const consoleRoutes: Record<string, Handler> = {
   "POST /console/session": signIn,
   "DELETE /console/session": signOut,
@@ -180,4 +280,10 @@ export const consoleRoutes: Record<string, Handler> = {
   "POST /console/onboard": onboard,
   "GET /console/delegate-params": delegateParams,
   "POST /console/relay": relay,
+  "GET /console/gateway": gateway,
+  "GET /console/invoices": invoices,
+  "GET /console/payments": payments,
+  "GET /console/tokens": tokens,
+  "PUT /console/preferences": preferences,
+  "POST /console/retry": retry,
 };

@@ -1,5 +1,6 @@
 // The Gateflow backend: one node:http server for the console API, the checkout API and the web app.
 import { createServer, type IncomingMessage } from "node:http";
+import { consoleRoutes } from "./console.ts";
 import { openDb } from "./db.ts";
 import { rpcNear } from "./near.ts";
 import { serveStatic } from "./static.ts";
@@ -8,7 +9,7 @@ import { type Deps, type Handler, HttpError, loadConfig, type OneClick, type Req
 const CORS = { "access-control-allow-origin": "*", "access-control-allow-headers": "content-type", "access-control-allow-methods": "GET, POST, OPTIONS" };
 const MAX_BODY = 64 * 1024;
 
-export const routes: Record<string, Handler> = {};
+export const routes: Record<string, Handler> = { ...consoleRoutes };
 
 export async function dispatch(table: Record<string, Handler>, req: Req, deps: Deps): Promise<Res> {
   const checkout = /^\/checkout(\/|$)/.test(req.path);

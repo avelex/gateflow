@@ -161,7 +161,7 @@
      - `create_gateway_sets_gateway_and_funds`: the next send is `fund` with `FUEL_TARGET`, and `step == done`.
      - `create_gateway_failure_keeps_step`.
   2. FAIL. 3. Implement. 4. PASS. 5. Commit `feat(relay): sponsored delegate actions`.
-- [ ] 3.4 Console data, top-up, preferences and retry. Verify that `npm test` passes the tests below
+- [x] 3.4 Console data, top-up, preferences and retry. Verify that `npm test` passes the tests below
   **Produces:** `needsTopUp(fuel: bigint, deposit: bigint): boolean`, plus handlers `GET /console/gateway`, `GET /console/invoices`, `GET /console/payments`, `GET /console/tokens`, `PUT /console/preferences {tokensOff: string[]}` and `POST /console/retry {payment}`.
   1. Tests:
      - `needs_top_up`: the boundary is exactly `2 × deposit`, which needs no top-up.
