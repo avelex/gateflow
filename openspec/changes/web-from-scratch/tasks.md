@@ -72,14 +72,14 @@
 
 ## 1. Relay
 
-- [ ] 1.1 Return the contract account from `/checkout/invoice` (design decision 12). Verify that `cd relay && npm test` passes `checkout_invoice_contract`
+- [x] 1.1 Return the contract account from `/checkout/invoice` (design decision 12). Verify that `cd relay && npm test` passes `checkout_invoice_contract`
   **Files:** `relay/src/checkout.ts`, `relay/src/checkout.test.ts`.
   1. Test `checkout_invoice_contract`: with `fakeDeps` and `cfg.gateflow` set to `gateflow.near`, the response's `json.contract === "gateflow.near"`.
   2. Run: FAIL. 3. Add `contract: deps.cfg.gateflow` to the `invoice` handler's reply. 4. Run: PASS. 5. Commit `feat(relay): contract account in checkout invoice`.
 
 ## 2. Scaffold
 
-- [ ] 2.1 Scaffold `web/`, routing and the API client. Verify that `cd web && npm ci && npm test && npm run build` passes `route_of` and writes `web/dist/index.html`, and that the relay started with `WEB_DIST=../web/dist` serves it at `/pay/0`
+- [x] 2.1 Scaffold `web/`, routing and the API client. Verify that `cd web && npm ci && npm test && npm run build` passes `route_of` and writes `web/dist/index.html`, and that the relay started with `WEB_DIST=../web/dist` serves it at `/pay/0`
   **Files:** `web/package.json`, `web/package-lock.json`, `web/index.html`, `web/vite.config.ts`, `web/tsconfig.json`, `web/.gitignore` (`node_modules`, `dist`), `web/src/main.tsx`, `web/src/App.tsx`, `web/src/api.ts`, `web/src/App.test.ts`, `web/README.md`.
   **Produces:**
   - `type Route = {page: "checkout"; invoice: number} | {page: "console"; tab: "home" | "invoices" | "screening"} | {page: "redirect"}`
@@ -92,7 +92,7 @@
      - `/` gives home, `/invoices` gives invoices, `/screening` gives screening;
      - `/pay/x` and `/nope` give redirect.
   2. FAIL. 3. Implement. `App` renders placeholders for now. 4. PASS. 5. In `web/README.md`, document `npm run dev`, `npm test`, `npm run build`, `VITE_NEAR_NETWORK`, and that passkey keys are bound to the hostname (design, Risks). 6. Commit `feat(web): scaffold, routing and api client`.
-- [ ] 2.2 Amounts and account ids (design decision 11). Verify that `npm test` passes the tests below
+- [x] 2.2 Amounts and account ids (design decision 11). Verify that `npm test` passes the tests below
   **Files:** `web/src/format.ts`, `web/src/format.test.ts`.
   **Produces:**
   - `formatAmount(raw: bigint, decimals: number): string`
