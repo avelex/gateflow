@@ -175,7 +175,7 @@
 
 ## 4. Checkout
 
-- [ ] 4.1 Invoice details and quotable assets. Verify that `npm test` passes the tests below
+- [x] 4.1 Invoice details and quotable assets. Verify that `npm test` passes the tests below
   **Files:** `relay/src/checkout.ts`, `relay/src/checkout.test.ts`, `relay/src/fixtures/oneclick-tokens.json` (a copy of `enclave/tests/fixtures/oneclick-tokens.json`, plus the NEAR USDC, `nbtc.bridge.near` and `1cs_v1:near:nep141:zec.omft.near` entries taken from live `/v0/tokens`).
   **Produces:** `destinationAsset(tokens, token)`, `originChain(tokens, assetId)`, `screenable(chain, evmChains)`, and the handlers `GET /checkout/invoice?id=` and `GET /checkout/assets`.
   1. Tests:
