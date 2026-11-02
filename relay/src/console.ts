@@ -1,6 +1,7 @@
 // /console/* API: demo sessions, provisioning, sponsored delegate actions, console data, fuel and retry.
 import { randomBytes } from "node:crypto";
-import type { Merchant } from "./db.ts";
+import { isDeepStrictEqual } from "node:util";
+import type { ChatAction, Db, Merchant } from "./db.ts";
 import { decodeSignedDelegate, refusal } from "./delegate.ts";
 import { base58decode, publicKeyBytes } from "./near.ts";
 import { type Deps, type Handler, HttpError, ok, type Req } from "./types.ts";
@@ -148,6 +149,38 @@ export function fund(deps: Deps, gateway: number, amount: bigint) {
   return deps.near.send(deps.cfg.gateflow, [{ functionCall: { method: "fund", args: { gateway }, gas: 30n * TGAS, deposit: amount } }]);
 }
 
+/// The merchant's assistant action `id`, or 404.
+export function requireAction(deps: Deps, id: unknown, email: string): ChatAction {
+  const a = Number.isSafeInteger(id) ? deps.db.action(id as number, email) : undefined;
+  if (!a) throw new HttpError(404, "action not found");
+  return a;
+}
+
+/// Records an executed action's result and appends its outcome to the thread (no model call).
+export function finishAction(db: Db, a: ChatAction, status: "done" | "failed", result: unknown, nowMs: number, outcome?: { text: string; cards: any[] }) {
+  db.finishAction(a.id, status, result);
+  if (outcome) db.addMessage({ thread_id: a.thread_id, role: "assistant", text: outcome.text, trace: [], cards: outcome.cards, created_at: Math.floor(nowMs / 1000) });
+}
+
+/// Refuses a delegate that is not exactly the confirmed action, then claims the action once (design decision 5).
+function bindAction(deps: Deps, d: ReturnType<typeof decodeSignedDelegate>, actionId: unknown, email: string): ChatAction {
+  const a = requireAction(deps, actionId, email);
+  if (a.kind === "retry") throw new HttpError(400, "this action is confirmed without a passkey");
+  if (a.status !== "pending") throw new HttpError(409, `action is ${a.status}`);
+  const only = d.actions.length === 1 ? d.actions[0] : undefined;
+  let args: unknown;
+  try {
+    args = only?.kind === "functionCall" ? JSON.parse(new TextDecoder().decode(only.args)) : undefined;
+  } catch {
+    args = undefined;
+  }
+  if (only?.kind !== "functionCall" || only.method !== a.kind || !isDeepStrictEqual(args, a.params)) {
+    throw new HttpError(403, "delegate does not match the confirmed action");
+  }
+  if (!deps.db.claimAction(a.id)) throw new HttpError(409, "action already confirmed");
+  return a;
+}
+
 const relay: Handler = async (req, deps) => {
   const m = requireMerchant(req, deps);
   let d;
@@ -160,8 +193,17 @@ const relay: Handler = async (req, deps) => {
   if (reason) throw new HttpError(403, reason);
   const createsGateway = d.actions.some((a) => a.kind === "functionCall" && a.method === "create_gateway");
   if (createsGateway && m.gateway_id !== null) throw new HttpError(409, "you already have a gateway");
+  const action = req.body?.actionId === undefined ? undefined : bindAction(deps, d, req.body.actionId, m.email);
 
   const r = await deps.near.send(d.senderId, [{ signedDelegate: d.raw }], deps.cfg.gateflow);
+  if (action && r.error) finishAction(deps.db, action, "failed", { error: r.error }, deps.now());
+  else if (action) {
+    const outcome =
+      action.kind === "create_invoice"
+        ? { text: `Invoice #${r.value} created`, cards: [{ type: "invoice", invoiceId: r.value }] }
+        : { text: `Risk tolerance set to ${action.params.policy.max_risk}`, cards: [] };
+    finishAction(deps.db, action, "done", { txHash: r.hash, value: r.value ?? null }, deps.now(), outcome);
+  }
   if (r.error) throw new HttpError(422, r.error);
 
   if (createsGateway && typeof r.value === "number") {
@@ -261,14 +303,24 @@ const preferences: Handler = async (req, deps) => {
   return ok({ tokensOff: off });
 };
 
+/// The payment `id` when it is a failed payment of `gateway`, or 400 / 403.
+export async function retryablePayment(deps: Deps, gateway: number, id: unknown) {
+  if (!Number.isSafeInteger(id) || (id as number) < 0) throw new HttpError(400, "payment must be an id");
+  const p = await deps.near.view(deps.cfg.gateflow, "get_payment", { payment: id });
+  if (!p || p.gateway !== gateway) throw new HttpError(403, "not a payment of your gateway");
+  if (p.status !== "SettleFailed" && p.status !== "RefundFailed") throw new HttpError(403, "only failed payments can be retried");
+  return p;
+}
+
+/// Operator `retry(payment)`.
+export const sendRetry = (deps: Deps, id: number) =>
+  deps.near.send(deps.cfg.gateflow, [{ functionCall: { method: "retry", args: { payment: id }, gas: 50n * TGAS, deposit: 0n } }]);
+
 const retry: Handler = async (req, deps) => {
   const m = requireGateway(req, deps);
   const id = req.body?.payment;
-  if (!Number.isSafeInteger(id) || id < 0) throw new HttpError(400, "payment must be an id");
-  const p = await deps.near.view(deps.cfg.gateflow, "get_payment", { payment: id });
-  if (!p || p.gateway !== m.gateway_id) throw new HttpError(403, "not a payment of your gateway");
-  if (p.status !== "SettleFailed" && p.status !== "RefundFailed") throw new HttpError(403, "only failed payments can be retried");
-  const r = await deps.near.send(deps.cfg.gateflow, [{ functionCall: { method: "retry", args: { payment: id }, gas: 50n * TGAS, deposit: 0n } }]);
+  await retryablePayment(deps, m.gateway_id, id);
+  const r = await sendRetry(deps, id);
   if (r.error) throw new HttpError(422, r.error);
   return ok({ txHash: r.hash });
 };

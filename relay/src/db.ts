@@ -35,7 +35,7 @@ export type Message = {
 };
 export type ActionKind = "create_invoice" | "set_policy" | "retry";
 export type ActionStatus = "pending" | "done" | "dismissed" | "failed";
-export type ChatAction = { id: number; thread_id: number; email: string; kind: ActionKind; params: any; status: ActionStatus; result: any };
+export type ChatAction = { id: number; thread_id: number; email: string; kind: ActionKind; params: any; summary: string; status: ActionStatus; result: any };
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS merchants (
@@ -78,6 +78,7 @@ CREATE TABLE IF NOT EXISTS chat_actions (
   email TEXT NOT NULL,
   kind TEXT NOT NULL,
   params TEXT NOT NULL,
+  summary TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'pending',
   result TEXT
 );`;
@@ -116,7 +117,8 @@ export function openDb(path: string) {
   const lastMessages = q("SELECT * FROM (SELECT * FROM chat_messages WHERE thread_id = ? ORDER BY id DESC LIMIT ?) ORDER BY id");
   const userSince = q(`SELECT COUNT(*) AS n FROM chat_messages m JOIN chat_threads t ON t.id = m.thread_id
     WHERE t.email = ? AND m.role = 'user' AND m.created_at >= ?`);
-  const newAction = q("INSERT INTO chat_actions (thread_id, email, kind, params) VALUES (?, ?, ?, ?)");
+  const newAction = q("INSERT INTO chat_actions (thread_id, email, kind, params, summary) VALUES (?, ?, ?, ?, ?)");
+  const dismiss = q("UPDATE chat_actions SET status = 'dismissed' WHERE id = ? AND status = 'pending'");
   const actionById = q("SELECT * FROM chat_actions WHERE id = ? AND email = ?");
   const claim = q("UPDATE chat_actions SET status = 'done' WHERE id = ? AND status = 'pending'");
   const finish = q("UPDATE chat_actions SET status = ?, result = ? WHERE id = ?");
@@ -152,11 +154,13 @@ export function openDb(path: string) {
     /// The thread's last `limit` messages, oldest first.
     messages: (threadId: number, limit: number) => lastMessages.all(threadId, limit).map(toMessage),
     userMessagesSince: (email: string, sinceSec: number) => Number((userSince.get(email, sinceSec) as any).n),
-    addAction: (a: { thread_id: number; email: string; kind: ActionKind; params: unknown }) =>
-      Number(newAction.run(a.thread_id, a.email, a.kind, JSON.stringify(a.params)).lastInsertRowid),
+    addAction: (a: { thread_id: number; email: string; kind: ActionKind; params: unknown; summary: string }) =>
+      Number(newAction.run(a.thread_id, a.email, a.kind, JSON.stringify(a.params), a.summary).lastInsertRowid),
     action: (id: number, email: string) => toAction(actionById.get(id, email)),
     /// Marks a pending action done; false when it was not pending (already claimed, dismissed or failed).
     claimAction: (id: number) => Number(claim.run(id).changes) === 1,
+    /// Marks a pending action dismissed; false when it was not pending.
+    dismissAction: (id: number) => Number(dismiss.run(id).changes) === 1,
     finishAction: (id: number, status: ActionStatus, result: unknown) => void finish.run(status, JSON.stringify(result ?? null), id),
   };
 }

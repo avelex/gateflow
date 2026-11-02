@@ -24,8 +24,8 @@ test("chat_tables_roundtrip", () => {
   assert.equal(db.userMessagesSince("kaja@example.com", 150), 1);
   assert.equal(db.userMessagesSince("kaja@example.com", 0), 2);
 
-  const a = db.addAction({ thread_id: t, email: "kaja@example.com", kind: "create_invoice", params: { gateway: 0, amount: "1" } });
-  assert.deepEqual(db.action(a, "kaja@example.com"), { id: a, thread_id: t, email: "kaja@example.com", kind: "create_invoice", params: { gateway: 0, amount: "1" }, status: "pending", result: null });
+  const a = db.addAction({ thread_id: t, email: "kaja@example.com", kind: "create_invoice", params: { gateway: 0, amount: "1" }, summary: "Create invoice" });
+  assert.deepEqual(db.action(a, "kaja@example.com"), { id: a, thread_id: t, email: "kaja@example.com", kind: "create_invoice", params: { gateway: 0, amount: "1" }, summary: "Create invoice", status: "pending", result: null });
   assert.equal(db.action(a, "bob@example.com"), undefined);
   assert.equal(db.claimAction(a), true);
   assert.equal(db.claimAction(a), false);
@@ -196,6 +196,7 @@ test("create_invoice_proposal_normalized", async () => {
     email: "kaja@example.com",
     kind: "create_invoice",
     params: { gateway: 0, token: "nbtc.testnet", amount: "1000000", expires_in_sec: 3600 },
+    summary: "Create invoice 0.01 nBTC, expires in 1 hour",
     status: "pending",
     result: null,
   });
@@ -379,4 +380,136 @@ test("confirm_card_attached_for_proposal", async () => {
   assert.equal(deps.db.action(1, "kaja@example.com")!.status, "pending");
   const toolResult = JSON.parse(deps.llm.calls[1].messages.at(-1)!.content!);
   assert.deepEqual(toolResult, { actionId: 1, summary: "Create invoice 0.01 nBTC, expires in 1 hour" });
+});
+
+// ---------- confirm-bound actions ----------
+
+import { generateKeyPairSync } from "node:crypto";
+import { consoleRoutes } from "./console.ts";
+import { decodeSignedDelegate, signDelegate } from "./delegate.ts";
+import { type Action, secretFromSeed, signer } from "./near.ts";
+
+const TGAS = 10n ** 12n;
+const secret = secretFromSeed(new Uint8Array(generateKeyPairSync("ed25519").privateKey.export({ format: "der", type: "pkcs8" }).subarray(16)));
+const fnCall = (method: string, args: object): Action => ({ functionCall: { method, args, gas: 30n * TGAS, deposit: 0n } });
+const signed = (actions: Action[]) =>
+  signDelegate({ senderId: "kaja-coffee.op.testnet", receiverId: "gateflow.testnet", actions, nonce: 2n, maxBlockHeight: 1120n, publicKey: signer(secret).publicKey }, secret);
+const invoiceParams = { gateway: 0, token: "nbtc.testnet", amount: "1000000", expires_in_sec: 3600 };
+
+/// Kaja with one pending create_invoice action in a thread.
+async function withAction(kind: "create_invoice" | "set_policy" | "retry" = "create_invoice", params: any = invoiceParams) {
+  const c = chatting();
+  const threadId = c.deps.db.createThread("kaja@example.com", "t", 0);
+  const actionId = c.deps.db.addAction({ thread_id: threadId, email: "kaja@example.com", kind, params, summary: "s" });
+  const relay = (actions: Action[], id: unknown = actionId) =>
+    dispatch(consoleRoutes, req("POST", "/console/relay", { signedDelegate: signed(actions), actionId: id }, c.cookies), c.deps);
+  const action = (path: string, body: any) => dispatch(chatRoutes, req("POST", path, body, c.cookies), c.deps);
+  return { ...c, threadId, actionId, relay, action };
+}
+
+test("decoded_function_call_has_args", () => {
+  const d = decodeSignedDelegate(signed([fnCall("create_invoice", invoiceParams)]));
+  const a = d.actions[0];
+  assert.equal(a.kind, "functionCall");
+  assert.deepEqual(JSON.parse(new TextDecoder().decode((a as any).args)), invoiceParams);
+});
+
+test("relay_action_args_match_executes", async () => {
+  const { deps, relay, actionId } = await withAction();
+  deps.near.sendResults.push(() => ({ hash: "tx1", value: 7 }));
+  const res = await relay([fnCall("create_invoice", { expires_in_sec: 3600, amount: "1000000", token: "nbtc.testnet", gateway: 0 })]);
+  assert.deepEqual(res, { status: 200, json: { txHash: "tx1", value: 7 }, headers: undefined });
+  assert.equal(deps.near.sent.length, 1);
+  assert.deepEqual(deps.db.action(actionId, "kaja@example.com")!.status, "done");
+  assert.deepEqual(deps.db.action(actionId, "kaja@example.com")!.result, { txHash: "tx1", value: 7 });
+});
+
+test("relay_action_args_mismatch_refused", async () => {
+  const { deps, relay, actionId } = await withAction();
+  const tampered = await relay([fnCall("create_invoice", { ...invoiceParams, amount: "9000000" })]);
+  assert.equal(tampered.status, 403);
+  const two = await relay([fnCall("create_invoice", invoiceParams), fnCall("create_invoice", invoiceParams)]);
+  assert.equal(two.status, 403);
+  const other = await relay([fnCall("set_policy", { gateway: 0, policy: { max_risk: 0 } })]);
+  assert.equal(other.status, 403);
+  assert.equal((await relay([fnCall("create_invoice", invoiceParams)], 99)).status, 404);
+  assert.equal(deps.near.sent.length, 0);
+  assert.equal(deps.db.action(actionId, "kaja@example.com")!.status, "pending");
+});
+
+test("action_claimed_once", async () => {
+  const { deps, relay } = await withAction();
+  const [a, b] = await Promise.all([relay([fnCall("create_invoice", invoiceParams)]), relay([fnCall("create_invoice", invoiceParams)])]);
+  assert.deepEqual([a.status, b.status].sort(), [200, 409]);
+  assert.equal(deps.near.sent.length, 1);
+  assert.equal((await relay([fnCall("create_invoice", invoiceParams)])).status, 409);
+});
+
+test("retry_action_confirm_uses_operator", async () => {
+  const { deps, action, actionId, relay } = await withAction("retry", { payment: 2 });
+  assert.equal((await relay([fnCall("create_invoice", invoiceParams)])).status, 400);
+  const res = await action("/console/actions/confirm", { id: actionId });
+  assert.equal(res.status, 200);
+  assert.equal(deps.near.sent.length, 1);
+  assert.equal(deps.near.sent[0].receiver, "gateflow.testnet");
+  assert.deepEqual((deps.near.sent[0].actions[0] as any).functionCall.args, { payment: 2 });
+  assert.equal(deps.db.action(actionId, "kaja@example.com")!.status, "done");
+  assert.equal((await action("/console/actions/confirm", { id: actionId })).status, 409);
+  assert.equal(deps.near.sent.length, 1);
+});
+
+test("passkey_action_not_confirmable_without_passkey", async () => {
+  const { deps, action, actionId } = await withAction();
+  assert.equal((await action("/console/actions/confirm", { id: actionId })).status, 400);
+  assert.equal(deps.near.sent.length, 0);
+});
+
+test("dismiss_sets_dismissed", async () => {
+  const { deps, action, actionId, relay, get } = await withAction();
+  assert.equal((await action("/console/actions/dismiss", { id: actionId })).status, 200);
+  assert.equal(deps.db.action(actionId, "kaja@example.com")!.status, "dismissed");
+  assert.equal((await relay([fnCall("create_invoice", invoiceParams)])).status, 409);
+  assert.equal((await action("/console/actions/dismiss", { id: actionId })).status, 409);
+  const shown = (await get(`/console/action?id=${actionId}`)).json as any;
+  assert.deepEqual(shown, { id: actionId, kind: "create_invoice", params: invoiceParams, summary: "s", status: "dismissed", result: null });
+  assert.equal(deps.near.sent.length, 0);
+});
+
+test("action_of_other_merchant_not_found", async () => {
+  const { deps, action, get } = await withAction();
+  const bobs = deps.db.addAction({ thread_id: 99, email: "bob@example.com", kind: "retry", params: { payment: 2 }, summary: "s" });
+  assert.equal((await get(`/console/action?id=${bobs}`)).status, 404);
+  assert.equal((await action("/console/actions/dismiss", { id: bobs })).status, 404);
+  assert.equal((await action("/console/actions/confirm", { id: bobs })).status, 404);
+});
+
+test("failed_tx_marks_failed", async () => {
+  const { deps, relay, actionId } = await withAction();
+  deps.near.sendResults.push(() => ({ hash: "tx1", error: "invalid expiry" }));
+  const res = await relay([fnCall("create_invoice", invoiceParams)]);
+  assert.equal(res.status, 422);
+  const a = deps.db.action(actionId, "kaja@example.com")!;
+  assert.equal(a.status, "failed");
+  assert.deepEqual(a.result, { error: "invalid expiry" });
+});
+
+test("outcome_message_appended", async () => {
+  const { deps, relay, threadId } = await withAction();
+  deps.near.sendResults.push(() => ({ hash: "tx1", value: 7 }));
+  await relay([fnCall("create_invoice", invoiceParams)]);
+  const last = deps.db.messages(threadId, 1)[0];
+  assert.equal(last.role, "assistant");
+  assert.equal(last.text, "Invoice #7 created");
+  assert.deepEqual(last.cards, [{ type: "invoice", invoiceId: 7 }]);
+  assert.equal(deps.llm.calls.length, 0);
+
+  const r = await withAction("set_policy", { gateway: 0, policy: { max_risk: 20 } });
+  await r.relay([fnCall("set_policy", { gateway: 0, policy: { max_risk: 20 } })]);
+  assert.equal(r.deps.db.messages(r.threadId, 1)[0].text, "Risk tolerance set to 20");
+
+  const t = await withAction("retry", { payment: 2 });
+  await t.action("/console/actions/confirm", { id: t.actionId });
+  const out = t.deps.db.messages(t.threadId, 1)[0];
+  assert.equal(out.text, "Retry of payment #2 requested");
+  assert.deepEqual(out.cards, [{ type: "status", invoiceId: 1 }]);
 });

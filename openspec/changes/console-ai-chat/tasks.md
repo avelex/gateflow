@@ -87,7 +87,7 @@
   3. The route creates the thread when needed, checks the limit, stores the user and assistant messages, and returns `{ threadId, messages }`.
   4. Add `GET /console/threads` and `GET /console/threads/:id`.
   5. Commit `feat(relay): assistant loop and chat routes`.
-- [ ] 1.5 Bind confirmed actions to execution. Verify that `node --test` passes `decoded_function_call_has_args`, `relay_action_args_match_executes`, `relay_action_args_mismatch_refused`, `action_claimed_once`, `retry_action_confirm_uses_operator`, `dismiss_sets_dismissed`, `failed_tx_marks_failed` and `outcome_message_appended`.
+- [x] 1.5 Bind confirmed actions to execution. Verify that `node --test` passes `decoded_function_call_has_args`, `relay_action_args_match_executes`, `relay_action_args_mismatch_refused`, `action_claimed_once`, `retry_action_confirm_uses_operator`, `dismiss_sets_dismissed`, `failed_tx_marks_failed` and `outcome_message_appended`.
   1. In `delegate.ts`, keep the args bytes that `readAction` currently skips: `DecodedAction` `functionCall` gains `args: Uint8Array`.
   2. `POST /console/relay` accepts an optional `actionId`. It decodes the delegate, requires exactly one function call whose method and args deep-equal the action params (403 otherwise), and calls `claimAction` (409 when it returns false) before submitting.
   3. Add `GET /console/actions/:id`, `POST /console/actions/:id/confirm` (retry only, with the checks of `POST /console/retry`) and `POST /console/actions/:id/dismiss`.

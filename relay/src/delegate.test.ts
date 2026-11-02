@@ -27,7 +27,8 @@ test("delegate_roundtrip", () => {
   assert.equal(d.nonce, 5n);
   assert.equal(d.maxBlockHeight, 100n);
   assert.equal(d.publicKey, signer(secret).publicKeyString);
-  assert.deepEqual(d.actions, [{ kind: "functionCall", method: "create_invoice", gas: 30n * TGAS, deposit: 0n }]);
+  const args = new TextEncoder().encode(JSON.stringify(invoice.functionCall.args));
+  assert.deepEqual(d.actions, [{ kind: "functionCall", method: "create_invoice", args, gas: 30n * TGAS, deposit: 0n }]);
 });
 
 test("delegate_hash_prefix", () => {

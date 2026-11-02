@@ -2,7 +2,7 @@
 import { type Action, base58encode, sha256, signer, writeAction, Writer } from "./near.ts";
 
 export type DecodedAction =
-  | { kind: "functionCall"; method: string; gas: bigint; deposit: bigint }
+  | { kind: "functionCall"; method: string; args: Uint8Array; gas: bigint; deposit: bigint }
   | { kind: "other"; tag: number };
 
 export type DelegateAction = {
@@ -72,8 +72,8 @@ function readAction(r: Reader): DecodedAction {
       break;
     case 2: {
       const method = r.string();
-      r.bytes();
-      return { kind: "functionCall", method, gas: r.uint(8), deposit: r.uint(16) };
+      const args = r.bytes().slice();
+      return { kind: "functionCall", method, args, gas: r.uint(8), deposit: r.uint(16) };
     }
     case 3: // Transfer
       r.uint(16);

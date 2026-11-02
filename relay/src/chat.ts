@@ -1,5 +1,5 @@
 // The console assistant: model client, tools and the bounded tool loop (design decisions 2 to 9).
-import { newestFirst, readGateway, requireGateway, requireSession, tokenMeta, type TokenMeta, withMeta } from "./console.ts";
+import { finishAction, newestFirst, readGateway, requireAction, requireGateway, requireSession, retryablePayment, sendRetry, tokenMeta, type TokenMeta, withMeta } from "./console.ts";
 import type { Card, Merchant, Message } from "./db.ts";
 import { type ChatMessage, type Completion, type Config, type Deps, type Handler, HttpError, type Llm, ok, type ToolDef } from "./types.ts";
 
@@ -235,9 +235,8 @@ export function writeTools(deps: Deps): Record<string, Tool> {
         const memo = typeof args?.memo === "string" ? args.memo.trim() : "";
         if (new TextEncoder().encode(memo).length > 140) return { error: "memo must be at most 140 bytes" };
         const params = { gateway: m.gateway_id, token: token.id, amount: raw.toString(), expires_in_sec: hours * 3600, ...(memo ? { memo } : {}) };
-        const actionId = deps.db.addAction({ thread_id: threadId, email: m.email, kind: "create_invoice", params });
         const summary = `Create invoice ${formatAmount(raw, token.meta.decimals)} ${token.meta.symbol}, expires in ${plural(hours, "hour")}${memo ? `, memo "${memo}"` : ""}`;
-        return { actionId, summary };
+        return { actionId: deps.db.addAction({ thread_id: threadId, email: m.email, kind: "create_invoice", params, summary }), summary };
       },
     },
     set_risk_tolerance: {
@@ -249,8 +248,8 @@ export function writeTools(deps: Deps): Record<string, Tool> {
         const risk = args?.max_risk;
         if (!Number.isInteger(risk) || risk < 0 || risk > MAX_RISK) return { error: `max_risk must be a whole number from 0 to ${MAX_RISK}` };
         const g = await readGateway(deps, m.gateway_id);
-        const actionId = deps.db.addAction({ thread_id: threadId, email: m.email, kind: "set_policy", params: { gateway: m.gateway_id, policy: { max_risk: risk } } });
-        return { actionId, summary: `Set risk tolerance to ${risk} (now ${g.policy.max_risk})` };
+        const summary = `Set risk tolerance to ${risk} (now ${g.policy.max_risk})`;
+        return { actionId: deps.db.addAction({ thread_id: threadId, email: m.email, kind: "set_policy", params: { gateway: m.gateway_id, policy: { max_risk: risk } }, summary }), summary };
       },
     },
     retry_payment: {
@@ -262,8 +261,8 @@ export function writeTools(deps: Deps): Record<string, Tool> {
         const p = await oneOf(deps, "payment", args?.id, m);
         if (!p) return NOT_FOUND;
         if (paymentStatus(p) !== "failed") return { error: "only failed payments can be retried" };
-        const actionId = deps.db.addAction({ thread_id: threadId, email: m.email, kind: "retry", params: { payment: p.id } });
-        return { actionId, summary: `Retry payment #${p.id} of ${decimal(p)} ${p.tokenMeta.symbol}` };
+        const summary = `Retry payment #${p.id} of ${decimal(p)} ${p.tokenMeta.symbol}`;
+        return { actionId: deps.db.addAction({ thread_id: threadId, email: m.email, kind: "retry", params: { payment: p.id }, summary }), summary };
       },
     },
   };
@@ -392,8 +391,44 @@ const thread: Handler = async (req, deps) => {
   return ok({ id: t.id, title: t.title, created_at: t.created_at, messages: deps.db.messages(t.id, 1000).map((x) => publicMessage(x as Message & { id: number })) });
 };
 
+// ---------- actions ----------
+
+const action: Handler = async (req, deps) => {
+  const a = requireAction(deps, Number(req.query.get("id")), requireSession(req, deps));
+  return ok({ id: a.id, kind: a.kind, params: a.params, summary: a.summary, status: a.status, result: a.result });
+};
+
+/// Executes a confirmed `retry` through the operator. Passkey actions confirm through POST /console/relay instead.
+const confirm: Handler = async (req, deps) => {
+  const m = requireGateway(req, deps);
+  const a = requireAction(deps, req.body?.id, m.email);
+  if (a.kind !== "retry") throw new HttpError(400, "this action needs your passkey");
+  if (a.status !== "pending") throw new HttpError(409, `action is ${a.status}`);
+  const p = await retryablePayment(deps, m.gateway_id, a.params.payment);
+  if (!deps.db.claimAction(a.id)) throw new HttpError(409, "action already confirmed");
+  const r = await sendRetry(deps, a.params.payment);
+  if (r.error) {
+    finishAction(deps.db, a, "failed", { error: r.error }, deps.now());
+    throw new HttpError(422, r.error);
+  }
+  finishAction(deps.db, a, "done", { txHash: r.hash }, deps.now(), {
+    text: `Retry of payment #${a.params.payment} requested`,
+    cards: [{ type: "status", invoiceId: p.invoice }],
+  });
+  return ok({ txHash: r.hash });
+};
+
+const dismiss: Handler = async (req, deps) => {
+  const a = requireAction(deps, req.body?.id, requireSession(req, deps));
+  if (!deps.db.dismissAction(a.id)) throw new HttpError(409, `action is ${a.status}`);
+  return ok({ status: "dismissed" });
+};
+
 export const chatRoutes: Record<string, Handler> = {
   "POST /console/chat": chat,
   "GET /console/threads": threads,
   "GET /console/thread": thread,
+  "GET /console/action": action,
+  "POST /console/actions/confirm": confirm,
+  "POST /console/actions/dismiss": dismiss,
 };
