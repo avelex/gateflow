@@ -92,7 +92,7 @@
      - `tx_result_panic`: `error === "invalid expiry"`.
      - `tx_result_value`: `value === 3`.
   2. Run: FAIL. 3. Implement. 4. Run: PASS. 5. Commit `feat(relay): NEAR transactions and signing`.
-- [ ] 2.2 Delegate decoding and the allowlist. Verify that `npm test` passes the tests below
+- [x] 2.2 Delegate decoding and the allowlist. Verify that `npm test` passes the tests below
   **Files:** `relay/src/delegate.ts`, `relay/src/delegate.test.ts`.
   **Consumes:** 2.1's Borsh helpers.
   **Produces:**
