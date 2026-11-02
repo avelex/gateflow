@@ -2,9 +2,11 @@
 import { type ReactNode, useEffect, useState } from "react";
 import { api, ApiError } from "../api.ts";
 import { logo, tokenIcon } from "../assets.ts";
-import { Icon } from "../ds.jsx";
+import { Button, Icon } from "../ds.jsx";
 import { formatAmount, initials, timeLeft } from "../format.ts";
-import { type CheckoutInvoice, type Step, timeline, unpayable } from "./logic.ts";
+import CrossChainPay, { DepositPanel } from "./CrossChainPay.tsx";
+import { FOOTNOTE } from "./footnote.ts";
+import { type CheckoutInvoice, clearQuote, loadQuote, type SavedQuote, type Step, timeline, unpayable } from "./logic.ts";
 import { NamedWarning, NearPayButton, wasSent } from "./NearPay.tsx";
 import Timeline, { type Headline } from "./Timeline.tsx";
 
@@ -110,6 +112,7 @@ export function headline(inv: CheckoutInvoice, steps: Step[]): Headline {
   if (inv.status === "Returned") return { badge: "Returned", tone: "plain", title: "Payment returned", text: `Screening returned ${amount} to ${inv.payment?.refundTo ?? "your NEAR account"}.` };
   if (steps[0]?.label === "Returned on the origin chain") return { badge: "Returned", tone: "plain", title: "Payment returned", text: "The swap did not complete, so your deposit went back to your refund address on the origin chain." };
   if (inv.status === "Paying") return { badge: "Screening", tone: "live", title: "Checks in progress", text: `${amount} is held in the Gateflow contract while the enclave screens the payer.${close}` };
+  if (steps[0]?.label === "Deposit detected" && steps[0].state === "current") return { badge: "Waiting for deposit", tone: "live", title: "Send your payment", text: `Send the exact amount below before the quote expires.${close}` };
   if (steps[0]?.label === "Deposit detected" && steps[0].state === "done") return { badge: "Deposit detected", tone: "live", title: "Payment detected", text: `Your deposit is on its way to the Gateflow contract.${close}` };
   return { badge: "Sent", tone: "live", title: "Payment sent", text: `Waiting for your transfer to reach the Gateflow contract.${close}` };
 }
@@ -151,12 +154,13 @@ export function PayWith({ mode, onMode, children }: { mode: "wallet" | "qr"; onM
   );
 }
 
-export const FOOTNOTE = "Gateflow never holds your funds. The payment waits in the Gateflow contract until checks complete.";
 
 export default function Checkout({ id }: { id: number }) {
   const [inv, setInv] = useState<CheckoutInvoice | null | undefined>();
   const [mode, setMode] = useState<"wallet" | "qr">("wallet");
   const [sent, setSent] = useState(() => wasSent(id));
+  const [quote, setQuote] = useState<SavedQuote | undefined>(() => loadQuote(id));
+  const [quoteStatus, setQuoteStatus] = useState<string>();
   const now = useNow(1000);
 
   useEffect(() => {
@@ -166,25 +170,51 @@ export default function Checkout({ id }: { id: number }) {
         (x) => !stop && setInv(x),
         (e) => !stop && e instanceof ApiError && e.status === 404 && setInv(null),
       );
+    const status = () =>
+      quote &&
+      api<{ status: string }>("GET", `/checkout/status?depositAddress=${encodeURIComponent(quote.depositAddress)}`).then(
+        (x) => !stop && setQuoteStatus(x.status),
+        () => {},
+      );
     load();
-    const t = setInterval(load, 5000);
+    status();
+    const t = setInterval(() => (load(), status()), 5000);
     return () => ((stop = true), clearInterval(t));
-  }, [id]);
+  }, [id, quote]);
 
   if (inv === undefined) return null;
   if (inv === null) {
     return <Page right={<Message title="Invoice not found" text="Check the link with the merchant who sent it." />} />;
   }
   const blocked = unpayable(inv, now);
-  const processing = inv.status !== "Open" || sent;
+  const processing = inv.status !== "Open" || sent || !!quote;
+  const qs = quote ? (quoteStatus ?? "PENDING_DEPOSIT") : undefined;
+  const waiting = inv.status === "Open" && (qs === "PENDING_DEPOSIT" || qs === "UNKNOWN");
+  const quoteExpired = !!quote && Date.parse(quote.deadline) / 1000 <= now;
+  const deposit = quote && waiting && (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <DepositPanel quote={quote} now={now} />
+      {quoteExpired && (
+        <Button variant="secondary" size="sm" icon="rotate-cw" onClick={() => (clearQuote(id), setQuote(undefined), setQuoteStatus(undefined))}>
+          Get a new quote
+        </Button>
+      )}
+    </div>
+  );
   return (
     <Page
-      left={<InvoiceCard inv={inv} now={now} processing={processing} />}
+      left={<InvoiceCard inv={inv} now={now} processing={inv.status !== "Open" || sent} />}
       right={
         processing ? (
-          <Processing inv={inv} />
+          <Processing inv={inv} quoteStatus={qs} details={deposit || undefined} />
         ) : blocked === "expired" ? (
           <Message title="This invoice has expired" text="Ask the merchant for a new invoice." />
+        ) : mode === "qr" ? (
+          <CrossChainPay inv={inv} onQuote={setQuote}>
+            <PayWith mode={mode} onMode={setMode}>
+              <DepositPanel now={now} />
+            </PayWith>
+          </CrossChainPay>
         ) : (
           <>
             <PayWith mode={mode} onMode={setMode}>

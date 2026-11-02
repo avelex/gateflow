@@ -243,7 +243,7 @@
      - `msg` is exactly `'{"invoice":7}'`;
      - `gas` is `"300000000000000"` and `deposit` is `"1"`.
   2. FAIL. 3. Implement. `wallet.ts` is loaded with `import()` from `NearPay` only. 4. PASS, plus the manual check. 5. Commit `feat(web): pay with a NEAR wallet`.
-- [ ] 5.3 Pay from another chain (design decision 8). Verify that `npm test` passes the tests below. Then verify manually, against a relay whose `ONECLICK_URL` points at a local stub serving `relay/src/fixtures/oneclick-tokens.json` and a canned quote, that the amount, deposit address, QR code, memo and countdown render, and that a reload resumes them. Also verify that the form with "Address or QR" selected passes the screenshot check against the export, with the refund fields in place of "Sender information"
+- [x] 5.3 Pay from another chain (design decision 8). Verify that `npm test` passes the tests below. Then verify manually, against a relay whose `ONECLICK_URL` points at a local stub serving `relay/src/fixtures/oneclick-tokens.json` and a canned quote, that the amount, deposit address, QR code, memo and countdown render, and that a reload resumes them. Also verify that the form with "Address or QR" selected passes the screenshot check against the export, with the refund fields in place of "Sender information"
   **Source:** Checkout form state, "Address or QR" panel and the "Sender information" block's field layout.
   **Files:** `web/src/checkout/CrossChainPay.tsx`, and `logic.ts` and `logic.test.ts`. The stub is a scratchpad script and is not committed.
   **Produces:**

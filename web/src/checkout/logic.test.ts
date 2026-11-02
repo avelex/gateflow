@@ -60,3 +60,45 @@ test("transfer_call_args", () => {
     deposit: "1",
   });
 });
+
+import { clearQuote, loadQuote, quoteFormError, type SavedQuote, saveQuote } from "./logic.ts";
+
+test("quote_form_requires_both_refunds", () => {
+  const ok = { originAsset: "nep141:btc.omft.near", refundTo: "bc1qxyz", refundOnNear: "bob.near" };
+  expect(quoteFormError(ok)).toBeUndefined();
+  expect(quoteFormError({ ...ok, originAsset: "" })).toBe("originAsset");
+  expect(quoteFormError({ ...ok, refundTo: "" })).toBe("refundTo");
+  expect(quoteFormError({ ...ok, refundTo: "   " })).toBe("refundTo");
+  expect(quoteFormError({ ...ok, refundOnNear: "Bob.near" })).toBe("refundOnNear");
+  expect(quoteFormError({ ...ok, refundOnNear: "" })).toBe("refundOnNear");
+});
+
+class MemStorage {
+  m = new Map<string, string>();
+  getItem(k: string) { return this.m.get(k) ?? null; }
+  setItem(k: string, v: string) { this.m.set(k, v); }
+  removeItem(k: string) { this.m.delete(k); }
+}
+const q: SavedQuote = { ref: "ab".repeat(16), depositAddress: "bc1qdep", depositMemo: null, amountIn: "1004200", amountInFormatted: "0.010042", deadline: "2026-11-02T12:30:00.000Z" };
+
+test("saved_quote_roundtrip", () => {
+  const s = new MemStorage() as unknown as Storage;
+  saveQuote(7, q, s);
+  expect(loadQuote(7, s)).toEqual(q);
+  expect(loadQuote(8, s)).toBeUndefined();
+  clearQuote(7, s);
+  expect(loadQuote(7, s)).toBeUndefined();
+});
+
+test("saved_quote_bad_storage", () => {
+  const corrupt = new MemStorage();
+  corrupt.setItem("gateflow:quote:7", "{not json");
+  expect(loadQuote(7, corrupt as unknown as Storage)).toBeUndefined();
+  const partial = new MemStorage();
+  partial.setItem("gateflow:quote:7", JSON.stringify({ ref: 1 }));
+  expect(loadQuote(7, partial as unknown as Storage)).toBeUndefined();
+  const throwing = { getItem() { throw new Error("blocked"); }, setItem() { throw new Error("blocked"); }, removeItem() { throw new Error("blocked"); } } as unknown as Storage;
+  expect(loadQuote(7, throwing)).toBeUndefined();
+  expect(() => saveQuote(7, q, throwing)).not.toThrow();
+  expect(() => clearQuote(7, throwing)).not.toThrow();
+});

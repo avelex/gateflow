@@ -1,4 +1,5 @@
 // Pure checkout rules (tested in logic.test.ts).
+import { isNearAccount } from "../format.ts";
 
 /// GET /checkout/invoice.
 export type CheckoutInvoice = {
@@ -57,4 +58,42 @@ export function transferCallArgs(inv: CheckoutInvoice) {
     gas: "300000000000000",
     deposit: "1",
   };
+}
+
+/// The first missing or invalid field of the cross-chain form, or undefined when a quote may be requested.
+export function quoteFormError(f: { originAsset: string; refundTo: string; refundOnNear: string }): "originAsset" | "refundTo" | "refundOnNear" | undefined {
+  if (!f.originAsset) return "originAsset";
+  if (!f.refundTo.trim()) return "refundTo";
+  if (!isNearAccount(f.refundOnNear.trim())) return "refundOnNear";
+  return undefined;
+}
+
+/// A 1Click quote this browser requested, kept so a reload resumes the deposit view and timeline.
+export type SavedQuote = { ref: string; depositAddress: string; depositMemo: string | null; amountIn: string; amountInFormatted: string | null; deadline: string; symbol?: string };
+const QUOTE = (invoice: number) => `gateflow:quote:${invoice}`;
+const store = (s?: Storage) => s ?? localStorage;
+
+export function saveQuote(invoice: number, q: SavedQuote, s?: Storage): void {
+  try {
+    store(s).setItem(QUOTE(invoice), JSON.stringify(q));
+  } catch {
+    // without storage the quote lives only until reload
+  }
+}
+
+export function loadQuote(invoice: number, s?: Storage): SavedQuote | undefined {
+  try {
+    const q = JSON.parse(store(s).getItem(QUOTE(invoice)) ?? "null");
+    return q && typeof q.ref === "string" && typeof q.depositAddress === "string" && typeof q.deadline === "string" ? q : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export function clearQuote(invoice: number, s?: Storage): void {
+  try {
+    store(s).removeItem(QUOTE(invoice));
+  } catch {
+    // nothing stored
+  }
 }
