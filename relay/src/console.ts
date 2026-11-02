@@ -140,7 +140,7 @@ const delegateParams: Handler = async (req, deps) => {
   const key = await deps.near.accessKey(m.account_id, m.public_key);
   if (!key) throw new HttpError(409, "account key not found on chain yet");
   const head = await deps.near.head();
-  return ok({ nonce: String(key.nonce + 1n), maxBlockHeight: String(head.height + 120n), publicKey: m.public_key });
+  return ok({ nonce: String(key.nonce + 1n), maxBlockHeight: String(head.height + 120n), publicKey: m.public_key, senderId: m.account_id, receiverId: deps.cfg.gateflow });
 };
 
 /// Calls `fund(gateway)` from the operator, attaching `amount`.

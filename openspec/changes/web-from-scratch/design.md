@@ -183,6 +183,7 @@ web/
 - `isNearAccount` copies the relay's `NEAR_ACCOUNT` regex and its length bounds.
 
 **12. Relay edit.** `GET /checkout/invoice` adds `contract: deps.cfg.gateflow`. The test `checkout_invoice_contract` covers it.
+- *Added during apply (4.1):* `GET /console/delegate-params` also returns `senderId` (the merchant account) and `receiverId` (the contract), so the console can build delegates without its own config. The test `delegate_params_nonce_plus_one` covers it.
 
 **13. Design from `design/`.** The exports are the UI source. Screens are translated from them, not redesigned.
 - **Extraction:** a one-off script, in the scratchpad and not committed, reads both manifests and writes:

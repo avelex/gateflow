@@ -181,7 +181,7 @@ test("delegate_params_nonce_plus_one", async () => {
   const { cookies, key } = await onboarded(deps);
   deps.near.keys[`kaja-coffee.op.testnet/${key.publicKey}`] = 1n;
   const res = await call(deps, "GET", "/console/delegate-params", undefined, cookies);
-  assert.deepEqual(res.json, { nonce: "2", maxBlockHeight: "1120", publicKey: key.publicKey });
+  assert.deepEqual(res.json, { nonce: "2", maxBlockHeight: "1120", publicKey: key.publicKey, senderId: "kaja-coffee.op.testnet", receiverId: "gateflow.testnet" });
 });
 
 test("relay_refused_403_sends_nothing", async () => {
