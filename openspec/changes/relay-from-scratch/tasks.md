@@ -206,7 +206,7 @@
      - `screen_pending_409`.
      - `screen_success_sends_screen_intents`: 300 Tgas, and the row is marked screened.
   2. FAIL. 3. Implement. 4. PASS. 5. Commit `feat(relay): checkout quotes and deferred screening`.
-- [ ] 4.3 Watcher. Verify that `npm test` passes the tests below, and that `main.ts` starts `setInterval(() => tick(deps), 15000)`
+- [x] 4.3 Watcher. Verify that `npm test` passes the tests below, and that `main.ts` starts `setInterval(() => tick(deps), 15000)`
   **Files:** `relay/src/watcher.ts`, `relay/src/watcher.test.ts`.
   **Produces:** `tick(deps): Promise<void>`.
   1. Tests:

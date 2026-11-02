@@ -5,6 +5,7 @@ import { consoleRoutes } from "./console.ts";
 import { openDb } from "./db.ts";
 import { rpcNear } from "./near.ts";
 import { serveStatic } from "./static.ts";
+import { startWatcher } from "./watcher.ts";
 import { type Deps, type Handler, HttpError, loadConfig, type OneClick, type Req, type Res } from "./types.ts";
 
 const CORS = { "access-control-allow-origin": "*", "access-control-allow-headers": "content-type", "access-control-allow-methods": "GET, POST, OPTIONS" };
@@ -108,4 +109,5 @@ if (import.meta.main) {
     now: Date.now,
   };
   serve(deps).listen(cfg.port, () => console.log(`gateflow relay on :${cfg.port} (contract ${cfg.gateflow})`));
+  startWatcher(deps);
 }
