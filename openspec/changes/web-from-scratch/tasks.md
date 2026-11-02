@@ -106,7 +106,7 @@
      - `near_account_ids`: `alice.near`, `kaja-coffee.gateflow-op-v1.testnet` and a 64-hex implicit id pass; `Alice.near`, `a`, `bad..near` and a 65-character id fail.
      - `time_left_format`.
   2. FAIL. 3. Implement with string math only. Copy the relay's `NEAR_ACCOUNT` regex and its 2–64 bounds. 4. PASS. 5. Commit `feat(web): amount formatting`.
-- [ ] 2.3 Take the design system from the exports (design decision 13). Verify that `npm test` passes `ds_exports_all` and `icon_renders_lucide`, that `npm run build` passes, and that the dev-only gallery at `/?ui` passes the screenshot check against the components as they appear in both exports
+- [x] 2.3 Take the design system from the exports (design decision 13). Verify that `npm test` passes `ds_exports_all` and `icon_renders_lucide`, that `npm run build` passes, and that the dev-only gallery at `/?ui` passes the screenshot check against the components as they appear in both exports
   **Files:** `web/src/tokens.css`, `web/src/ds.jsx`, `web/src/ds.d.ts`, `web/src/screens.css` (empty for now), `web/src/assets/**`, `web/src/assets.ts`, `web/src/Gallery.tsx`, `web/src/ds.test.ts`. `tsconfig.json` sets `allowJs`.
   **Produces:**
   - `ds.jsx` exports `Button`, `Icon`, `IconButton`, `Badge`, `Card`, `Hash`, `Stat`, `StatusBadge`, `Tag`, `Dialog`, `Toast`, `Tooltip`, `FlowSteps`, `Checkbox`, `Input`, `Radio`, `Select`, `Switch` and `Tabs`. Their props are exactly the bundle's, and `ds.d.ts` types them from the bundle's destructuring.

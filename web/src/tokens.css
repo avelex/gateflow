@@ -1,0 +1,471 @@
+/* Extracted verbatim from design/Gateflow Console.html and design/Gateflow Checkout.html. Do not edit by hand. */
+/* Substitutes from Google Fonts — replace with licensed brand files when available */
+/* cyrillic-ext */
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./assets/fonts/ibm-plex-mono-400-cyrillic-ext.woff2") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./assets/fonts/ibm-plex-mono-400-cyrillic.woff2") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./assets/fonts/ibm-plex-mono-400-vietnamese.woff2") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./assets/fonts/ibm-plex-mono-400-latin-ext.woff2") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./assets/fonts/ibm-plex-mono-400-latin.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("./assets/fonts/ibm-plex-mono-500-cyrillic-ext.woff2") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("./assets/fonts/ibm-plex-mono-500-cyrillic.woff2") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("./assets/fonts/ibm-plex-mono-500-vietnamese.woff2") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("./assets/fonts/ibm-plex-mono-500-latin-ext.woff2") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("./assets/fonts/ibm-plex-mono-500-latin.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("./assets/fonts/ibm-plex-mono-600-cyrillic-ext.woff2") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("./assets/fonts/ibm-plex-mono-600-cyrillic.woff2") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("./assets/fonts/ibm-plex-mono-600-vietnamese.woff2") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("./assets/fonts/ibm-plex-mono-600-latin-ext.woff2") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("./assets/fonts/ibm-plex-mono-600-latin.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Schibsted Grotesk';
+  font-style: italic;
+  font-weight: 400 900;
+  font-display: swap;
+  src: url("./assets/fonts/schibsted-grotesk-400-italic-latin-ext.woff2") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Schibsted Grotesk';
+  font-style: italic;
+  font-weight: 400 900;
+  font-display: swap;
+  src: url("./assets/fonts/schibsted-grotesk-400-italic-latin.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Schibsted Grotesk';
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: swap;
+  src: url("./assets/fonts/schibsted-grotesk-400-latin-ext.woff2") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Schibsted Grotesk';
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: swap;
+  src: url("./assets/fonts/schibsted-grotesk-400-latin.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+
+:root{
+/* Estonia flag: sinine (blue), must (black), valge (white) */
+--ee-blue:#0072CE;--ee-black:#000000;--ee-white:#FFFFFF;
+--blue-50:#EEF5FC;--blue-100:#D6E7F7;--blue-200:#A9CCEE;--blue-300:#73AAE2;--blue-400:#3B89D7;--blue-500:#0072CE;--blue-600:#005FAD;--blue-700:#004C8A;--blue-800:#003A69;--blue-900:#00284A;
+--ink-950:#0A0C10;--ink-900:#12151B;--ink-800:#232830;--ink-700:#3A414C;--ink-600:#555E6B;--ink-500:#737B87;--ink-400:#9AA1AB;--ink-300:#C3C8CF;--ink-200:#DEE1E6;--ink-150:#E9EBEE;--ink-100:#F2F3F5;--ink-50:#F8F9FA;--white:#FFFFFF;
+--brand-mark:#383CFE; /* logo dot only — never in UI */
+--green-50:#E8F3ED;--green-600:#1F7A4D;--green-700:#17603C;
+--amber-50:#FBF2DE;--amber-600:#9A6200;--amber-700:#7A4D00;
+--red-50:#FBEAE8;--red-600:#B42318;--red-700:#8F1C13;
+/* semantic */
+--text-1:var(--ink-950);--text-2:var(--ink-700);--text-3:var(--ink-500);--text-inverse:var(--white);--text-link:var(--blue-600);--text-accent:var(--blue-500);
+--surface-page:var(--ink-50);--surface-card:var(--white);--surface-sunken:var(--ink-100);--surface-inverse:var(--ink-950);--surface-accent:var(--blue-500);--surface-accent-soft:var(--blue-50);--surface-hover:var(--ink-100);--surface-selected:var(--blue-50);
+--border-1:var(--ink-200);--border-2:var(--ink-300);--border-strong:var(--ink-950);--border-focus:var(--blue-500);
+--accent:var(--blue-500);--accent-hover:var(--blue-600);--accent-press:var(--blue-700);
+--status-held-fg:var(--ink-800);--status-held-bg:var(--ink-150);
+--status-checking-fg:var(--blue-700);--status-checking-bg:var(--blue-50);
+--status-approved-fg:var(--green-700);--status-approved-bg:var(--green-50);
+--status-review-fg:var(--amber-700);--status-review-bg:var(--amber-50);
+--status-frozen-fg:var(--red-700);--status-frozen-bg:var(--red-50);
+--success:var(--green-600);--warning:var(--amber-600);--danger:var(--red-600);--info:var(--blue-500);
+}
+
+:root{
+--font-sans:'Schibsted Grotesk','Helvetica Neue',Arial,sans-serif;
+--font-mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+--fw-regular:400;/* @kind font */--fw-medium:500;/* @kind font */--fw-semibold:600;/* @kind font */--fw-bold:700;/* @kind font */
+--fs-display:56px;--lh-display:60px;--ls-display:-0.03em;
+--fs-h1:36px;--lh-h1:42px;--ls-h1:-0.02em;
+--fs-h2:26px;--lh-h2:32px;--ls-h2:-0.015em;
+--fs-h3:19px;--lh-h3:26px;--ls-h3:-0.01em;
+--fs-body-lg:17px;--lh-body-lg:26px;
+--fs-body:15px;--lh-body:22px;
+--fs-small:13px;--lh-small:19px;
+--fs-caption:12px;--lh-caption:16px;
+--fs-label:11px;--lh-label:14px;--ls-label:0.08em;
+--fs-mono:13px;--lh-mono:19px;
+}
+
+:root{
+--space-0:0;--space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-5:20px;--space-6:24px;--space-8:32px;--space-10:40px;--space-12:48px;--space-16:64px;--space-20:80px;
+--radius-0:0;--radius-1:2px;--radius-2:4px;--radius-3:6px;--radius-pill:999px;
+--border-w:1px;--border-w-strong:2px;
+--shadow-0:none;--shadow-1:0 1px 2px rgba(10,12,16,.06);--shadow-2:0 2px 8px rgba(10,12,16,.08);--shadow-pop:0 12px 32px rgba(10,12,16,.16),0 0 0 1px rgba(10,12,16,.06);
+--focus-ring:0 0 0 2px var(--white),0 0 0 4px var(--blue-500);
+--ease-standard:cubic-bezier(.2,0,0,1);/* @kind other */--dur-fast:120ms;/* @kind other */--dur-base:180ms;/* @kind other */--dur-slow:260ms;/* @kind other */
+--control-h-sm:28px;--control-h-md:36px;--control-h-lg:44px;
+--content-max:1200px;--sidebar-w:232px;
+}
+
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:var(--font-sans);font-size:var(--fs-body);line-height:var(--lh-body);color:var(--text-1);background:var(--surface-page);-webkit-font-smoothing:antialiased;font-feature-settings:"tnum" 0}
+a{color:var(--text-link);text-decoration:underline;text-underline-offset:2px;text-decoration-thickness:1px}
+a:hover{color:var(--blue-700)}
+.df-mono,code,kbd{font-family:var(--font-mono);font-size:var(--fs-mono)}
+.df-num{font-variant-numeric:tabular-nums}
+.df-label{font-size:var(--fs-label);line-height:var(--lh-label);letter-spacing:var(--ls-label);text-transform:uppercase;font-weight:var(--fw-semibold);color:var(--text-3)}
+:focus-visible{outline:none;box-shadow:var(--focus-ring)}
+
+/* Substitutes from Google Fonts — replace with licensed brand files when available */
+/* cyrillic-ext */
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./assets/fonts/ibm-plex-mono-400-cyrillic-ext.woff2") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./assets/fonts/ibm-plex-mono-400-cyrillic.woff2") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./assets/fonts/ibm-plex-mono-400-vietnamese.woff2") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./assets/fonts/ibm-plex-mono-400-latin-ext.woff2") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./assets/fonts/ibm-plex-mono-400-latin.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("./assets/fonts/ibm-plex-mono-500-cyrillic-ext.woff2") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("./assets/fonts/ibm-plex-mono-500-cyrillic.woff2") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("./assets/fonts/ibm-plex-mono-500-vietnamese.woff2") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("./assets/fonts/ibm-plex-mono-500-latin-ext.woff2") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("./assets/fonts/ibm-plex-mono-500-latin.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("./assets/fonts/ibm-plex-mono-600-cyrillic-ext.woff2") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("./assets/fonts/ibm-plex-mono-600-cyrillic.woff2") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("./assets/fonts/ibm-plex-mono-600-vietnamese.woff2") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("./assets/fonts/ibm-plex-mono-600-latin-ext.woff2") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("./assets/fonts/ibm-plex-mono-600-latin.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Schibsted Grotesk';
+  font-style: italic;
+  font-weight: 400 900;
+  font-display: swap;
+  src: url("./assets/fonts/schibsted-grotesk-400-italic-latin-ext.woff2") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Schibsted Grotesk';
+  font-style: italic;
+  font-weight: 400 900;
+  font-display: swap;
+  src: url("./assets/fonts/schibsted-grotesk-400-italic-latin.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Schibsted Grotesk';
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: swap;
+  src: url("./assets/fonts/schibsted-grotesk-400-latin-ext.woff2") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Schibsted Grotesk';
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: swap;
+  src: url("./assets/fonts/schibsted-grotesk-400-latin.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+
+:root{
+/* Estonia flag: sinine (blue), must (black), valge (white) */
+--ee-blue:#0072CE;--ee-black:#000000;--ee-white:#FFFFFF;
+--blue-50:#EEF5FC;--blue-100:#D6E7F7;--blue-200:#A9CCEE;--blue-300:#73AAE2;--blue-400:#3B89D7;--blue-500:#0072CE;--blue-600:#005FAD;--blue-700:#004C8A;--blue-800:#003A69;--blue-900:#00284A;
+--ink-950:#0A0C10;--ink-900:#12151B;--ink-800:#232830;--ink-700:#3A414C;--ink-600:#555E6B;--ink-500:#737B87;--ink-400:#9AA1AB;--ink-300:#C3C8CF;--ink-200:#DEE1E6;--ink-150:#E9EBEE;--ink-100:#F2F3F5;--ink-50:#F8F9FA;--white:#FFFFFF;
+--brand-mark:#383CFE; /* logo dot only — never in UI */
+--green-50:#E8F3ED;--green-600:#1F7A4D;--green-700:#17603C;
+--amber-50:#FBF2DE;--amber-600:#9A6200;--amber-700:#7A4D00;
+--red-50:#FBEAE8;--red-600:#B42318;--red-700:#8F1C13;
+/* semantic */
+--text-1:var(--ink-950);--text-2:var(--ink-700);--text-3:var(--ink-500);--text-inverse:var(--white);--text-link:var(--blue-600);--text-accent:var(--blue-500);
+--surface-page:var(--ink-50);--surface-card:var(--white);--surface-sunken:var(--ink-100);--surface-inverse:var(--ink-950);--surface-accent:var(--blue-500);--surface-accent-soft:var(--blue-50);--surface-hover:var(--ink-100);--surface-selected:var(--blue-50);
+--border-1:var(--ink-200);--border-2:var(--ink-300);--border-strong:var(--ink-950);--border-focus:var(--blue-500);
+--accent:var(--blue-500);--accent-hover:var(--blue-600);--accent-press:var(--blue-700);
+--status-held-fg:var(--ink-800);--status-held-bg:var(--ink-150);
+--status-checking-fg:var(--blue-700);--status-checking-bg:var(--blue-50);
+--status-approved-fg:var(--green-700);--status-approved-bg:var(--green-50);
+--status-review-fg:var(--amber-700);--status-review-bg:var(--amber-50);
+--status-frozen-fg:var(--red-700);--status-frozen-bg:var(--red-50);
+--success:var(--green-600);--warning:var(--amber-600);--danger:var(--red-600);--info:var(--blue-500);
+}
+
+:root{
+--font-sans:'Schibsted Grotesk','Helvetica Neue',Arial,sans-serif;
+--font-mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+--fw-regular:400;/* @kind font */--fw-medium:500;/* @kind font */--fw-semibold:600;/* @kind font */--fw-bold:700;/* @kind font */
+--fs-display:56px;--lh-display:60px;--ls-display:-0.03em;
+--fs-h1:36px;--lh-h1:42px;--ls-h1:-0.02em;
+--fs-h2:26px;--lh-h2:32px;--ls-h2:-0.015em;
+--fs-h3:19px;--lh-h3:26px;--ls-h3:-0.01em;
+--fs-body-lg:17px;--lh-body-lg:26px;
+--fs-body:15px;--lh-body:22px;
+--fs-small:13px;--lh-small:19px;
+--fs-caption:12px;--lh-caption:16px;
+--fs-label:11px;--lh-label:14px;--ls-label:0.08em;
+--fs-mono:13px;--lh-mono:19px;
+}
+
+:root{
+--space-0:0;--space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-5:20px;--space-6:24px;--space-8:32px;--space-10:40px;--space-12:48px;--space-16:64px;--space-20:80px;
+--radius-0:0;--radius-1:2px;--radius-2:4px;--radius-3:6px;--radius-pill:999px;
+--border-w:1px;--border-w-strong:2px;
+--shadow-0:none;--shadow-1:0 1px 2px rgba(10,12,16,.06);--shadow-2:0 2px 8px rgba(10,12,16,.08);--shadow-pop:0 12px 32px rgba(10,12,16,.16),0 0 0 1px rgba(10,12,16,.06);
+--focus-ring:0 0 0 2px var(--white),0 0 0 4px var(--blue-500);
+--ease-standard:cubic-bezier(.2,0,0,1);/* @kind other */--dur-fast:120ms;/* @kind other */--dur-base:180ms;/* @kind other */--dur-slow:260ms;/* @kind other */
+--control-h-sm:28px;--control-h-md:36px;--control-h-lg:44px;
+--content-max:1200px;--sidebar-w:232px;
+}
+
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:var(--font-sans);font-size:var(--fs-body);line-height:var(--lh-body);color:var(--text-1);background:var(--surface-page);-webkit-font-smoothing:antialiased;font-feature-settings:"tnum" 0}
+a{color:var(--text-link);text-decoration:underline;text-underline-offset:2px;text-decoration-thickness:1px}
+a:hover{color:var(--blue-700)}
+.df-mono,code,kbd{font-family:var(--font-mono);font-size:var(--fs-mono)}
+.df-num{font-variant-numeric:tabular-nums}
+.df-label{font-size:var(--fs-label);line-height:var(--lh-label);letter-spacing:var(--ls-label);text-transform:uppercase;font-weight:var(--fw-semibold);color:var(--text-3)}
+:focus-visible{outline:none;box-shadow:var(--focus-ring)}
+
+
+body{margin:0;background:var(--surface-page)}a{color:var(--text-link)}a:hover{color:var(--blue-700)}textarea::placeholder,input::placeholder{color:var(--ink-400)}@keyframes dfTickIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+/* Checkout page (design/Gateflow Checkout.html), scoped to body.checkout */
+body.checkout{margin:0;background:var(--ink-100)}body.checkout a{color:var(--text-link)}body.checkout a:hover{color:var(--blue-700)}body.checkout input::placeholder{color:var(--ink-400)}
