@@ -65,7 +65,7 @@
 
 ## 1. Contract
 
-- [ ] 1.1 Let `create_gateway` work without a deposit (design decision 11). Verify that `cd contract && cargo test` passes, including the renamed test
+- [x] 1.1 Let `create_gateway` work without a deposit (design decision 11). Verify that `cd contract && cargo test` passes, including the renamed test
   **Files:** `contract/src/gateways.rs`.
   1. Replace the test `gateway_without_fuel_rejected` with `gateway_without_deposit_has_zero_fuel`. A call with 0 attached returns id 0, and `get_gateway(0).fuel == 0`.
   2. Run: FAIL ("attach at least one execution deposit"). 3. Remove the `require!` on line 12 and update the doc comment. 4. Run: PASS. 5. Commit `feat(contract): create gateways without a deposit`.
