@@ -1,0 +1,13 @@
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "final_execution_status": "FINAL",
+    "status": { "Failure": { "ActionError": { "index": 0, "kind": { "FunctionCallError": { "ExecutionError": "Smart contract panicked: invalid expiry" } } } } },
+    "transaction": { "hash": "9fq2Rw7eWb8pAZ6p1u1Y5Jc3KyEw1CQx3Ur3aWv1bQSb", "signer_id": "op.testnet", "receiver_id": "kaja.op.testnet" },
+    "receipts_outcome": [
+      { "id": "r1", "outcome": { "executor_id": "kaja.op.testnet", "logs": [], "status": { "SuccessReceiptId": "r2" } } },
+      { "id": "r2", "outcome": { "executor_id": "gateflow.testnet", "logs": [], "status": { "Failure": { "ActionError": { "index": 0, "kind": { "FunctionCallError": { "ExecutionError": "Smart contract panicked: invalid expiry" } } } } } } }
+    ]
+  }
+}

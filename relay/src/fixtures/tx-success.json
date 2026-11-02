@@ -1,0 +1,13 @@
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "final_execution_status": "FINAL",
+    "status": { "SuccessValue": "" },
+    "transaction": { "hash": "4dNkzQ4nB7r5hR3s8pS9tVnB6aR2nPq4yY3aQ1oS5x7z", "signer_id": "op.testnet", "receiver_id": "kaja.op.testnet" },
+    "receipts_outcome": [
+      { "id": "r1", "outcome": { "executor_id": "kaja.op.testnet", "logs": [], "status": { "SuccessReceiptId": "r2" } } },
+      { "id": "r2", "outcome": { "executor_id": "gateflow.testnet", "logs": ["EVENT_JSON:{\"standard\":\"gateflow\",\"version\":\"1.0.0\",\"event\":\"invoice_created\",\"data\":[{\"invoice\":3,\"gateway\":0}]}"], "status": { "SuccessValue": "Mw==" } } }
+    ]
+  }
+}

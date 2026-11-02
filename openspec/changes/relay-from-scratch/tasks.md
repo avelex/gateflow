@@ -18,7 +18,7 @@
 
 ## Global Constraints
 
-- `relay/package.json`: `{"name":"gateflow-relay","private":true,"type":"module","engines":{"node":">=26"},"scripts":{"test":"node --test src/","start":"node src/main.ts"}}`, with no `dependencies`. Imports use `.ts` extensions.
+- `relay/package.json`: `{"name":"gateflow-relay","private":true,"type":"module","engines":{"node":">=26"},"scripts":{"test":"node --test \"src/*.test.ts\"","start":"node src/main.ts"}}`, with no `dependencies`. Imports use `.ts` extensions.
 - No `enum`, parameter properties or namespaces: Node strips types and does not transpile.
 - Env, with defaults:
   - `GATEFLOW_CONTRACT` (required);
@@ -72,7 +72,7 @@
 
 ## 2. Foundation
 
-- [ ] 2.1 Package, NEAR primitives and signing. Verify that `cd relay && node --test src/` passes the tests below
+- [x] 2.1 Package, NEAR primitives and signing. Verify that `cd relay && npm test` passes the tests below
   **Files:** `relay/package.json`, `relay/.gitignore` (`*.db`), `relay/src/near.ts`, `relay/src/near.test.ts`, `relay/src/fixtures/tx-panic.json` and `tx-success.json` (hand-written `send_tx` FINAL shapes: `receipts_outcome[].outcome.{executor_id,status}`).
   **Produces:**
   - `base58encode(b: Uint8Array): string` and `base58decode(s: string): Uint8Array`
@@ -92,7 +92,7 @@
      - `tx_result_panic`: `error === "invalid expiry"`.
      - `tx_result_value`: `value === 3`.
   2. Run: FAIL. 3. Implement. 4. Run: PASS. 5. Commit `feat(relay): NEAR transactions and signing`.
-- [ ] 2.2 Delegate decoding and the allowlist. Verify that `node --test src/` passes the tests below
+- [ ] 2.2 Delegate decoding and the allowlist. Verify that `npm test` passes the tests below
   **Files:** `relay/src/delegate.ts`, `relay/src/delegate.test.ts`.
   **Consumes:** 2.1's Borsh helpers.
   **Produces:**
@@ -114,7 +114,7 @@
      - `mixed_actions_refused`.
      - `empty_actions_refused`.
   2. Run: FAIL. 3. Implement. 4. Run: PASS. 5. Commit `feat(relay): delegate allowlist`.
-- [ ] 2.3 Database, static files and the server shell. Verify that `node --test src/` passes the tests below, and that `GATEFLOW_CONTRACT=x node src/main.ts` serves `GET /console/nope` → 404 `{"error":"not found"}`
+- [ ] 2.3 Database, static files and the server shell. Verify that `npm test` passes the tests below, and that `GATEFLOW_CONTRACT=x node src/main.ts` serves `GET /console/nope` → 404 `{"error":"not found"}`
   **Files:** `relay/src/types.ts`, `relay/src/db.ts`, `relay/src/static.ts`, `relay/src/main.ts`, and tests `db.test.ts`, `static.test.ts`, `main.test.ts`.
   **Produces:**
   - `types.ts`: `Config`, `Deps = {cfg; db; near: Near; oneclick: OneClick; now(): number}`, `interface OneClick { tokens(): Promise<any[]>; quote(body: object): Promise<any>; status(depositAddress: string): Promise<any> }`, `Req`, `Res`, `class HttpError extends Error { status: number }` (with a plain constructor body), and `type Handler = (req: Req, deps: Deps) => Promise<Res>`.
@@ -132,11 +132,11 @@
 
 ## 3. Console
 
-- [ ] 3.1 Email sessions. Verify that `node --test src/` passes `session_sets_cookie_flags`, `session_secure_on_https`, `session_rejects_bad_email` (400, no cookie), `me_requires_session` (401) and `logout_deletes_session` (the old cookie then gets 401)
+- [ ] 3.1 Email sessions. Verify that `npm test` passes `session_sets_cookie_flags`, `session_secure_on_https`, `session_rejects_bad_email` (400, no cookie), `me_requires_session` (401) and `logout_deletes_session` (the old cookie then gets 401)
   **Files:** `relay/src/console.ts`, `relay/src/console.test.ts`, plus `relay/src/testing.ts` (`fakeDeps(overrides)` with a `":memory:"` DB, a recording fake `Near`, a fake `OneClick` and a fixed `now`).
   **Produces:** handlers `POST /console/session {email}` → `{step}`, `DELETE /console/session`, and `GET /console/me` → `{email, name, accountId, gatewayId, step}`. Also `requireMerchant(req, deps)`, which throws 401.
   Steps: 1. tests FAIL. 2. implement. 3. PASS. 4. Commit `feat(relay): demo email sessions`.
-- [ ] 3.2 Provisioning. Verify that `node --test src/` passes the tests below
+- [ ] 3.2 Provisioning. Verify that `npm test` passes the tests below
   **Produces:** `slug(name): string`, and `POST /console/onboard {name, publicKey, payoutTo?}` → `{step, accountId}` (design decision 4).
   1. Tests:
      - `slug_basic`: "Kaja Coffee" gives `kaja-coffee`.
@@ -150,7 +150,7 @@
      - `merchant_cap_enforced`.
      - `onboard_concurrent_single_account`.
   2. FAIL. 3. Implement. 4. PASS. 5. Commit `feat(relay): merchant account provisioning`.
-- [ ] 3.3 Delegate params and relaying, including the gateway step. Verify that `node --test src/` passes the tests below
+- [ ] 3.3 Delegate params and relaying, including the gateway step. Verify that `npm test` passes the tests below
   **Consumes:** `decodeSignedDelegate`, `refusal` and `Near.send`.
   **Produces:** `GET /console/delegate-params` → `{nonce, maxBlockHeight, publicKey}` (as strings), and `POST /console/relay {signedDelegate}` → `{txHash, value}`.
   1. Tests:
@@ -161,7 +161,7 @@
      - `create_gateway_sets_gateway_and_funds`: the next send is `fund` with `FUEL_TARGET`, and `step == done`.
      - `create_gateway_failure_keeps_step`.
   2. FAIL. 3. Implement. 4. PASS. 5. Commit `feat(relay): sponsored delegate actions`.
-- [ ] 3.4 Console data, top-up, preferences and retry. Verify that `node --test src/` passes the tests below
+- [ ] 3.4 Console data, top-up, preferences and retry. Verify that `npm test` passes the tests below
   **Produces:** `needsTopUp(fuel: bigint, deposit: bigint): boolean`, plus handlers `GET /console/gateway`, `GET /console/invoices`, `GET /console/payments`, `GET /console/tokens`, `PUT /console/preferences {tokensOff: string[]}` and `POST /console/retry {payment}`.
   1. Tests:
      - `needs_top_up`: the boundary is exactly `2 × deposit`, which needs no top-up.
@@ -175,7 +175,7 @@
 
 ## 4. Checkout
 
-- [ ] 4.1 Invoice details and quotable assets. Verify that `node --test src/` passes the tests below
+- [ ] 4.1 Invoice details and quotable assets. Verify that `npm test` passes the tests below
   **Files:** `relay/src/checkout.ts`, `relay/src/checkout.test.ts`, `relay/src/fixtures/oneclick-tokens.json` (a copy of `enclave/tests/fixtures/oneclick-tokens.json`, plus the NEAR USDC, `nbtc.bridge.near` and `1cs_v1:near:nep141:zec.omft.near` entries taken from live `/v0/tokens`).
   **Produces:** `destinationAsset(tokens, token)`, `originChain(tokens, assetId)`, `screenable(chain, evmChains)`, and the handlers `GET /checkout/invoice?id=` and `GET /checkout/assets`.
   1. Tests:
@@ -188,7 +188,7 @@
      - `checkout_invoice_404`.
      - `checkout_invoice_paying`: the payment status and `refund_to` are included, along with the merchant name.
   2. FAIL. 3. Implement. 4. PASS. 5. Commit `feat(relay): checkout invoice and assets`.
-- [ ] 4.2 Quote, status and screen. Verify that `node --test src/` passes the tests below
+- [ ] 4.2 Quote, status and screen. Verify that `npm test` passes the tests below
   **Produces:** `quoteRequest(p: {invoiceId: number; amount: string; originAsset; destinationAsset; refundTo; refundOnNear; ref; recipient; deadlineMs: number; dry: boolean}): object`, plus `POST /checkout/quote`, `GET /checkout/status` and `POST /checkout/screen`.
   1. Tests:
      - `quote_request_shape`: an exact `deepEqual`, including `customRecipientMsg === '{"invoice":7,"ref":"<ref>","refund_to":"bob.near"}'`.
@@ -206,7 +206,7 @@
      - `screen_pending_409`.
      - `screen_success_sends_screen_intents`: 300 Tgas, and the row is marked screened.
   2. FAIL. 3. Implement. 4. PASS. 5. Commit `feat(relay): checkout quotes and deferred screening`.
-- [ ] 4.3 Watcher. Verify that `node --test src/` passes the tests below, and that `main.ts` starts `setInterval(() => tick(deps), 15000)`
+- [ ] 4.3 Watcher. Verify that `npm test` passes the tests below, and that `main.ts` starts `setInterval(() => tick(deps), 15000)`
   **Files:** `relay/src/watcher.ts`, `relay/src/watcher.test.ts`.
   **Produces:** `tick(deps): Promise<void>`.
   1. Tests:
