@@ -1,6 +1,7 @@
 // /console/* API: demo sessions, provisioning, sponsored delegate actions, console data, fuel and retry.
 import { randomBytes } from "node:crypto";
 import type { Merchant } from "./db.ts";
+import { decodeSignedDelegate, refusal } from "./delegate.ts";
 import { base58decode, publicKeyBytes } from "./near.ts";
 import { type Deps, type Handler, HttpError, ok, type Req } from "./types.ts";
 
@@ -134,9 +135,49 @@ const onboard: Handler = async (req, deps) => {
   });
 };
 
+const delegateParams: Handler = async (req, deps) => {
+  const m = requireMerchant(req, deps);
+  const key = await deps.near.accessKey(m.account_id, m.public_key);
+  if (!key) throw new HttpError(409, "account key not found on chain yet");
+  const head = await deps.near.head();
+  return ok({ nonce: String(key.nonce + 1n), maxBlockHeight: String(head.height + 120n), publicKey: m.public_key });
+};
+
+/// Calls `fund(gateway)` from the operator, attaching `amount`.
+export function fund(deps: Deps, gateway: number, amount: bigint) {
+  return deps.near.send(deps.cfg.gateflow, [{ functionCall: { method: "fund", args: { gateway }, gas: 30n * TGAS, deposit: amount } }]);
+}
+
+const relay: Handler = async (req, deps) => {
+  const m = requireMerchant(req, deps);
+  let d;
+  try {
+    d = decodeSignedDelegate(String(req.body?.signedDelegate ?? ""));
+  } catch {
+    throw new HttpError(400, "not a signed delegate action");
+  }
+  const reason = refusal(d, m.account_id, deps.cfg.gateflow);
+  if (reason) throw new HttpError(403, reason);
+  const createsGateway = d.actions.some((a) => a.kind === "functionCall" && a.method === "create_gateway");
+  if (createsGateway && m.gateway_id !== null) throw new HttpError(409, "you already have a gateway");
+
+  const r = await deps.near.send(d.senderId, [{ signedDelegate: d.raw }], deps.cfg.gateflow);
+  if (r.error) throw new HttpError(422, r.error);
+
+  if (createsGateway && typeof r.value === "number") {
+    deps.db.upsertMerchant({ ...m, gateway_id: r.value, step: "done" });
+    // A new gateway has no fuel; on failure the next GET /console/gateway top-up retries.
+    const f = await fund(deps, r.value, deps.cfg.fuelTarget);
+    if (f.error) console.error(`fund(${r.value}) failed: ${f.error}`);
+  }
+  return ok({ txHash: r.hash, value: r.value ?? null });
+};
+
 export const consoleRoutes: Record<string, Handler> = {
   "POST /console/session": signIn,
   "DELETE /console/session": signOut,
   "GET /console/me": me,
   "POST /console/onboard": onboard,
+  "GET /console/delegate-params": delegateParams,
+  "POST /console/relay": relay,
 };

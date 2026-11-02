@@ -161,3 +161,85 @@ test("onboard_concurrent_single_account", async () => {
   assert.equal(b.status, 200);
   assert.equal(deps.near.sent.filter((s) => "createAccount" in s.actions[0]).length, 1);
 });
+
+// ---------- delegate relaying ----------
+
+import { signDelegate } from "./delegate.ts";
+import { type Action } from "./near.ts";
+
+const TGAS = 10n ** 12n;
+
+function delegate(key: { secret: string }, actions: Action[], sender = "kaja-coffee.op.testnet") {
+  return signDelegate({ senderId: sender, receiverId: "gateflow.testnet", actions, nonce: 2n, maxBlockHeight: 1120n, publicKey: signer(key.secret).publicKey }, key.secret);
+}
+
+const createGateway: Action = { functionCall: { method: "create_gateway", args: { payout_to: "kaja-coffee.op.testnet", policy: { max_risk: 50 } }, gas: 30n * TGAS, deposit: 0n } };
+const createInvoice: Action = { functionCall: { method: "create_invoice", args: { gateway: 0, token: "wrap.testnet", amount: "1", expires_in_sec: 3600 }, gas: 30n * TGAS, deposit: 0n } };
+
+test("delegate_params_nonce_plus_one", async () => {
+  const deps = fakeDeps();
+  const { cookies, key } = await onboarded(deps);
+  deps.near.keys[`kaja-coffee.op.testnet/${key.publicKey}`] = 1n;
+  const res = await call(deps, "GET", "/console/delegate-params", undefined, cookies);
+  assert.deepEqual(res.json, { nonce: "2", maxBlockHeight: "1120", publicKey: key.publicKey });
+});
+
+test("relay_refused_403_sends_nothing", async () => {
+  const deps = fakeDeps();
+  const { cookies, key } = await onboarded(deps);
+  const before = deps.near.sent.length;
+  const res = await call(deps, "POST", "/console/relay", { signedDelegate: delegate(key, [{ transfer: 1n }]) }, cookies);
+  assert.equal(res.status, 403);
+  const other = await call(deps, "POST", "/console/relay", { signedDelegate: delegate(key, [createInvoice], "mallory.op.testnet") }, cookies);
+  assert.equal(other.status, 403);
+  assert.equal((await call(deps, "POST", "/console/relay", { signedDelegate: "!!" }, cookies)).status, 400);
+  assert.equal(deps.near.sent.length, before);
+});
+
+test("relay_invoice_returns_id", async () => {
+  const deps = fakeDeps();
+  const { cookies, key } = await onboarded(deps);
+  deps.near.sendResults.push(() => ({ hash: "tx1", value: 3 }));
+  const res = await call(deps, "POST", "/console/relay", { signedDelegate: delegate(key, [createInvoice]) }, cookies);
+  assert.deepEqual(res.json, { txHash: "tx1", value: 3 });
+  const last = deps.near.sent.at(-1)!;
+  assert.equal(last.receiver, "kaja-coffee.op.testnet");
+  assert.equal(last.executor, "gateflow.testnet");
+  assert.ok("signedDelegate" in last.actions[0]);
+});
+
+test("relay_panic_422", async () => {
+  const deps = fakeDeps();
+  const { cookies, key } = await onboarded(deps);
+  deps.near.sendResults.push(() => ({ hash: "tx1", error: "invalid expiry" }));
+  const res = await call(deps, "POST", "/console/relay", { signedDelegate: delegate(key, [createInvoice]) }, cookies);
+  assert.deepEqual(res, { status: 422, json: { error: "invalid expiry" } });
+});
+
+test("create_gateway_sets_gateway_and_funds", async () => {
+  const deps = fakeDeps();
+  const { cookies, key } = await onboarded(deps);
+  deps.near.sendResults.push(() => ({ hash: "tx1", value: 0 }));
+  const res = await call(deps, "POST", "/console/relay", { signedDelegate: delegate(key, [createGateway]) }, cookies);
+  assert.equal(res.status, 200);
+  const m = deps.db.merchantByEmail("kaja@example.com")!;
+  assert.equal(m.gateway_id, 0);
+  assert.equal(m.step, "done");
+  const fundTx = deps.near.sent.at(-1)!;
+  assert.equal(fundTx.receiver, "gateflow.testnet");
+  assert.deepEqual((fundTx.actions[0] as any).functionCall.args, { gateway: 0 });
+  assert.equal((fundTx.actions[0] as any).functionCall.deposit, deps.cfg.fuelTarget);
+  const again = await call(deps, "POST", "/console/relay", { signedDelegate: delegate(key, [createGateway]) }, cookies);
+  assert.equal(again.status, 409);
+});
+
+test("create_gateway_failure_keeps_step", async () => {
+  const deps = fakeDeps();
+  const { cookies, key } = await onboarded(deps);
+  deps.near.sendResults.push(() => ({ hash: "tx1", error: "risk cap too high" }));
+  const sentBefore = deps.near.sent.length;
+  const res = await call(deps, "POST", "/console/relay", { signedDelegate: delegate(key, [createGateway]) }, cookies);
+  assert.equal(res.status, 422);
+  assert.equal(deps.db.merchantByEmail("kaja@example.com")?.step, "gateway");
+  assert.equal(deps.near.sent.length, sentBefore + 1);
+});

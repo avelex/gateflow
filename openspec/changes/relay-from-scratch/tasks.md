@@ -150,7 +150,7 @@
      - `merchant_cap_enforced`.
      - `onboard_concurrent_single_account`.
   2. FAIL. 3. Implement. 4. PASS. 5. Commit `feat(relay): merchant account provisioning`.
-- [ ] 3.3 Delegate params and relaying, including the gateway step. Verify that `npm test` passes the tests below
+- [x] 3.3 Delegate params and relaying, including the gateway step. Verify that `npm test` passes the tests below
   **Consumes:** `decodeSignedDelegate`, `refusal` and `Near.send`.
   **Produces:** `GET /console/delegate-params` → `{nonce, maxBlockHeight, publicKey}` (as strings), and `POST /console/relay {signedDelegate}` → `{txHash, value}`.
   1. Tests:
