@@ -125,7 +125,7 @@
   - the invoice prompt yields a confirm card with the right token and amount;
   - no reply claims an action happened before it was confirmed.
   Record the transcript summary in the PR description.
-- [ ] 3.2 Document the assistant in `README.md`: env vars, the default NEAR AI Cloud endpoint, the privacy note (private only on NEAR AI Cloud), the confirm-and-passkey guarantee, and the daily limit. Verify with `grep -n "LLM_BASE_URL\|LLM_API_KEY\|LLM_MODEL\|CHAT_DAILY_LIMIT" README.md`: all four are listed.
+- [x] 3.2 Document the assistant in `README.md`: env vars, the default NEAR AI Cloud endpoint, the privacy note (private only on NEAR AI Cloud), the confirm-and-passkey guarantee, and the daily limit. Verify with `grep -n "LLM_BASE_URL\|LLM_API_KEY\|LLM_MODEL\|CHAT_DAILY_LIMIT" README.md`: all four are listed.
 
 ## Workflow follow-up
 

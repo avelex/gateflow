@@ -6,16 +6,17 @@ The Gateflow backend is one Node 26 process with no npm dependencies. It serves 
 
 | File | Role |
 |---|---|
-| `src/main.ts` | Env config, the `node:http` server, the route table, error mapping and CORS, and the 1Click client. Starts the watcher |
-| `src/types.ts` | `Config`, `Deps` (`cfg`, `db`, `near`, `oneclick`, `now`), `Req`/`Res`, `HttpError`, `loadConfig` |
+| `src/main.ts` | Env config, the `node:http` server, the route table, error mapping and CORS, and the 1Click client. Starts the watcher, and builds the model client when `LLM_API_KEY` is set |
+| `src/types.ts` | `Config`, `Deps` (`cfg`, `db`, `near`, `oneclick`, `llm?`, `now`), `Req`/`Res`, `HttpError`, `loadConfig` |
 | `src/near.ts` | Hand-written base58 and Borsh, ed25519 signing (`node:crypto`), `TxResult` extraction, and the JSON-RPC client. Every operator send goes through one queue |
-| `src/delegate.ts` | Decodes NEP-366 signed delegates and applies the sponsorship allowlist (`refusal`). Also signs delegates, for tests and scripts |
-| `src/db.ts` | `node:sqlite` tables: `merchants`, `sessions`, `quotes` |
-| `src/console.ts` | `/console/*`: sessions, onboarding, `delegate-params`, `relay`, gateway, invoices, payments, tokens, preferences, retry, fuel top-ups |
+| `src/delegate.ts` | Decodes NEP-366 signed delegates (with function-call args) and applies the sponsorship allowlist (`refusal`). Also signs delegates, for tests and scripts |
+| `src/db.ts` | `node:sqlite` tables: `merchants`, `sessions`, `quotes`, `chat_threads`, `chat_messages`, `chat_actions` |
+| `src/console.ts` | `/console/*`: sessions, onboarding, `delegate-params`, `relay` (binds an `actionId` to its confirmed assistant action), gateway, invoices, payments, tokens, preferences, retry, fuel top-ups |
+| `src/chat.ts` | The console assistant: OpenAI-compatible model client, read tools, propose-only write tools, the bounded tool loop, `/console/chat`, threads and action confirm / dismiss |
 | `src/checkout.ts` | `/checkout/*`: invoice, assets, quote, status, screen |
 | `src/watcher.ts` | Every 15 s, submits `screen_intents` for recorded quotes that 1Click reports as `SUCCESS` |
 | `src/static.ts` | Serves `WEB_DIST`, falling back to `index.html` for the SPA |
-| `src/testing.ts` | Fakes for NEAR and 1Click, plus an in-memory DB |
+| `src/testing.ts` | Fakes for NEAR, 1Click and the model, plus an in-memory DB |
 
 ## Test
 

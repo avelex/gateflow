@@ -99,7 +99,7 @@ sequenceDiagram
 | `contract/` | Rust, near-sdk 5 | Token allowlist, gateways, invoices, risk policy, payments, paged views, `screen_intents`, settle / refund / retry |
 | `enclave/` | Rust, `wasm32-wasip2`, OutLayer guest | `screen` (GoPlus), `screen_intents` (1Click binding, origin senders, GoPlus / OFAC) |
 | `relay/` | TypeScript, Node built-ins only | The one backend: serves `web/`, merchant sessions and console API (SQLite), NEP-366 relayer with an allowlist, account provisioning, fuel top-ups, 1Click quotes and the screening watcher |
-| `web/` | React, Vite, TypeScript | Merchant console (Home, Invoices, Screening, Settings, Search) and the public checkout at `/pay/<invoice>` |
+| `web/` | React, Vite, TypeScript | Merchant console (Home with the assistant, chat, Invoices, Screening, Settings, Search) and the public checkout at `/pay/<invoice>` |
 
 ## Build and test
 
@@ -134,6 +134,10 @@ cd ../relay && GATEFLOW_CONTRACT=<contract> RELAY_ACCOUNT_ID=<operator> RELAY_PR
 | `MAX_MERCHANTS` | `100` | Onboarding cap; each merchant costs the operator about 0.02 NEAR |
 | `NEAR_RPC_URL` | `https://rpc.testnet.fastnear.com` | NEAR RPC |
 | `ONECLICK_URL`, `ONECLICK_API_KEY`, `EVM_CHAINS` | 1Click v0, none, `base,eth,arb` | NEAR Intents 1Click endpoint, optional key, and the EVM origins the enclave can screen |
+| `LLM_BASE_URL` | `https://cloud-api.near.ai/v1` | OpenAI-compatible chat completions endpoint for the console assistant |
+| `LLM_API_KEY` | none | Key for that endpoint. Without it, chat answers 503 and the composer shows "Assistant not configured" |
+| `LLM_MODEL` | none | Model id with tool calling, from `GET <LLM_BASE_URL>/model/list` |
+| `CHAT_DAILY_LIMIT` | `200` | Assistant messages per merchant per UTC day; beyond it chat answers 429 |
 | `VITE_NEAR_NETWORK` (web build) | `testnet` | Network for the checkout's NEAR wallets |
 | `VITE_REOWN_PROJECT_ID` (web build) | none | Reserved for the Ethereum-wallet payer option, which is not wired yet (out of scope in `openspec/changes/web-from-scratch/proposal.md`) |
 
@@ -147,6 +151,14 @@ cd ../relay && GATEFLOW_CONTRACT=<contract> RELAY_ACCOUNT_ID=<operator> RELAY_PR
 
 The backend only relays `create_gateway`, `create_invoice` and `set_policy` from the merchant's own account, with no deposit and at most 100 Tgas. It cannot sign for the merchant.
 
+### The assistant
+
+Home's composer, the hint chips, Search (Enter with no match) and the Invoices "Ask about invoices" input open a chat. The relay runs a tool-calling loop against `LLM_BASE_URL`: at most 6 tool rounds per message, the last 30 messages of the thread as context, and `CHAT_DAILY_LIMIT` messages per merchant per day.
+
+- **Reads** (invoices, payments, settled totals, accepted tokens, gateway settings) run directly and only see the merchant's own gateway.
+- **Writes only propose.** Creating an invoice, changing the risk tolerance or retrying a failed payment stores a pending action and shows a confirm card with the exact values. Nothing changes until the merchant presses Confirm: invoices and risk tolerance then take one passkey prompt, and the relay only submits a delegate whose call equals the stored action, once. Retries go through the operator.
+- **Privacy:** NEAR AI Cloud serves models from TEEs, so payment data stays private in inference. Any other OpenAI-compatible endpoint works through `LLM_BASE_URL`, but then that privacy claim does not hold.
+
 Relay modules, tests and the testnet dev deployment are in [`relay/README.md`](relay/README.md). Mainnet deployment steps are tracked in [`openspec/changes/mainnet-launch/tasks.md`](openspec/changes/mainnet-launch/tasks.md).
 
 ## Status
@@ -155,6 +167,7 @@ Relay modules, tests and the testnet dev deployment are in [`relay/README.md`](r
 - The enclave has been checked against the live screening APIs in a local wasmtime run, but has not yet run on OutLayer, because FastFS testnet was down.
 - The relay runs against a testnet dev deployment (`gateflow-dev-v1.testnet`): merchant onboarding, sponsored `create_gateway` and `create_invoice`, fuel funding and the checkout views. A dry 1Click quote passes against the live API. See [`relay/README.md`](relay/README.md).
 - `web/` (the console and the checkout page) is implemented and unit-tested. Every screen is translated from the `design/` exports. It has been checked against a local relay with in-memory contract and 1Click fakes, with virtual passkeys (with and without PRF); see [`web/README.md`](web/README.md). It has not yet run against the testnet dev deployment, and no payment has been sent through it.
+- The console assistant is implemented and tested against a stub model, and a passkey Confirm was checked in a local run with fakes. It has not yet run against NEAR AI Cloud or on testnet; the model is not chosen yet.
 - Still open for the payer: the Ethereum-wallet option and a live cross-chain payment (1Click is mainnet only).
 - `GOAL.md` is not yet in this repository.
 - Not yet run on mainnet: deployment, enclave registration and live USDC / BTC / ZEC payments. Tracked in [`openspec/changes/mainnet-launch/tasks.md`](openspec/changes/mainnet-launch/tasks.md).
