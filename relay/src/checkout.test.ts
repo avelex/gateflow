@@ -59,6 +59,14 @@ test("checkout_invoice_paying", async () => {
   assert.equal(res.headers?.["access-control-allow-origin"], "*");
 });
 
+test("checkout_invoice_contract", async () => {
+  const deps = fakeDeps();
+  withInvoice(deps);
+  const res = await call(deps, "GET", "/checkout/invoice?id=7");
+  assert.equal(res.status, 200);
+  assert.equal((res.json as any).contract, "gateflow.testnet");
+});
+
 // ---------- quotes, status, screen ----------
 
 import { quoteRequest } from "./checkout.ts";
