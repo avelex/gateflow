@@ -174,7 +174,7 @@
      - `gateway` with `null` gives `resume-key`, and with `stored` gives `gateway`;
      - `done` gives `done`.
   2. FAIL. 3. Implement. The sign-in card shows the demo copy. A PRF-less authenticator shows the phrase with an "I saved it" checkbox that gates Continue. `payoutTo` is kept in `sessionStorage`. 4. PASS, plus the manual check. 5. Commit `feat(web): sign-in and onboarding`.
-- [ ] 4.2 Layout, Home and Search. Verify that `npm test` passes `settled_today_totals` and `search_matches`. Then verify manually that the sidebar collapses, that Screening shows the Pending count, and that Cmd/Ctrl+K opens Search and Escape closes it. Also verify that the sidebar (expanded and collapsed), profile menu, Home and Search pass the screenshot check against the export
+- [x] 4.2 Layout, Home and Search. Verify that `npm test` passes `settled_today_totals` and `search_matches`. Then verify manually that the sidebar collapses, that Screening shows the Pending count, and that Cmd/Ctrl+K opens Search and Escape closes it. Also verify that the sidebar (expanded and collapsed), profile menu, Home and Search pass the screenshot check against the export
   **Source:** Console "Sidebar", "Profile menu", "New chat" and "Search" blocks.
   **Files:** `web/src/console/Layout.tsx`, `Home.tsx`, `Search.tsx`, `usePoll.ts`, and `logic.ts` and `logic.test.ts`.
   **Produces:**

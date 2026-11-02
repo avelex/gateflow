@@ -1,1 +1,4 @@
-/* Hover rules for the exports' style-hover attributes (design decision 13). */
+/* Hover rules for the exports' style-hover attributes (design decision 13). The export applies them over inline styles. */
+.hv:hover { background: var(--surface-hover) !important; }
+.hv-text:hover { background: var(--surface-hover) !important; color: var(--text-1) !important; }
+.hv-ink:hover { background: var(--ink-150) !important; }

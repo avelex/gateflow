@@ -1,5 +1,6 @@
 // Pure console rules (tested in logic.test.ts) and the delegate round trip.
 import { api } from "../api.ts";
+import { formatAmount } from "../format.ts";
 import { type DelegateParams, type MerchantKey, signDelegate } from "../near/delegate.ts";
 import { assertOwner, getPasskeyKey, loadStoredKey } from "../near/key.ts";
 
@@ -41,3 +42,68 @@ export async function signAndRelay(key: MerchantKey, actions: DelegateParams["ac
   });
   return api("POST", "/console/relay", { signedDelegate });
 }
+
+export type TokenMeta = { symbol: string; decimals: number };
+/// A row of GET /console/invoices.
+export type Invoice = {
+  id: number;
+  gateway: number;
+  token: string;
+  amount: string;
+  expires_at_sec: number;
+  memo: string | null;
+  status: string;
+  payment: number | null;
+  tokenMeta: TokenMeta;
+};
+/// A row of GET /console/payments.
+export type Payment = {
+  id: number;
+  gateway: number;
+  invoice: number;
+  payer: string;
+  refund_to: string;
+  token: string;
+  amount: string;
+  reference: string | null;
+  deposit_address: string | null;
+  opened_at_sec: number;
+  max_risk: number;
+  status: string;
+  tokenMeta: TokenMeta;
+};
+
+export const amountOf = (x: { amount: string; tokenMeta: TokenMeta }) => formatAmount(BigInt(x.amount), x.tokenMeta.decimals);
+
+/// Settled payments opened on `now`'s local calendar day, summed per token (the contract stores no settle time).
+export function settledToday(payments: Payment[], now: Date): { symbol: string; amount: string }[] {
+  const day = (sec: number) => new Date(sec * 1000).toDateString();
+  const sums = new Map<string, { meta: TokenMeta; raw: bigint }>();
+  for (const p of payments) {
+    if (p.status !== "Settled" || day(p.opened_at_sec) !== now.toDateString()) continue;
+    const s = sums.get(p.token) ?? { meta: p.tokenMeta, raw: 0n };
+    s.raw += BigInt(p.amount);
+    sums.set(p.token, s);
+  }
+  return [...sums.values()].map((s) => ({ symbol: s.meta.symbol, amount: formatAmount(s.raw, s.meta.decimals) }));
+}
+
+/// Invoices and payments matching by id, exact amount, symbol, memo or payer.
+export function searchMatches(q: string, invoices: Invoice[], payments: Payment[]): { kind: "invoice" | "payment"; id: number; label: string }[] {
+  const t = q.trim().toLowerCase();
+  if (!t) return [];
+  const id = t.replace(/^#/, "");
+  const hit = (x: { id: number; amount: string; tokenMeta: TokenMeta }, texts: (string | null)[]) =>
+    String(x.id) === id || amountOf(x) === t || texts.some((s) => s?.toLowerCase().includes(t));
+  return [
+    ...invoices
+      .filter((i) => hit(i, [i.tokenMeta.symbol, i.memo]))
+      .map((i) => ({ kind: "invoice" as const, id: i.id, label: `${amountOf(i)} ${i.tokenMeta.symbol}${i.memo ? ` · ${i.memo}` : ""}` })),
+    ...payments
+      .filter((p) => hit(p, [p.tokenMeta.symbol, p.payer, p.refund_to]))
+      .map((p) => ({ kind: "payment" as const, id: p.id, label: `${payerLabel(p)} · ${amountOf(p)} ${p.tokenMeta.symbol}` })),
+  ];
+}
+
+/// The payer to show: the NEAR refund account for 1Click deliveries (sent by intents.near), else the sender.
+export const payerLabel = (p: Payment) => (p.reference ? p.refund_to : p.payer);
