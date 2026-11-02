@@ -135,7 +135,7 @@ cd ../relay && GATEFLOW_CONTRACT=<contract> RELAY_ACCOUNT_ID=<operator> RELAY_PR
 | `NEAR_RPC_URL` | `https://rpc.testnet.fastnear.com` | NEAR RPC |
 | `ONECLICK_URL`, `ONECLICK_API_KEY`, `EVM_CHAINS` | 1Click v0, none, `base,eth,arb` | NEAR Intents 1Click endpoint, optional key, and the EVM origins the enclave can screen |
 | `VITE_NEAR_NETWORK` (web build) | `testnet` | Network for the checkout's NEAR wallets |
-| `VITE_REOWN_PROJECT_ID` (web build) | none | Reserved for the Ethereum-wallet payer option, which is not wired yet (follow-up in `openspec/changes/archive/2026-11-01-web-console-checkout/tasks.md`) |
+| `VITE_REOWN_PROJECT_ID` (web build) | none | Reserved for the Ethereum-wallet payer option, which is not wired yet (out of scope in `openspec/changes/web-from-scratch/proposal.md`) |
 
 ### The merchant's side
 
@@ -154,5 +154,7 @@ Relay modules, tests and the testnet dev deployment are in [`relay/README.md`](r
 - The contract, the enclave and the relay are implemented and unit-tested.
 - The enclave has been checked against the live screening APIs in a local wasmtime run, but has not yet run on OutLayer, because FastFS testnet was down.
 - The relay runs against a testnet dev deployment (`gateflow-dev-v1.testnet`): merchant onboarding, sponsored `create_gateway` and `create_invoice`, fuel funding and the checkout views. A dry 1Click quote passes against the live API. See [`relay/README.md`](relay/README.md).
-- `web/` (the console and the checkout page) and `GOAL.md` are not yet in this repository.
+- `web/` (the console and the checkout page) is implemented and unit-tested. Every screen is translated from the `design/` exports. It has been checked against a local relay with in-memory contract and 1Click fakes, with virtual passkeys (with and without PRF); see [`web/README.md`](web/README.md). It has not yet run against the testnet dev deployment, and no payment has been sent through it.
+- Still open for the payer: the Ethereum-wallet option and a live cross-chain payment (1Click is mainnet only).
+- `GOAL.md` is not yet in this repository.
 - Not yet run on mainnet: deployment, enclave registration and live USDC / BTC / ZEC payments. Tracked in [`openspec/changes/mainnet-launch/tasks.md`](openspec/changes/mainnet-launch/tasks.md).
