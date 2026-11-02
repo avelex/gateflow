@@ -75,7 +75,7 @@ The relay SHALL quote only origin assets whose 1Click chain is a configured EVM 
 
 
 ### Requirement: Checkout invoice details
-`GET /checkout/invoice?id=<invoice id>` SHALL return the invoice's amount, token symbol and decimals, expiry, status and gateway, the merchant's display name, and, when the invoice has a payment, that payment's status and refund account. It SHALL answer 404 for an unknown invoice.
+`GET /checkout/invoice?id=<invoice id>` SHALL return the invoice's amount, token symbol and decimals, expiry, status and gateway, the merchant's display name, the Gateflow contract account, and, when the invoice has a payment, that payment's status and refund account. It SHALL answer 404 for an unknown invoice.
 
 #### Scenario: Paying invoice
 - **WHEN** the page requests an invoice whose payment is Pending
@@ -84,6 +84,10 @@ The relay SHALL quote only origin assets whose 1Click chain is a configured EVM 
 #### Scenario: Unknown invoice
 - **WHEN** the page requests an invoice id that does not exist
 - **THEN** the relay answers 404
+
+#### Scenario: Contract account included
+- **WHEN** the relay runs with `GATEFLOW_CONTRACT` `gateflow.near` and the page requests an Open invoice
+- **THEN** the response's `contract` is `gateflow.near`
 
 ### Requirement: Quotable origin assets
 `GET /checkout/assets` SHALL return the 1Click assets whose chain can be screened (the configured EVM chains, Bitcoin and Zcash) with asset id, chain and symbol.

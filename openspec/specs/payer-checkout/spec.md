@@ -25,15 +25,19 @@ For an invoice that is Paid, Returned, or Open past its expiry, the page SHALL s
 - **THEN** the page shows "This invoice has expired" and no payment options
 
 ### Requirement: Pay with a NEAR wallet
-The page SHALL offer paying from a NEAR wallet through wallet-selector by calling `ft_transfer_call` on the invoice token to the Gateflow contract with the invoice amount and `msg` `{"gateway": <id>, "invoice": <id>}`. Before payment it SHALL warn that current screening refunds payments sent from named NEAR accounts such as `alice.near`.
+The page SHALL offer paying from a NEAR wallet through wallet-selector by calling `ft_transfer_call` on the invoice token to the Gateflow contract with the invoice amount and `msg` `{"invoice": <id>}`. Before payment it SHALL warn that current screening refunds payments sent from named NEAR accounts such as `alice.near`, and that paying from another chain avoids this.
 
 #### Scenario: Named account warned
 - **WHEN** a payer chooses the NEAR wallet option
-- **THEN** the page shows the named-account warning before the wallet opens
+- **THEN** the page shows the named-account warning, pointing to paying from another chain, before the wallet opens
 
 #### Scenario: Direct payment sent
 - **WHEN** the wallet confirms the transfer
 - **THEN** the page switches to the status timeline for that invoice
+
+#### Scenario: Message names the invoice only
+- **WHEN** a payer pays invoice 7 from a NEAR wallet
+- **THEN** the `ft_transfer_call` carries `msg` exactly `{"invoice":7}`, with no gateway field
 
 ### Requirement: Pay from another chain
 The page SHALL let the payer pick an origin asset from the quotable 1Click assets, enter a refund address on that chain (used if the swap fails) and a NEAR account (used if screening returns the payment), and request a quote. It SHALL then show the exact amount to send, the deposit address with a QR code and copy action, an optional memo, and the quote deadline as a countdown.
