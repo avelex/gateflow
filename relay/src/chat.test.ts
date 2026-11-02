@@ -513,3 +513,38 @@ test("outcome_message_appended", async () => {
   assert.equal(out.text, "Retry of payment #2 requested");
   assert.deepEqual(out.cards, [{ type: "status", invoiceId: 1 }]);
 });
+
+// ---------- final review fixes ----------
+
+test("send_throw_marks_action_failed", async () => {
+  const { deps, relay, actionId } = await withAction();
+  deps.near.send = async () => {
+    throw new Error("RELAY_PRIVATE_KEY is not set");
+  };
+  assert.equal((await relay([fnCall("create_invoice", invoiceParams)])).status, 502);
+  const a = deps.db.action(actionId, "kaja@example.com")!;
+  assert.equal(a.status, "failed");
+  assert.match(a.result.error, /RELAY_PRIVATE_KEY/);
+
+  const r = await withAction("retry", { payment: 2 });
+  r.deps.near.send = async () => {
+    throw new Error("fetch failed");
+  };
+  assert.equal((await r.action("/console/actions/confirm", { id: r.actionId })).status, 502);
+  assert.equal(r.deps.db.action(r.actionId, "kaja@example.com")!.status, "failed");
+});
+
+test("complete_has_timeout", async () => {
+  const realFetch = globalThis.fetch;
+  let signal: AbortSignal | undefined;
+  globalThis.fetch = (async (_url: string, init: any) => {
+    signal = init.signal;
+    return new Response(JSON.stringify({ choices: [{ message: { content: "hi" } }] }));
+  }) as any;
+  try {
+    await llmClient({ llmBaseUrl: "https://llm.test/v1", llmApiKey: "k", llmModel: "m" }).complete([], []);
+    assert.ok(signal instanceof AbortSignal);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});

@@ -1,7 +1,9 @@
 // The console assistant: model client, tools and the bounded tool loop (design decisions 2 to 9).
-import { finishAction, newestFirst, readGateway, requireAction, requireGateway, requireSession, retryablePayment, sendRetry, tokenMeta, type TokenMeta, withMeta } from "./console.ts";
+import { finishAction, newestFirst, submitClaimed, readGateway, requireAction, requireGateway, requireSession, retryablePayment, sendRetry, tokenMeta, type TokenMeta, withMeta } from "./console.ts";
 import type { Card, Merchant, Message } from "./db.ts";
 import { type ChatMessage, type Completion, type Config, type Deps, type Handler, HttpError, type Llm, ok, type ToolDef } from "./types.ts";
+
+const LLM_TIMEOUT_MS = 60_000;
 
 /// OpenAI-compatible `/chat/completions` client over plain fetch. Tool schemas carry no `strict` flag.
 export function llmClient(cfg: Pick<Config, "llmBaseUrl" | "llmApiKey" | "llmModel">): Llm {
@@ -10,6 +12,7 @@ export function llmClient(cfg: Pick<Config, "llmBaseUrl" | "llmApiKey" | "llmMod
       const res = await fetch(`${cfg.llmBaseUrl}/chat/completions`, {
         method: "POST",
         headers: { "content-type": "application/json", authorization: `Bearer ${cfg.llmApiKey}` },
+        signal: AbortSignal.timeout(LLM_TIMEOUT_MS),
         body: JSON.stringify({ model: cfg.llmModel, messages, ...(tools.length ? { tools: tools.map((t) => ({ type: "function", function: t })) } : {}) }),
       });
       if (!res.ok) throw new Error(`model endpoint ${res.status}`);
@@ -406,7 +409,7 @@ const confirm: Handler = async (req, deps) => {
   if (a.status !== "pending") throw new HttpError(409, `action is ${a.status}`);
   const p = await retryablePayment(deps, m.gateway_id, a.params.payment);
   if (!deps.db.claimAction(a.id)) throw new HttpError(409, "action already confirmed");
-  const r = await sendRetry(deps, a.params.payment);
+  const r = await submitClaimed(deps, a, () => sendRetry(deps, a.params.payment));
   if (r.error) {
     finishAction(deps.db, a, "failed", { error: r.error }, deps.now());
     throw new HttpError(422, r.error);

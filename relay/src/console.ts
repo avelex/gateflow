@@ -162,6 +162,16 @@ export function finishAction(db: Db, a: ChatAction, status: "done" | "failed", r
   if (outcome) db.addMessage({ thread_id: a.thread_id, role: "assistant", text: outcome.text, trace: [], cards: outcome.cards, created_at: Math.floor(nowMs / 1000) });
 }
 
+/// Runs `send` for a claimed action; if it throws, the action is marked failed rather than left "done" without a result.
+export async function submitClaimed<T>(deps: Deps, action: ChatAction | undefined, send: () => Promise<T>): Promise<T> {
+  try {
+    return await send();
+  } catch (e) {
+    if (action) finishAction(deps.db, action, "failed", { error: `not submitted: ${(e as Error).message}` }, deps.now());
+    throw e;
+  }
+}
+
 /// Refuses a delegate that is not exactly the confirmed action, then claims the action once (design decision 5).
 function bindAction(deps: Deps, d: ReturnType<typeof decodeSignedDelegate>, actionId: unknown, email: string): ChatAction {
   const a = requireAction(deps, actionId, email);
@@ -195,7 +205,7 @@ const relay: Handler = async (req, deps) => {
   if (createsGateway && m.gateway_id !== null) throw new HttpError(409, "you already have a gateway");
   const action = req.body?.actionId === undefined ? undefined : bindAction(deps, d, req.body.actionId, m.email);
 
-  const r = await deps.near.send(d.senderId, [{ signedDelegate: d.raw }], deps.cfg.gateflow);
+  const r = await submitClaimed(deps, action, () => deps.near.send(d.senderId, [{ signedDelegate: d.raw }], deps.cfg.gateflow));
   if (action && r.error) finishAction(deps.db, action, "failed", { error: r.error }, deps.now());
   else if (action) {
     const outcome =
