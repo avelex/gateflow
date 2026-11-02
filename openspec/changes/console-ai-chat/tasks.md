@@ -71,7 +71,7 @@
   2. `settled_totals` follows design decision 9.
   3. Results use decimal amounts with symbols, and statuses are lowercase. Foreign ids return `{ error: "not found" }`.
   4. Commit `feat(relay): assistant read tools`.
-- [ ] 1.3 Add the write proposals. Verify that `node --test` passes:
+- [x] 1.3 Add the write proposals. Verify that `node --test` passes:
   - `create_invoice_proposal_normalized`: "0.01" nBTC with 8 decimals gives the raw `"1000000"`, and 1 hour gives `expires_in_sec` 3600.
   - `create_invoice_too_precise_rejected`
   - `create_invoice_memo_too_long_rejected`

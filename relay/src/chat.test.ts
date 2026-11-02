@@ -173,3 +173,77 @@ test("gateway_settings_shape", async () => {
     { token: "usdc.testnet", symbol: "USDC", decimals: 6, enabled: false },
   ]);
 });
+
+// ---------- write proposals ----------
+
+import { writeTools } from "./chat.ts";
+
+function proposing(over: Partial<Merchant> = {}) {
+  const deps = fakeDeps();
+  chain(deps);
+  const threadId = deps.db.createThread("kaja@example.com", "t", NOW_SEC);
+  const propose = (name: string, args: any) => writeTools(deps)[name].run(args, kaja(over), threadId);
+  return { deps, threadId, propose };
+}
+
+test("create_invoice_proposal_normalized", async () => {
+  const { deps, threadId, propose } = proposing();
+  const out: any = await propose("create_invoice", { token: "nBTC", amount: "0.01", expires_in: 1 });
+  assert.deepEqual(out, { actionId: 1, summary: "Create invoice 0.01 nBTC, expires in 1 hour" });
+  assert.deepEqual(deps.db.action(1, "kaja@example.com"), {
+    id: 1,
+    thread_id: threadId,
+    email: "kaja@example.com",
+    kind: "create_invoice",
+    params: { gateway: 0, token: "nbtc.testnet", amount: "1000000", expires_in_sec: 3600 },
+    status: "pending",
+    result: null,
+  });
+  const memo: any = await propose("create_invoice", { token: "usdc.testnet", amount: "12.5", expires_in: 48, memo: "  table 4 " });
+  assert.equal(memo.summary, 'Create invoice 12.5 USDC, expires in 48 hours, memo "table 4"');
+  assert.deepEqual(deps.db.action(memo.actionId, "kaja@example.com")!.params, { gateway: 0, token: "usdc.testnet", amount: "12500000", expires_in_sec: 172800, memo: "table 4" });
+});
+
+test("create_invoice_too_precise_rejected", async () => {
+  const { deps, propose } = proposing();
+  const out: any = await propose("create_invoice", { token: "nBTC", amount: "0.000000001", expires_in: 1 });
+  assert.match(out.error, /at most 8 decimals/);
+  assert.ok("error" in ((await propose("create_invoice", { token: "nBTC", amount: "0", expires_in: 1 })) as any));
+  assert.ok("error" in ((await propose("create_invoice", { token: "nBTC", amount: "0.01", expires_in: 721 })) as any));
+  assert.ok("error" in ((await propose("create_invoice", { token: "nBTC", amount: "0.01", expires_in: 0.5 })) as any));
+  assert.equal(deps.db.action(1, "kaja@example.com"), undefined);
+});
+
+test("create_invoice_memo_too_long_rejected", async () => {
+  const { deps, propose } = proposing();
+  const out: any = await propose("create_invoice", { token: "nBTC", amount: "0.01", expires_in: 1, memo: "é".repeat(100) });
+  assert.match(out.error, /140 bytes/);
+  assert.equal(deps.db.action(1, "kaja@example.com"), undefined);
+});
+
+test("create_invoice_disabled_token_rejected", async () => {
+  const { deps, propose } = proposing({ tokens_off: ["nbtc.testnet"] });
+  assert.match(((await propose("create_invoice", { token: "nBTC", amount: "0.01", expires_in: 1 })) as any).error, /switched off/);
+  assert.match(((await propose("create_invoice", { token: "DOGE", amount: "1", expires_in: 1 })) as any).error, /not accepted/);
+  assert.equal(deps.db.action(1, "kaja@example.com"), undefined);
+});
+
+test("risk_out_of_range_rejected", async () => {
+  const { deps, propose } = proposing();
+  assert.ok("error" in ((await propose("set_risk_tolerance", { max_risk: 81 })) as any));
+  assert.ok("error" in ((await propose("set_risk_tolerance", { max_risk: -1 })) as any));
+  assert.ok("error" in ((await propose("set_risk_tolerance", { max_risk: 2.5 })) as any));
+  assert.equal(deps.db.action(1, "kaja@example.com"), undefined);
+  assert.deepEqual(await propose("set_risk_tolerance", { max_risk: 20 }), { actionId: 1, summary: "Set risk tolerance to 20 (now 50)" });
+  assert.deepEqual(deps.db.action(1, "kaja@example.com")!.params, { gateway: 0, policy: { max_risk: 20 } });
+  assert.equal(deps.db.action(1, "kaja@example.com")!.kind, "set_policy");
+});
+
+test("retry_not_failed_rejected", async () => {
+  const { deps, propose } = proposing();
+  assert.match(((await propose("retry_payment", { id: 0 })) as any).error, /only failed/);
+  assert.deepEqual(await propose("retry_payment", { id: 3 }), { error: "not found" });
+  assert.equal(deps.db.action(1, "kaja@example.com"), undefined);
+  assert.deepEqual(await propose("retry_payment", { id: 2 }), { actionId: 1, summary: "Retry payment #2 of 0.000001 nBTC" });
+  assert.deepEqual(deps.db.action(1, "kaja@example.com")!.params, { payment: 2 });
+});
