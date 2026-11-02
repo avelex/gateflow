@@ -188,7 +188,7 @@
      - `checkout_invoice_404`.
      - `checkout_invoice_paying`: the payment status and `refund_to` are included, along with the merchant name.
   2. FAIL. 3. Implement. 4. PASS. 5. Commit `feat(relay): checkout invoice and assets`.
-- [ ] 4.2 Quote, status and screen. Verify that `npm test` passes the tests below
+- [x] 4.2 Quote, status and screen. Verify that `npm test` passes the tests below
   **Produces:** `quoteRequest(p: {invoiceId: number; amount: string; originAsset; destinationAsset; refundTo; refundOnNear; ref; recipient; deadlineMs: number; dry: boolean}): object`, plus `POST /checkout/quote`, `GET /checkout/status` and `POST /checkout/screen`.
   1. Tests:
      - `quote_request_shape`: an exact `deepEqual`, including `customRecipientMsg === '{"invoice":7,"ref":"<ref>","refund_to":"bob.near"}'`.

@@ -58,3 +58,164 @@ test("checkout_invoice_paying", async () => {
   assert.equal(j.decimals, 6);
   assert.equal(res.headers?.["access-control-allow-origin"], "*");
 });
+
+// ---------- quotes, status, screen ----------
+
+import { quoteRequest } from "./checkout.ts";
+
+const REF = "0123456789abcdef0123456789abcdef";
+const DEP = "0x1111111111111111111111111111111111111111";
+const body = { invoice: 7, originAsset: BASE_USDC, refundTo: "0x2222222222222222222222222222222222222222", refundOnNear: "bob.near" };
+
+function quoting(deps: TestDeps) {
+  withInvoice(deps);
+  deps.oneclick.tokenList = TOKENS;
+  deps.oneclick.quoteReply = { quote: { depositAddress: DEP, amountIn: "10050000", amountInFormatted: "10.05", deadline: new Date(deps.now() + 1800000).toISOString() } };
+}
+
+test("quote_request_shape", () => {
+  assert.deepEqual(
+    quoteRequest({ invoiceId: 7, amount: "10000000", originAsset: BASE_USDC, destinationAsset: `nep141:${USDC}`, refundTo: "0x22", refundOnNear: "bob.near", ref: REF, recipient: "gateflow.testnet", deadlineMs: Date.UTC(2026, 10, 2, 12, 30), dry: false }),
+    {
+      dry: false,
+      swapType: "EXACT_OUTPUT",
+      slippageTolerance: 100,
+      originAsset: BASE_USDC,
+      depositType: "ORIGIN_CHAIN",
+      destinationAsset: `nep141:${USDC}`,
+      amount: "10000000",
+      refundTo: "0x22",
+      refundType: "ORIGIN_CHAIN",
+      recipient: "gateflow.testnet",
+      recipientType: "DESTINATION_CHAIN",
+      deadline: "2026-11-02T12:30:00.000Z",
+      customRecipientMsg: `{"invoice":7,"ref":"${REF}","refund_to":"bob.near"}`,
+    },
+  );
+});
+
+test("quote_records_row", async () => {
+  const deps = fakeDeps();
+  quoting(deps);
+  const res = await call(deps, "POST", "/checkout/quote", body);
+  assert.equal(res.status, 200);
+  const j = res.json as any;
+  assert.match(j.ref, /^[0-9a-f]{32}$/);
+  assert.equal(j.depositAddress, DEP);
+  assert.equal(j.amountIn, "10050000");
+  const sent = deps.oneclick.quotes[0];
+  assert.equal(sent.recipient, "gateflow.testnet");
+  assert.equal(sent.destinationAsset, `nep141:${USDC}`);
+  assert.equal(sent.customRecipientMsg, `{"invoice":7,"ref":"${j.ref}","refund_to":"bob.near"}`);
+  assert.equal(deps.db.quoteByDeposit(DEP)?.ref, j.ref);
+});
+
+test("quote_bad_refund_on_near_400", async () => {
+  const deps = fakeDeps();
+  quoting(deps);
+  const res = await call(deps, "POST", "/checkout/quote", { ...body, refundOnNear: "Bob!" });
+  assert.deepEqual(res.json, { error: "not a NEAR account id" });
+  assert.equal(res.status, 400);
+});
+
+test("quote_unknown_invoice_404", async () => {
+  const deps = fakeDeps();
+  quoting(deps);
+  assert.equal((await call(deps, "POST", "/checkout/quote", { ...body, invoice: 8 })).status, 404);
+  assert.deepEqual(deps.oneclick.calls, []);
+});
+
+test("quote_expired_409", async () => {
+  const deps = fakeDeps();
+  quoting(deps);
+  withInvoice(deps, { expires_at_sec: deps.now() / 1000 - 1 });
+  assert.equal((await call(deps, "POST", "/checkout/quote", body)).status, 409);
+  withInvoice(deps, { status: "Paid" });
+  assert.equal((await call(deps, "POST", "/checkout/quote", body)).status, 409);
+  assert.deepEqual(deps.oneclick.quotes, []);
+});
+
+test("quote_solana_422", async () => {
+  const deps = fakeDeps();
+  quoting(deps);
+  const res = await call(deps, "POST", "/checkout/quote", { ...body, originAsset: SOL_USDC });
+  assert.deepEqual(res, { status: 422, json: { error: "this origin chain can't be screened" }, headers: res.headers });
+  assert.deepEqual(deps.oneclick.quotes, []);
+});
+
+test("quote_undeliverable_token", async () => {
+  const deps = fakeDeps();
+  quoting(deps);
+  withInvoice(deps, { token: "wrap.testnet" });
+  deps.near.viewTable["wrap.testnet.ft_metadata"] = { symbol: "wNEAR", decimals: 24 };
+  const res = await call(deps, "POST", "/checkout/quote", body);
+  assert.equal(res.status, 502);
+  assert.deepEqual(deps.oneclick.quotes, []);
+  assert.equal(deps.db.openQuotes(deps.now()).length, 0);
+});
+
+test("quote_upstream_502", async () => {
+  const deps = fakeDeps();
+  quoting(deps);
+  deps.oneclick.quoteReply = new Error("1Click 500");
+  assert.equal((await call(deps, "POST", "/checkout/quote", body)).status, 502);
+  assert.equal(deps.db.openQuotes(deps.now()).length, 0);
+});
+
+test("deadline_capped_by_expiry", async () => {
+  const deps = fakeDeps();
+  quoting(deps);
+  withInvoice(deps, { expires_at_sec: deps.now() / 1000 + 600 });
+  await call(deps, "POST", "/checkout/quote", body);
+  assert.equal(deps.oneclick.quotes[0].deadline, new Date(deps.now() + 600000).toISOString());
+});
+
+test("status_includes_screening", async () => {
+  const deps = fakeDeps();
+  deps.db.insertQuote({ ref: REF, invoice: 7, deposit_address: DEP, deadline_ms: deps.now() });
+  deps.oneclick.statuses[DEP] = { status: "SUCCESS" };
+  assert.deepEqual((await call(deps, "GET", `/checkout/status?depositAddress=${DEP}`)).json, { status: "SUCCESS", screening: false });
+  deps.db.markQuote(REF, { screened: true });
+  assert.deepEqual((await call(deps, "GET", `/checkout/status?depositAddress=${DEP}`)).json, { status: "SUCCESS", screening: true });
+  assert.equal((await call(deps, "GET", "/checkout/status")).status, 400);
+});
+
+function screening(deps: TestDeps, payment: unknown, status = "SUCCESS") {
+  deps.near.viewTable["gateflow.testnet.get_payment_by_ref"] = ({ reference }: any) => (reference === REF ? payment : null);
+  deps.oneclick.statuses[DEP] = { status };
+}
+
+test("screen_unknown_ref_404", async () => {
+  const deps = fakeDeps();
+  screening(deps, null);
+  assert.equal((await call(deps, "POST", "/checkout/screen", { depositAddress: DEP, ref: REF })).status, 404);
+  assert.deepEqual(deps.oneclick.calls, []);
+});
+
+test("screen_bad_ref_400", async () => {
+  const deps = fakeDeps();
+  assert.equal((await call(deps, "POST", "/checkout/screen", { depositAddress: DEP, ref: "XYZ" })).status, 400);
+});
+
+test("screen_pending_409", async () => {
+  const deps = fakeDeps();
+  screening(deps, [4, { status: "Pending" }], "PENDING_DEPOSIT");
+  const res = await call(deps, "POST", "/checkout/screen", { depositAddress: DEP, ref: REF });
+  assert.equal(res.status, 409);
+  assert.deepEqual(res.json, { error: "PENDING_DEPOSIT" });
+  assert.equal(deps.near.sent.length, 0);
+});
+
+test("screen_success_sends_screen_intents", async () => {
+  const deps = fakeDeps();
+  deps.db.insertQuote({ ref: REF, invoice: 7, deposit_address: DEP, deadline_ms: deps.now() });
+  screening(deps, [4, { status: "Pending" }]);
+  const res = await call(deps, "POST", "/checkout/screen", { depositAddress: DEP, ref: REF });
+  assert.deepEqual(res.json, { payment: 4, txHash: "h1" });
+  const fc = (deps.near.sent[0].actions[0] as any).functionCall;
+  assert.equal(deps.near.sent[0].receiver, "gateflow.testnet");
+  assert.equal(fc.method, "screen_intents");
+  assert.deepEqual(fc.args, { payment: 4, deposit_address: DEP });
+  assert.equal(fc.gas, 300n * 10n ** 12n);
+  assert.equal(deps.db.quoteByRef(REF)?.screened, 1);
+});

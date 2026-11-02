@@ -1,6 +1,44 @@
 // /checkout/* API: public invoice details, quotable assets, 1Click quotes with a `ref`, status and deferred screening.
+import { randomBytes } from "node:crypto";
 import { tokenMeta } from "./console.ts";
-import { type Handler, HttpError, ok } from "./types.ts";
+import { type Deps, type Handler, HttpError, ok } from "./types.ts";
+
+const TGAS = 10n ** 12n;
+const NEAR_ACCOUNT = /^(([a-z\d]+[-_])*[a-z\d]+\.)*([a-z\d]+[-_])*[a-z\d]+$/;
+const REF = /^[0-9a-f]{32}$/;
+const QUOTE_TTL_MS = 30 * 60 * 1000;
+
+export const isNearAccount = (s: unknown): s is string => typeof s === "string" && s.length >= 2 && s.length <= 64 && NEAR_ACCOUNT.test(s);
+
+/// The 1Click `/v0/quote` body: an EXACT_OUTPUT swap delivering `amount` of `destinationAsset` to the Gateflow contract.
+export function quoteRequest(p: {
+  invoiceId: number;
+  amount: string;
+  originAsset: string;
+  destinationAsset: string;
+  refundTo: string;
+  refundOnNear: string;
+  ref: string;
+  recipient: string;
+  deadlineMs: number;
+  dry: boolean;
+}): object {
+  return {
+    dry: p.dry,
+    swapType: "EXACT_OUTPUT",
+    slippageTolerance: 100,
+    originAsset: p.originAsset,
+    depositType: "ORIGIN_CHAIN",
+    destinationAsset: p.destinationAsset,
+    amount: p.amount,
+    refundTo: p.refundTo,
+    refundType: "ORIGIN_CHAIN",
+    recipient: p.recipient,
+    recipientType: "DESTINATION_CHAIN",
+    deadline: new Date(p.deadlineMs).toISOString(),
+    customRecipientMsg: JSON.stringify({ invoice: p.invoiceId, ref: p.ref, refund_to: p.refundOnNear }),
+  };
+}
 
 /// The NEAR-delivered 1Click asset for a NEP-141 token, preferring the `1cs_v1:near:` form.
 export function destinationAsset(tokens: any[], token: string): string | undefined {
@@ -48,7 +86,82 @@ const assets: Handler = async (_req, deps) => {
   );
 };
 
+const quote: Handler = async (req, deps) => {
+  const b = req.body ?? {};
+  const id = invoiceId(b.invoice);
+  if (!isNearAccount(b.refundOnNear)) throw new HttpError(400, "not a NEAR account id");
+  if (typeof b.refundTo !== "string" || !b.refundTo || b.refundTo.length > 128) throw new HttpError(400, "refundTo must be an origin-chain address");
+  if (typeof b.originAsset !== "string" || !b.originAsset) throw new HttpError(400, "originAsset is required");
+
+  const inv = await deps.near.view(deps.cfg.gateflow, "get_invoice", { invoice: id });
+  if (!inv) throw new HttpError(404, "invoice not found");
+  const expiresMs = inv.expires_at_sec * 1000;
+  if (inv.status !== "Open" || expiresMs <= deps.now()) throw new HttpError(409, "invoice is not payable");
+
+  const tokens = await deps.oneclick.tokens();
+  if (!screenable(originChain(tokens, b.originAsset), deps.cfg.evmChains)) throw new HttpError(422, "this origin chain can't be screened");
+  const destination = destinationAsset(tokens, inv.token);
+  if (!destination) throw new HttpError(502, "gateway token not deliverable by 1Click");
+
+  const ref = randomBytes(16).toString("hex");
+  const deadlineMs = Math.min(deps.now() + QUOTE_TTL_MS, expiresMs);
+  const body = quoteRequest({
+    invoiceId: id,
+    amount: inv.amount,
+    originAsset: b.originAsset,
+    destinationAsset: destination,
+    refundTo: b.refundTo,
+    refundOnNear: b.refundOnNear,
+    ref,
+    recipient: deps.cfg.gateflow,
+    deadlineMs,
+    dry: false,
+  });
+  const reply = await deps.oneclick.quote(body);
+  const q = reply?.quote;
+  if (!q?.depositAddress) throw new HttpError(502, "1Click returned no deposit address");
+  const deadline = q.deadline ?? new Date(deadlineMs).toISOString();
+  deps.db.insertQuote({ ref, invoice: id, deposit_address: q.depositAddress, deadline_ms: Date.parse(deadline) || deadlineMs });
+  return ok({ ref, depositAddress: q.depositAddress, depositMemo: q.depositMemo ?? null, amountIn: q.amountIn, amountInFormatted: q.amountInFormatted ?? null, deadline });
+};
+
+function depositAddressOf(raw: unknown): string {
+  if (typeof raw !== "string" || !raw || raw.length > 128) throw new HttpError(400, "depositAddress is required");
+  return raw;
+}
+
+const status: Handler = async (req, deps) => {
+  const addr = depositAddressOf(req.query.get("depositAddress"));
+  const st = await deps.oneclick.status(addr);
+  return ok({ status: st?.status ?? "UNKNOWN", screening: deps.db.quoteByDeposit(addr)?.screened === 1 });
+};
+
+/// Sends `screen_intents` from the relay account. "screening already started" counts as done.
+export async function submitScreening(deps: Deps, ref: string, payment: number, depositAddress: string): Promise<{ txHash: string | null }> {
+  const r = await deps.near.send(deps.cfg.gateflow, [
+    { functionCall: { method: "screen_intents", args: { payment, deposit_address: depositAddress }, gas: 300n * TGAS, deposit: 0n } },
+  ]);
+  if (r.error && !r.error.includes("screening already started")) throw new HttpError(422, r.error);
+  deps.db.markQuote(ref, { status: "SUCCESS", screened: true });
+  return { txHash: r.error ? null : r.hash };
+}
+
+const screen: Handler = async (req, deps) => {
+  const ref = req.body?.ref;
+  if (typeof ref !== "string" || !REF.test(ref)) throw new HttpError(400, "ref must be 32 lowercase hex characters");
+  const addr = depositAddressOf(req.body?.depositAddress);
+  const found = await deps.near.view(deps.cfg.gateflow, "get_payment_by_ref", { reference: ref });
+  if (!found) throw new HttpError(404, "no payment for this ref yet");
+  const st = await deps.oneclick.status(addr);
+  if (st?.status !== "SUCCESS") throw new HttpError(409, String(st?.status ?? "UNKNOWN"));
+  const [payment] = found;
+  return ok({ payment, ...(await submitScreening(deps, ref, payment, addr)) });
+};
+
 export const checkoutRoutes: Record<string, Handler> = {
   "GET /checkout/invoice": invoice,
   "GET /checkout/assets": assets,
+  "POST /checkout/quote": quote,
+  "GET /checkout/status": status,
+  "POST /checkout/screen": screen,
 };
