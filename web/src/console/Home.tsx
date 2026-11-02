@@ -1,14 +1,19 @@
-// The export's "New chat" screen as Home: greeting, today's settled totals, and the assistant composer (disabled).
+// The export's "New chat" screen as Home: greeting, today's settled totals, the assistant composer and hint chips.
 import { useEffect, useState } from "react";
+import { navigate } from "../App.tsx";
 import { tokenIcon } from "../assets.ts";
-import { Button, IconButton } from "../ds.jsx";
+import { Button, Icon } from "../ds.jsx";
 import type { ScreenProps } from "./Layout.tsx";
-import { settledToday } from "./logic.ts";
+import { ask, settledToday } from "./logic.ts";
+
+export const HINTS = ["Create invoice for 0.01 BTC", "Which invoices are unpaid?", "What was returned this week?", "Lower my risk tolerance"];
 
 const greeting = (h: number) => (h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening");
 
 export default function Home({ data }: ScreenProps) {
   const [tick, setTick] = useState(0);
+  const [draft, setDraft] = useState("");
+  const send = (text: string) => ask(text, navigate);
   useEffect(() => {
     const t = setInterval(() => setTick((n) => n + 1), 4200);
     return () => clearInterval(t);
@@ -37,12 +42,26 @@ export default function Home({ data }: ScreenProps) {
         </div>
 
         <div style={{ background: "var(--surface-card)", border: "1px solid var(--border-2)", borderRadius: "var(--radius-3)", boxShadow: "var(--shadow-1)", padding: "16px 12px 10px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
-          <textarea rows={3} disabled placeholder="Assistant coming soon" style={{ border: 0, outline: 0, resize: "none", fontFamily: "var(--font-sans)", fontSize: 16, lineHeight: "24px", background: "transparent", color: "var(--text-1)", padding: 0, width: "100%" }} />
+          <textarea
+            rows={3}
+            aria-label="Ask Gateflow"
+            placeholder="Ask Gateflow to create an invoice or check a payment"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), send(draft))}
+            style={{ border: 0, outline: 0, resize: "none", fontFamily: "var(--font-sans)", fontSize: 16, lineHeight: "24px", background: "transparent", color: "var(--text-1)", padding: 0, width: "100%" }} />
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <IconButton icon="paperclip" label="Attach file" size="sm" disabled />
             <span style={{ flex: 1 }} />
-            <Button variant="primary" size="sm" icon="arrow-up" disabled />
+            <Button variant="primary" size="sm" icon="arrow-up" disabled={!draft.trim()} onClick={() => send(draft)} />
           </div>
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {HINTS.map((h) => (
+            <div key={h} className="hv" onClick={() => send(h)} style={{ display: "flex", alignItems: "center", gap: 6, height: 32, padding: "0 12px", border: "1px solid var(--border-2)", borderRadius: "var(--radius-2)", background: "var(--surface-card)", fontSize: 13, color: "var(--text-2)", cursor: "pointer" }}>
+              <Icon name="sparkles" size={13} />
+              {h}
+            </div>
+          ))}
         </div>
       </div>
     </div>

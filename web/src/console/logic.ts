@@ -29,8 +29,8 @@ export async function acquireKey(mode: "prf" | "stored" | null): Promise<Merchan
 
 type Params = { nonce: string; maxBlockHeight: string; publicKey: string; senderId: string; receiverId: string };
 
-/// Signs `actions` as the merchant and has the relay submit them.
-export async function signAndRelay(key: MerchantKey, actions: DelegateParams["actions"]): Promise<{ txHash: string; value: unknown }> {
+/// Signs `actions` as the merchant and has the relay submit them. `actionId` binds them to a confirmed assistant action.
+export async function signAndRelay(key: MerchantKey, actions: DelegateParams["actions"], actionId?: number): Promise<{ txHash: string; value: unknown }> {
   const p = await api<Params>("GET", "/console/delegate-params");
   assertOwner(key, p.publicKey);
   const signedDelegate = await signDelegate(key, {
@@ -40,7 +40,7 @@ export async function signAndRelay(key: MerchantKey, actions: DelegateParams["ac
     maxBlockHeight: BigInt(p.maxBlockHeight),
     actions,
   });
-  return api("POST", "/console/relay", { signedDelegate });
+  return api("POST", "/console/relay", actionId === undefined ? { signedDelegate } : { signedDelegate, actionId });
 }
 
 export type TokenMeta = { symbol: string; decimals: number };
@@ -135,4 +135,56 @@ export function screeningTab(p: Payment): "Pending" | "Refunded" | "Failed" | un
   if (p.status === "Pending" || p.status === "Refunded") return p.status;
   if (p.status === "SettleFailed" || p.status === "RefundFailed") return "Failed";
   return undefined;
+}
+
+// ---------- assistant ----------
+
+export type Card = { type: "invoice"; invoiceId: number } | { type: "status"; invoiceId: number } | { type: "confirm"; actionId: number };
+/// A message of GET /console/thread and POST /console/chat.
+export type ChatMsg = { id: number; role: "user" | "assistant"; text: string; trace: string[]; cards: Card[]; created_at: number };
+export type Thread = { id: number; title: string; created_at: number };
+/// A row of GET /console/action.
+export type ChatAction = { id: number; kind: "create_invoice" | "set_policy" | "retry"; params: any; summary: string; status: "pending" | "done" | "dismissed" | "failed"; result: any };
+
+/// The design's trace line: "Used invoices, payments", or nothing when no tool ran.
+export const traceLabel = (trace: string[]) => (trace.length ? `Used ${trace.join(", ")}` : "");
+
+export type CardModel =
+  | { kind: "loading" }
+  | { kind: "invoice"; invoice: Invoice }
+  | { kind: "confirm"; actionId: number }
+  | { kind: "status"; invoice: Invoice; payment?: Payment; steps: string[]; current: number; label: string };
+
+/// What a chat card shows, from the console's live invoices and payments. Unknown ids load on the next poll.
+export function cardModel(card: Card, data: { invoices: Invoice[]; payments: Payment[] }, nowSec = Math.floor(Date.now() / 1000)): CardModel {
+  if (card.type === "confirm") return { kind: "confirm", actionId: card.actionId };
+  const invoice = data.invoices.find((i) => i.id === card.invoiceId);
+  if (!invoice) return { kind: "loading" };
+  if (card.type === "invoice") return { kind: "invoice", invoice };
+  const payment = invoice.payment === null ? undefined : data.payments.find((p) => p.id === invoice.payment);
+  const returned = payment?.status === "Refunded" || payment?.status === "RefundFailed";
+  const steps = ["Delivered", "Screening", returned ? "Returned" : "Released"];
+  const s = payment?.status;
+  const [current, label] =
+    !payment ? [0, invoiceTab(invoice, nowSec)] :
+    s === "Pending" ? [1, "Screening"] :
+    s === "Settled" ? [3, "Released"] :
+    s === "Refunded" ? [3, "Returned"] :
+    [2, "Failed"];
+  return { kind: "status", invoice, payment, steps, current, label };
+}
+
+let pendingAsk: string | undefined;
+
+/// Opens a new chat whose first message is `text` (Home, hint chips, Search, Invoices).
+export function ask(text: string, navigate: (path: string) => void): void {
+  pendingAsk = text.trim();
+  if (pendingAsk) navigate("/chat");
+}
+
+/// The text queued by `ask`, once.
+export function takePendingAsk(): string | undefined {
+  const t = pendingAsk;
+  pendingAsk = undefined;
+  return t;
 }

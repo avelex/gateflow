@@ -96,7 +96,7 @@
 
 ## 2. Chat UI
 
-- [ ] 2.1 Add the chat view and cards. Verify that `cd web && npx vitest run src/console` passes `card_kind_mapping` and `trace_label`. Then verify manually against a fake-model relay (`LLM_BASE_URL` pointed at a local stub) that a thread shows user and assistant bubbles, the "Thinking…" row, the trace line, and the invoice and status cards in the design's style.
+- [x] 2.1 Add the chat view and cards. Verify that `cd web && npx vitest run src/console` passes `card_kind_mapping` and `trace_label`. Then verify manually against a fake-model relay (`LLM_BASE_URL` pointed at a local stub) that a thread shows user and assistant bubbles, the "Thinking…" row, the trace line, and the invoice and status cards in the design's style.
   1. Add a `/chat/<id>` route to `Route`/`route()` in `web/src/App.tsx`. `Console.tsx` renders the chat view for it.
   2. In `web/src/console/Chat.tsx`: a header with the thread title, the messages, the composer (Enter sends, Shift+Enter adds a newline) and the footer copy.
   3. In `web/src/console/cards.tsx`: `InvoiceCard` (with Copy payment link and Open checkout), `StatusCard` (with `FlowSteps`: Delivered, Screening, Released or Returned) and `ConfirmCard`. Each loads live data by id.

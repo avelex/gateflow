@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api.ts";
 import { Button, Stat, Tabs } from "../ds.jsx";
-import { nowSec } from "./Invoices.tsx";
+import { nowSec } from "./cards.tsx";
 import type { ScreenProps } from "./Layout.tsx";
 import { amountOf, type Payment, payerLabel, screeningTab } from "./logic.ts";
 import { message } from "./Onboarding.tsx";

@@ -1,33 +1,21 @@
 // The export's "Invoices" screen. The detail view is the export's chat invoice card; the create form uses Dialog.
 import { type ReactNode, useEffect, useState } from "react";
-import { Button, Dialog, Input, Radio, Select, Tabs } from "../ds.jsx";
+import { navigate } from "../App.tsx";
+import { Button, Dialog, Icon, Input, Radio, Select, Tabs } from "../ds.jsx";
+import { checkoutLink, InvoiceCard, LABEL, nowSec, StatusTag, utc } from "./cards.tsx";
 import type { ScreenProps } from "./Layout.tsx";
-import { acquireKey, amountOf, EXPIRIES, type Invoice, invoiceArgs, invoiceTab, type InvoiceTab, payerLabel, signAndRelay, TGAS } from "./logic.ts";
+import { acquireKey, amountOf, ask, EXPIRIES, type Invoice, invoiceArgs, invoiceTab, type InvoiceTab, payerLabel, signAndRelay, TGAS } from "./logic.ts";
 import { keyMode } from "../near/key.ts";
 import { message } from "./Onboarding.tsx";
 
 const TABS: ("All" | InvoiceTab)[] = ["All", "Open", "Paying", "Paid", "Returned", "Expired"];
 const GRID = "100px minmax(0,1.3fr) minmax(0,1fr) minmax(0,1fr) 150px 140px";
-const LABEL = { fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--text-3)" } as const;
-
-export const utc = (sec: number) => new Date(sec * 1000).toISOString().slice(0, 16).replace("T", " ");
-export const nowSec = () => Math.floor(Date.now() / 1000);
-export const checkoutLink = (id: number) => `${location.origin}/pay/${id}`;
-
-/// The export's status tag, in its plain form; in-flight states use the export's "Checking" blue.
-export function StatusTag({ label }: { label: string }) {
-  const live = label === "Paying" || label === "Pending";
-  return (
-    <span style={{ display: "flex" }}>
-      <span style={{ fontSize: 13, lineHeight: "18px", whiteSpace: "nowrap", padding: "1px 0", background: "transparent", color: live ? "var(--blue-600)" : "var(--text-2)", fontWeight: 400, borderRadius: 2 }}>{label}</span>
-    </span>
-  );
-}
 
 export default function Invoices({ data, refresh, toast }: ScreenProps) {
   const [tab, setTab] = useState<string>("All");
   const [open, setOpen] = useState<{ id: number; txHash?: string }>();
   const [creating, setCreating] = useState(false);
+  const [question, setQuestion] = useState("");
   useEffect(() => {
     const m = /^#invoice-(\d+)$/.exec(location.hash);
     if (m) setOpen({ id: Number(m[1]) });
@@ -53,6 +41,18 @@ export default function Invoices({ data, refresh, toast }: ScreenProps) {
           <Button variant="primary" icon="plus" onClick={() => setCreating(true)}>
             New invoice
           </Button>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, height: 44, padding: "0 8px 0 14px", background: "var(--surface-card)", border: "1px solid var(--border-2)", borderRadius: "var(--radius-3)" }}>
+          <Icon name="message-square" size={16} />
+          <input
+            aria-label="Ask about invoices"
+            placeholder="Ask about invoices — e.g. Which invoices are unpaid for more than 24 h?"
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && ask(question, navigate)}
+            style={{ flex: 1, minWidth: 0, border: 0, outline: 0, background: "transparent", fontFamily: "var(--font-sans)", fontSize: 14, color: "var(--text-1)" }}
+          />
+          <Button variant="ink" size="sm" icon="arrow-up" disabled={!question.trim()} onClick={() => ask(question, navigate)} />
         </div>
         <Tabs tabs={TABS.map((t) => ({ value: t, label: t, count: t === "All" ? data.invoices.length : data.invoices.filter((i) => tabOf(i) === t).length }))} value={tab} onChange={setTab} />
         <div style={{ background: "var(--surface-card)", border: "1px solid var(--border-1)", borderRadius: "var(--radius-2)", overflowX: "auto" }}>
@@ -81,14 +81,15 @@ export default function Invoices({ data, refresh, toast }: ScreenProps) {
       </div>
 
       {selected && (
-        <InvoiceCard
-          inv={selected}
-          tab={tabOf(selected)}
-          payer={payer(selected)}
-          txHash={open?.txHash}
-          onClose={() => (setOpen(undefined), history.replaceState(null, "", location.pathname))}
-          onCopy={() => (navigator.clipboard?.writeText(checkoutLink(selected.id)), toast("Payment link copied", checkoutLink(selected.id)))}
-        />
+        <InvoiceModal onClose={() => (setOpen(undefined), history.replaceState(null, "", location.pathname))}>
+          <InvoiceCard
+            inv={selected}
+            tab={tabOf(selected)}
+            payer={payer(selected)}
+            txHash={open?.txHash}
+            onCopy={() => (navigator.clipboard?.writeText(checkoutLink(selected.id)), toast("Payment link copied", checkoutLink(selected.id)))}
+          />
+        </InvoiceModal>
       )}
       {creating && (
         <CreateInvoice
@@ -101,58 +102,16 @@ export default function Invoices({ data, refresh, toast }: ScreenProps) {
   );
 }
 
-function InvoiceCard({ inv, tab, payer, txHash, onClose, onCopy }: { inv: Invoice; tab: string; payer: string; txHash?: string; onClose(): void; onCopy(): void }) {
+function InvoiceModal({ children, onClose }: { children: ReactNode; onClose(): void }) {
   useEffect(() => {
     const esc = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     addEventListener("keydown", esc);
     return () => removeEventListener("keydown", esc);
   }, [onClose]);
-  const field = (label: string, value: ReactNode, mono = false) => (
-    <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
-      <span style={LABEL}>{label}</span>
-      <span style={mono ? { fontFamily: "var(--font-mono)", fontSize: 13, wordBreak: "break-all" } : { fontSize: 14 }}>{value}</span>
-    </div>
-  );
   return (
     <div onClick={onClose} style={{ position: "absolute", inset: 0, zIndex: 50, background: "rgba(10,12,16,.48)", display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "96px 32px 32px" }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: 620, maxWidth: "100%", background: "var(--surface-card)", border: "1px solid var(--border-1)", borderRadius: "var(--radius-2)", overflow: "hidden" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "14px 20px", borderBottom: "1px solid var(--border-1)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontSize: 15, fontWeight: 600 }}>Invoice</span>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-3)" }}>#{inv.id}</span>
-          </div>
-          <StatusTag label={tab} />
-        </div>
-        <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 20 }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <div style={{ fontSize: 36, lineHeight: "42px", fontWeight: 600, letterSpacing: "-0.02em", fontVariantNumeric: "tabular-nums" }}>
-              {amountOf(inv)} <span style={{ fontSize: 17, fontWeight: 500, color: "var(--text-3)", letterSpacing: 0 }}>{inv.tokenMeta.symbol}</span>
-            </div>
-            <div style={{ fontSize: 13, color: "var(--text-2)" }}>expires {utc(inv.expires_at_sec)} UTC</div>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: "16px 24px" }}>
-            {field("Checkout link", checkoutLink(inv.id), true)}
-            {field("Memo", inv.memo ?? "—")}
-            {field("Payer", payer)}
-            {field("Status", tab)}
-          </div>
-          <details style={{ fontSize: 13, color: "var(--text-2)" }}>
-            <summary style={{ cursor: "pointer", ...LABEL }}>Details</summary>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: "12px 24px", marginTop: 12 }}>
-              {field("Token contract", inv.token, true)}
-              {field("Payment", inv.payment === null ? "—" : `#${inv.payment}`, true)}
-              {txHash && field("Transaction", txHash, true)}
-            </div>
-          </details>
-        </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: "12px 20px", borderTop: "1px solid var(--border-1)", background: "var(--ink-50)" }}>
-          <Button variant="primary" size="sm" icon="copy" onClick={onCopy}>
-            Copy payment link
-          </Button>
-          <Button variant="secondary" size="sm" icon="external-link" onClick={() => window.open(checkoutLink(inv.id), "_blank")}>
-            Open checkout
-          </Button>
-        </div>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: 620, maxWidth: "100%" }}>
+        {children}
       </div>
     </div>
   );

@@ -5,39 +5,43 @@ import { navigate, type Route } from "../App.tsx";
 import { logo } from "../assets.ts";
 import { Icon, IconButton, Toast } from "../ds.jsx";
 import { initials } from "../format.ts";
+import Chat from "./Chat.tsx";
 import Home from "./Home.tsx";
-import type { Invoice, Me, Payment } from "./logic.ts";
+import type { Invoice, Me, Payment, Thread } from "./logic.ts";
 import Search from "./Search.tsx";
 import { usePoll } from "./usePoll.ts";
 
 export type Gateway = { id: number; owner: string; payout_to: string; policy: { max_risk: number }; fuel: string; fuelReady: boolean; invoices: number; payments: number };
 export type Token = { token: string; symbol: string; decimals: number; enabled: boolean };
-export type ConsoleData = { me: Me; gateway: Gateway; invoices: Invoice[]; payments: Payment[]; tokens: Token[] };
+export type ConsoleData = { me: Me; gateway: Gateway; invoices: Invoice[]; payments: Payment[]; tokens: Token[]; threads: Thread[] };
 export type Tab = Extract<Route, { page: "console" }>["tab"];
 /// What every console screen receives.
 export type ScreenProps = { data: ConsoleData; refresh(): void; toast(title: string, body?: string): void };
 
 const load = async (): Promise<ConsoleData> => {
-  const [me, gateway, invoices, payments, tokens] = await Promise.all([
+  const [me, gateway, invoices, payments, tokens, threads] = await Promise.all([
     api<Me>("GET", "/console/me"),
     api<Gateway>("GET", "/console/gateway"),
     api<Invoice[]>("GET", "/console/invoices"),
     api<Payment[]>("GET", "/console/payments"),
     api<Token[]>("GET", "/console/tokens"),
+    api<Thread[]>("GET", "/console/threads"),
   ]);
-  return { me, gateway, invoices, payments, tokens };
+  return { me, gateway, invoices, payments, tokens, threads };
 };
 
 export default function Layout({
   tab,
+  thread,
   onSignOut,
   onUnauthorized,
   screens,
 }: {
   tab: Tab;
+  thread?: number;
   onSignOut(): void;
   onUnauthorized(): void;
-  screens: Partial<Record<Exclude<Tab, "home">, (p: ScreenProps) => ReactNode>> & { settings?: (p: ScreenProps & { onClose(): void }) => ReactNode };
+  screens: Partial<Record<Exclude<Tab, "home" | "chat">, (p: ScreenProps) => ReactNode>> & { settings?: (p: ScreenProps & { onClose(): void }) => ReactNode };
 }) {
   const { data, error, refresh } = usePoll(load, 15000);
   const [side, setSide] = useState(true);
@@ -115,7 +119,20 @@ export default function Layout({
             </div>
           ))}
         </nav>
-        <div style={{ flex: 1 }} />
+        {side ? (
+          <>
+            <div style={{ padding: "24px 22px 8px", fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--text-3)" }}>Recents</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 1, padding: "0 12px", overflow: "auto", flex: 1, minHeight: 0 }}>
+              {data.threads.slice(0, 20).map((t) => (
+                <div key={t.id} className="hv" onClick={() => navigate(`/chat/${t.id}`)} title={t.title} style={{ padding: "7px 10px", borderRadius: "var(--radius-2)", fontSize: 13, lineHeight: "18px", color: "var(--text-2)", cursor: "pointer", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", background: tab === "chat" && thread === t.id ? "var(--ink-150)" : "transparent" }}>
+                  {t.title}
+                </div>
+              ))}
+            </div>
+          </>
+        ) : (
+          <div style={{ flex: 1 }} />
+        )}
         <div style={{ borderTop: "1px solid var(--border-1)", padding: `10px ${navPad}`, position: "relative" }}>
           <div className="hv" onClick={() => setProfileOpen((o) => !o)} title={name} style={{ display: "flex", alignItems: "center", gap: 10, padding: side ? "8px" : "4px 5px", borderRadius: "var(--radius-2)", cursor: "pointer" }}>
             <span style={{ width: 30, height: 30, flex: "none", borderRadius: "var(--radius-2)", background: "var(--ink-950)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 600 }}>{initials(name)}</span>
@@ -151,7 +168,7 @@ export default function Layout({
       </aside>
 
       <main style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", position: "relative" }}>
-        {tab === "home" ? <Home {...props} /> : screens[tab]?.(props)}
+        {tab === "home" ? <Home {...props} /> : tab === "chat" ? <Chat {...props} thread={thread} /> : screens[tab]?.(props)}
       </main>
 
       {searchOpen && <Search data={data} onClose={() => setSearchOpen(false)} />}

@@ -46,5 +46,7 @@ test("relay_decodes_web_delegate", async () => {
   expect(d.receiverId).toBe(params.receiverId);
   expect(d.nonce).toBe(42n);
   expect(d.publicKey).toBe(key.publicKey);
-  expect(d.actions).toEqual([{ kind: "functionCall", method: "create_invoice", gas: 30n * 10n ** 12n, deposit: 0n }]);
+  expect(d.actions).toEqual([{ kind: "functionCall", method: "create_invoice", args: expect.any(Uint8Array), gas: 30n * 10n ** 12n, deposit: 0n }]);
+  // The relay binds confirmed assistant actions by deep-equal on these parsed args.
+  expect(JSON.parse(new TextDecoder().decode((d.actions[0] as any).args))).toEqual(params.actions[0].args);
 });

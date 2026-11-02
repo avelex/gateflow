@@ -12,7 +12,7 @@ import { SignedOut, SignIn } from "./SignIn.tsx";
 
 type State = { kind: "loading" } | { kind: "signin" } | { kind: "signedout" } | { kind: "me"; me: Me };
 
-export default function Console({ tab }: { tab: Extract<Route, { page: "console" }>["tab"] }) {
+export default function Console({ tab, thread }: { tab: Extract<Route, { page: "console" }>["tab"]; thread?: number }) {
   const [state, setState] = useState<State>({ kind: "loading" });
   const load = useCallback(async () => {
     try {
@@ -28,5 +28,5 @@ export default function Console({ tab }: { tab: Extract<Route, { page: "console"
   if (state.kind === "signin") return <SignIn onDone={load} />;
   if (state.kind === "signedout") return <SignedOut onSignIn={() => setState({ kind: "signin" })} />;
   if (state.me.step !== "done") return <Onboarding me={state.me} onChange={load} />;
-  return <Layout tab={tab} onSignOut={() => setState({ kind: "signedout" })} onUnauthorized={() => setState({ kind: "signin" })} screens={{ invoices: (p) => <Invoices {...p} />, screening: (p) => <Screening {...p} />, settings: (p) => <Settings {...p} /> }} />;
+  return <Layout tab={tab} thread={thread} onSignOut={() => setState({ kind: "signedout" })} onUnauthorized={() => setState({ kind: "signin" })} screens={{ invoices: (p) => <Invoices {...p} />, screening: (p) => <Screening {...p} />, settings: (p) => <Settings {...p} /> }} />;
 }

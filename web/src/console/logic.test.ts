@@ -82,3 +82,27 @@ test("payer_label", () => {
   expect(payerLabel(pay(1, "1", "Pending", d, { reference: "ab".repeat(16), payer: "intents.near", refund_to: "bob.near" }))).toBe("bob.near");
   expect(payerLabel(pay(1, "1", "Pending", d, { payer: "alice.near", refund_to: "alice.near" }))).toBe("alice.near");
 });
+
+import { cardModel, traceLabel } from "./logic.ts";
+
+test("trace_label", () => {
+  expect(traceLabel(["invoices", "payments"])).toBe("Used invoices, payments");
+  expect(traceLabel(["totals"])).toBe("Used totals");
+  expect(traceLabel([])).toBe("");
+});
+
+test("card_kind_mapping", () => {
+  const invoices = [inv(1, "1000000", NBTC, { expires_at_sec: 4e9 }), inv(2, "10000000", USDC, { status: "Paid", payment: 5 }), inv(3, "1", USDC, { status: "Returned", payment: 6 }), inv(4, "1", USDC, { status: "Paying", payment: 7 })];
+  const payments = [pay(5, "10000000", "Settled", new Date()), pay(6, "1", "RefundFailed", new Date()), pay(7, "1", "Pending", new Date())];
+  const data = { invoices, payments };
+  expect(cardModel({ type: "invoice", invoiceId: 1 }, data)).toEqual({ kind: "invoice", invoice: invoices[0] });
+  expect(cardModel({ type: "invoice", invoiceId: 99 }, data)).toEqual({ kind: "loading" });
+  expect(cardModel({ type: "confirm", actionId: 4 }, data)).toEqual({ kind: "confirm", actionId: 4 });
+  // Status cards: Delivered, Screening, then Released or Returned.
+  expect(cardModel({ type: "status", invoiceId: 1 }, data)).toMatchObject({ kind: "status", steps: ["Delivered", "Screening", "Released"], current: 0, label: "Open" });
+  const expired = { invoices: [inv(8, "1", USDC, { expires_at_sec: 100 })], payments: [] };
+  expect(cardModel({ type: "status", invoiceId: 8 }, expired, 100)).toMatchObject({ current: 0, label: "Expired" });
+  expect(cardModel({ type: "status", invoiceId: 4 }, data)).toMatchObject({ steps: ["Delivered", "Screening", "Released"], current: 1, label: "Screening", payment: payments[2] });
+  expect(cardModel({ type: "status", invoiceId: 2 }, data)).toMatchObject({ steps: ["Delivered", "Screening", "Released"], current: 3, label: "Released" });
+  expect(cardModel({ type: "status", invoiceId: 3 }, data)).toMatchObject({ steps: ["Delivered", "Screening", "Returned"], current: 2, label: "Failed" });
+});

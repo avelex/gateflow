@@ -9,3 +9,9 @@ test("route_of", () => {
   expect(route("/pay/x")).toEqual({ page: "redirect" });
   expect(route("/nope")).toEqual({ page: "redirect" });
 });
+
+test("chat_route", () => {
+  expect(route("/chat")).toEqual({ page: "console", tab: "chat" });
+  expect(route("/chat/12")).toEqual({ page: "console", tab: "chat", thread: 12 });
+  expect(route("/chat/x")).toEqual({ page: "redirect" });
+});

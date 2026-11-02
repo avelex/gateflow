@@ -1,9 +1,9 @@
-// The export's "Search" overlay, over invoices and payments (chats are out of scope).
+// The export's "Search" overlay, over invoices, payments and chats. Enter with no match asks the assistant.
 import { useState } from "react";
 import { navigate } from "../App.tsx";
 import { Icon } from "../ds.jsx";
 import type { ConsoleData } from "./Layout.tsx";
-import { amountOf, payerLabel, searchMatches } from "./logic.ts";
+import { amountOf, ask, payerLabel, searchMatches } from "./logic.ts";
 
 const FAILED = new Set(["SettleFailed", "RefundFailed"]);
 
@@ -28,6 +28,9 @@ export default function Search({ data, onClose }: { data: ConsoleData; onClose()
   // An empty query lists the newest invoices, as the export does.
   const invoices = q.trim() ? found.filter((m) => m.kind === "invoice").map((m) => data.invoices.find((i) => i.id === m.id)!) : data.invoices.slice(0, 8);
   const payments = found.filter((m) => m.kind === "payment").map((m) => data.payments.find((p) => p.id === m.id)!);
+  const t = q.trim().toLowerCase();
+  const chats = t ? data.threads.filter((x) => x.title.toLowerCase().includes(t)) : [];
+  const none = !!t && found.length === 0 && chats.length === 0;
   const open = (path: string) => (onClose(), navigate(path));
   const payerOf = (paymentId: number | null) => {
     const p = paymentId === null ? undefined : data.payments.find((x) => x.id === paymentId);
@@ -39,7 +42,7 @@ export default function Search({ data, onClose }: { data: ConsoleData; onClose()
       <div data-screen-label="Search" onClick={(e) => e.stopPropagation()} style={{ width: 620, maxWidth: "100%", background: "var(--surface-card)", borderRadius: "var(--radius-3)", boxShadow: "var(--shadow-pop)", overflow: "hidden" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, height: 52, padding: "0 16px", borderBottom: "1px solid var(--border-1)" }}>
           <Icon name="search" size={18} />
-          <input autoFocus placeholder="Search invoices and payments" value={q} onChange={(e) => setQ(e.target.value)} style={{ flex: 1, border: 0, outline: 0, background: "transparent", fontFamily: "var(--font-sans)", fontSize: 16, color: "var(--text-1)" }} />
+          <input autoFocus placeholder="Search invoices, payments and chats" value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && none && (onClose(), ask(q, navigate))} style={{ flex: 1, border: 0, outline: 0, background: "transparent", fontFamily: "var(--font-sans)", fontSize: 16, color: "var(--text-1)" }} />
           <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-3)", border: "1px solid var(--border-1)", borderRadius: "var(--radius-1)", padding: "1px 5px" }}>esc</span>
         </div>
         <div style={{ maxHeight: 420, overflow: "auto", padding: 8 }}>
@@ -64,7 +67,14 @@ export default function Search({ data, onClose }: { data: ConsoleData; onClose()
               <Tag status={p.status} />
             </div>
           ))}
-          {q.trim() && found.length === 0 && <div style={{ padding: "16px 10px", fontSize: 14, color: "var(--text-3)" }}>No matches.</div>}
+          {chats.length > 0 && <div style={SECTION}>Chats</div>}
+          {chats.map((c) => (
+            <div key={`c${c.id}`} className="hv" onClick={() => open(`/chat/${c.id}`)} style={ROW}>
+              <Icon name="message-square" size={14} />
+              <span style={{ flex: 1, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: "var(--text-2)" }}>{c.title}</span>
+            </div>
+          ))}
+          {none && <div style={{ padding: "16px 10px", fontSize: 14, color: "var(--text-3)" }}>No matches. Press Enter to ask Gateflow.</div>}
         </div>
       </div>
     </div>
