@@ -191,14 +191,14 @@ export function tokenMeta(deps: Deps, token: string): Promise<TokenMeta> {
   return p;
 }
 
-function requireGateway(req: Req, deps: Deps) {
+export function requireGateway(req: Req, deps: Deps) {
   const m = requireMerchant(req, deps);
   if (m.gateway_id === null) throw new HttpError(409, "finish onboarding first");
   return { ...m, gateway_id: m.gateway_id };
 }
 
 /// The merchant's gateway, topped up to the fuel target first when it is low.
-async function readGateway(deps: Deps, id: number) {
+export async function readGateway(deps: Deps, id: number) {
   const g = await deps.near.view(deps.cfg.gateflow, "get_gateway", { gateway: id });
   if (!g) throw new HttpError(404, "gateway not found");
   let fuel = BigInt(g.fuel);
@@ -213,7 +213,7 @@ async function readGateway(deps: Deps, id: number) {
 const PAGE = 100;
 
 /// Every `[id, item]` of a paged contract list, newest first.
-async function newestFirst(deps: Deps, method: string, gateway: number, count: number): Promise<[number, any][]> {
+export async function newestFirst(deps: Deps, method: string, gateway: number, count: number): Promise<[number, any][]> {
   const out: [number, any][] = [];
   for (let end = count; end > 0; end -= PAGE) {
     const from = Math.max(0, end - PAGE);
@@ -223,7 +223,7 @@ async function newestFirst(deps: Deps, method: string, gateway: number, count: n
   return out;
 }
 
-async function withMeta(deps: Deps, rows: [number, any][]) {
+export async function withMeta(deps: Deps, rows: [number, any][]) {
   return Promise.all(rows.map(async ([id, x]) => ({ id, ...x, tokenMeta: await tokenMeta(deps, x.token) })));
 }
 
