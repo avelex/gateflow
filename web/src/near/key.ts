@@ -79,8 +79,7 @@ async function passkeyGet(withPrf: boolean): Promise<ArrayBuffer | undefined> {
 
 const keyFromPrf = async (prf: ArrayBuffer) => keyFromSeed(await seedFromPrf(new Uint8Array(prf)));
 
-/// Creates the merchant's passkey and derives the key from its PRF output. Throws PrfUnsupported without PRF.
-export async function createPasskeyKey(email: string): Promise<MerchantKey> {
+async function createPasskey(email: string, withPrf: boolean): Promise<PrfResult | undefined> {
   const cred = await navigator.credentials.create({
     publicKey: {
       rp: { name: "Gateflow", id: location.hostname },
@@ -92,11 +91,16 @@ export async function createPasskeyKey(email: string): Promise<MerchantKey> {
         { type: "public-key", alg: -257 },
       ],
       authenticatorSelection: { residentKey: "required", userVerification: "required" },
-      extensions: { prf: { eval: { first: await salt() } } } as AuthenticationExtensionsClientInputs,
+      extensions: withPrf ? ({ prf: { eval: { first: await salt() } } } as AuthenticationExtensionsClientInputs) : undefined,
     },
   });
   if (!cred) throw new Error("Passkey prompt was cancelled");
-  const prf = prfOf(cred);
+  return prfOf(cred);
+}
+
+/// Creates the merchant's passkey and derives the key from its PRF output. Throws PrfUnsupported without PRF.
+export async function createPasskeyKey(email: string): Promise<MerchantKey> {
+  const prf = await createPasskey(email, true);
   const first = prf?.results?.first ?? (prf?.enabled ? await passkeyGet(true) : undefined);
   if (!first) throw new PrfUnsupported("This passkey cannot derive a key");
   setMode("prf");
@@ -153,8 +157,11 @@ export async function createFallbackKey(): Promise<{ key: MerchantKey; phrase: s
   return { key: await store(seed), phrase };
 }
 
-export async function restoreFallbackKey(phrase: string): Promise<MerchantKey> {
-  return store(await parsePhrase(phrase));
+/// Stores the phrase's key on this device and creates a passkey here for its confirmation prompts.
+export async function restoreFallbackKey(phrase: string, email = "merchant"): Promise<MerchantKey> {
+  const seed = await parsePhrase(phrase);
+  await createPasskey(email, false);
+  return store(seed);
 }
 
 export async function loadStoredKey(): Promise<MerchantKey | null> {

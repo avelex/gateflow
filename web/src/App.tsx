@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import Console from "./console/Console.tsx";
 
 export type Route =
   | { page: "checkout"; invoice: number }
@@ -35,6 +36,6 @@ export default function App() {
     if (r.page === "redirect") history.replaceState(null, "", "/"), dispatchEvent(new PopStateEvent("popstate"));
   }, [r.page]);
   if (r.page === "checkout") return <div>Checkout {r.invoice}</div>;
-  if (r.page === "console") return <div>Console {r.tab}</div>;
+  if (r.page === "console") return <Console tab={r.tab} />;
   return null;
 }

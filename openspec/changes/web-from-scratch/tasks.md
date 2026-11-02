@@ -161,7 +161,7 @@
 
 ## 4. Console
 
-- [ ] 4.1 Sign-in and onboarding (design decision 6). Verify that `npm test` passes `onboarding_screen`. Then verify manually against the dev relay (`gateflow-dev-v1.testnet`) that a new email reaches Home after the email, name, passkey and gateway-confirmation steps; that a reload mid-way resumes; and that sign-out shows the signed-out card. Also verify that the signed-out card passes the screenshot check against the export's "Logged out", and that the sign-in and onboarding cards use its card layout
+- [x] 4.1 Sign-in and onboarding (design decision 6). Verify that `npm test` passes `onboarding_screen`. Then verify manually against the dev relay (`gateflow-dev-v1.testnet`) that a new email reaches Home after the email, name, passkey and gateway-confirmation steps; that a reload mid-way resumes; and that sign-out shows the signed-out card. Also verify that the signed-out card passes the screenshot check against the export's "Logged out", and that the sign-in and onboarding cards use its card layout
   **Source:** Console "Logged out" block. The signed-out card is translated as is, and the other cards reuse its layout.
   **Files:** `web/src/console/SignIn.tsx`, `web/src/console/Onboarding.tsx`, `web/src/console/logic.ts`, `web/src/console/logic.test.ts`.
   **Consumes:** `api`, `createPasskeyKey`, `createFallbackKey`, `getPasskeyKey`, `loadStoredKey`, `restoreFallbackKey`, `assertOwner`, `signDelegate`.
