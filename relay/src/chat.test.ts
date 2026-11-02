@@ -247,3 +247,136 @@ test("retry_not_failed_rejected", async () => {
   assert.deepEqual(await propose("retry_payment", { id: 2 }), { actionId: 1, summary: "Retry payment #2 of 0.000001 nBTC" });
   assert.deepEqual(deps.db.action(1, "kaja@example.com")!.params, { payment: 2 });
 });
+
+// ---------- assistant loop and chat routes ----------
+
+import { chatRoutes, runAssistant } from "./chat.ts";
+import { dispatch } from "./main.ts";
+import { SESSION_COOKIE } from "./console.ts";
+import { req } from "./testing.ts";
+
+const toolCall = (name: string, args: unknown, id = "c1") => ({ toolCalls: [{ id, name, arguments: typeof args === "string" ? args : JSON.stringify(args) }] });
+
+/// Kaja signed in with gateway 0 and the chain fixture; returns her cookies.
+function chatting(over: Partial<Merchant> = {}) {
+  const deps = fakeDeps();
+  chain(deps);
+  deps.db.upsertMerchant(kaja(over));
+  deps.db.createSession("tok", "kaja@example.com", 0);
+  const cookies = { [SESSION_COOKIE]: "tok" };
+  const post = (body: any) => dispatch(chatRoutes, req("POST", "/console/chat", body, cookies), deps);
+  const get = (path: string) => dispatch(chatRoutes, req("GET", path, undefined, cookies), deps);
+  return { deps, cookies, post, get };
+}
+
+test("loop_stops_after_six_rounds", async () => {
+  const deps = fakeDeps();
+  chain(deps);
+  for (let i = 0; i < 10; i++) deps.llm.replies.push(toolCall("gateway_settings", {}, `c${i}`));
+  deps.llm.replies.splice(6, 0, { content: "Here is what I found." });
+  const turn = await runAssistant({ llm: deps.llm, tools: readTools(deps), threadId: 1, system: "sys" }, kaja(), [], "hi");
+  assert.equal(deps.llm.calls.length, 7);
+  assert.equal(deps.llm.calls[6].tools.length, 0);
+  assert.equal(deps.llm.calls[5].messages.filter((m) => m.role === "tool").length, 5);
+  assert.equal(turn.text, "Here is what I found.");
+});
+
+test("malformed_tool_args_reported", async () => {
+  const deps = fakeDeps();
+  chain(deps);
+  deps.llm.replies.push(toolCall("get_invoice", "{id: 0"), { content: "Sorry." });
+  const turn = await runAssistant({ llm: deps.llm, tools: readTools(deps), threadId: 1, system: "sys" }, kaja(), [], "hi");
+  const toolMsg = deps.llm.calls[1].messages.at(-1)!;
+  assert.equal(toolMsg.role, "tool");
+  assert.equal(toolMsg.tool_call_id, "c1");
+  assert.deepEqual(JSON.parse(toolMsg.content!), { error: "arguments are not valid JSON" });
+  assert.equal(turn.text, "Sorry.");
+});
+
+test("model_error_returns_unavailable", async () => {
+  const { deps, post } = chatting();
+  deps.llm.replies.push(new Error("model endpoint 503"));
+  const res = await post({ message: "Which invoices are unpaid?" });
+  assert.equal(res.status, 200);
+  const reply = (res.json as any).messages.at(-1);
+  assert.equal(reply.role, "assistant");
+  assert.equal(reply.text, "The assistant is unavailable right now");
+});
+
+test("daily_limit_429", async () => {
+  const { deps, post } = chatting();
+  deps.cfg.chatDailyLimit = 2;
+  assert.equal((await post({ message: "one" })).status, 200);
+  assert.equal((await post({ message: "two" })).status, 200);
+  const before = deps.llm.calls.length;
+  assert.equal((await post({ message: "three" })).status, 429);
+  assert.equal(deps.llm.calls.length, before);
+  deps.clock.ms += 86400_000;
+  assert.equal((await post({ message: "next day" })).status, 200);
+});
+
+test("chat_not_configured_503", async () => {
+  const { deps, post } = chatting();
+  deps.llm = undefined as any;
+  assert.deepEqual(await post({ message: "hi" }), { status: 503, json: { error: "assistant not configured" } });
+});
+
+test("foreign_thread_404", async () => {
+  const { deps, post, get } = chatting();
+  const other = deps.db.createThread("bob@example.com", "Bob's", 0);
+  assert.equal((await post({ threadId: other, message: "hi" })).status, 404);
+  assert.equal((await get(`/console/thread?id=${other}`)).status, 404);
+  assert.equal((await post({ message: "" })).status, 400);
+  assert.equal((await post({ message: "x".repeat(4001) })).status, 400);
+});
+
+test("thread_created_and_listed", async () => {
+  const { deps, post, get } = chatting();
+  const res = await post({ message: "Generate invoice for 0.01 BTC and send it to the cafe on the corner please" });
+  const { threadId, messages } = res.json as any;
+  assert.deepEqual(messages.map((m: any) => m.role), ["user", "assistant"]);
+  const list = (await get("/console/threads")).json as any[];
+  assert.deepEqual(list.map((t) => [t.id, t.title]), [[threadId, "Generate invoice for 0.01 BTC and send it to the cafe on the"]]);
+  await post({ threadId, message: "and again" });
+  const one = (await get(`/console/thread?id=${threadId}`)).json as any;
+  assert.equal(one.messages.length, 4);
+  // History is replayed as text: system, 3 earlier messages, then the new one.
+  assert.deepEqual(deps.llm.calls.at(-1)!.messages.map((m) => m.role), ["system", "user", "assistant", "user"]);
+  assert.match(deps.llm.calls[0].messages[0].content!, /nBTC \(8 decimals, nbtc.testnet\)/);
+  assert.match(deps.llm.calls[0].messages[0].content!, /2026-11-02/);
+});
+
+test("history_capped_at_30", async () => {
+  const { deps, post } = chatting();
+  const t = deps.db.createThread("kaja@example.com", "long", 0);
+  for (let i = 0; i < 40; i++) deps.db.addMessage({ thread_id: t, role: i % 2 ? "assistant" : "user", text: `m${i}`, trace: [], cards: [], created_at: 0 });
+  await post({ threadId: t, message: "latest" });
+  const sent = deps.llm.calls[0].messages;
+  assert.equal(sent.length, 31);
+  assert.equal(sent.at(-1)!.content, "latest");
+  assert.equal(sent[1].content, "m11");
+});
+
+test("trace_groups_tools", async () => {
+  const { deps, post } = chatting();
+  deps.llm.replies.push(
+    { toolCalls: [{ id: "a", name: "list_invoices", arguments: "{}" }, { id: "b", name: "get_invoice", arguments: '{"id":0}' }] },
+    toolCall("list_payments", {}),
+    { content: "Two unpaid." },
+  );
+  const reply = ((await post({ message: "Which invoices are unpaid?" })).json as any).messages.at(-1);
+  assert.deepEqual(reply.trace, ["invoices", "payments"]);
+  assert.deepEqual(reply.cards, [{ type: "status", invoiceId: 0 }]);
+  assert.equal(reply.text, "Two unpaid.");
+});
+
+test("confirm_card_attached_for_proposal", async () => {
+  const { deps, post } = chatting();
+  deps.llm.replies.push(toolCall("create_invoice", { token: "nBTC", amount: "0.01" }), { content: "Please confirm the card." });
+  const reply = ((await post({ message: "Generate invoice for 0.01 BTC" })).json as any).messages.at(-1);
+  assert.deepEqual(reply.cards, [{ type: "confirm", actionId: 1 }]);
+  assert.deepEqual(reply.trace, ["invoices"]);
+  assert.equal(deps.db.action(1, "kaja@example.com")!.status, "pending");
+  const toolResult = JSON.parse(deps.llm.calls[1].messages.at(-1)!.content!);
+  assert.deepEqual(toolResult, { actionId: 1, summary: "Create invoice 0.01 nBTC, expires in 1 hour" });
+});

@@ -1,7 +1,7 @@
 // The console assistant: model client, tools and the bounded tool loop (design decisions 2 to 9).
-import { newestFirst, readGateway, tokenMeta, type TokenMeta, withMeta } from "./console.ts";
-import type { Merchant } from "./db.ts";
-import type { Completion, Config, Deps, Llm, ToolDef } from "./types.ts";
+import { newestFirst, readGateway, requireGateway, requireSession, tokenMeta, type TokenMeta, withMeta } from "./console.ts";
+import type { Card, Merchant, Message } from "./db.ts";
+import { type ChatMessage, type Completion, type Config, type Deps, type Handler, HttpError, type Llm, ok, type ToolDef } from "./types.ts";
 
 /// OpenAI-compatible `/chat/completions` client over plain fetch. Tool schemas carry no `strict` flag.
 export function llmClient(cfg: Pick<Config, "llmBaseUrl" | "llmApiKey" | "llmModel">): Llm {
@@ -10,7 +10,7 @@ export function llmClient(cfg: Pick<Config, "llmBaseUrl" | "llmApiKey" | "llmMod
       const res = await fetch(`${cfg.llmBaseUrl}/chat/completions`, {
         method: "POST",
         headers: { "content-type": "application/json", authorization: `Bearer ${cfg.llmApiKey}` },
-        body: JSON.stringify({ model: cfg.llmModel, messages, tools: tools.map((t) => ({ type: "function", function: t })) }),
+        body: JSON.stringify({ model: cfg.llmModel, messages, ...(tools.length ? { tools: tools.map((t) => ({ type: "function", function: t })) } : {}) }),
       });
       if (!res.ok) throw new Error(`model endpoint ${res.status}`);
       const msg = (await res.json())?.choices?.[0]?.message;
@@ -268,3 +268,132 @@ export function writeTools(deps: Deps): Record<string, Tool> {
     },
   };
 }
+
+// ---------- the loop ----------
+
+export const MAX_ROUNDS = 6;
+export const HISTORY = 30;
+export const UNAVAILABLE = "The assistant is unavailable right now";
+
+export type AssistantTurn = { text: string; trace: string[]; cards: Card[] };
+export type Ports = { llm: Llm; tools: Record<string, Tool>; threadId: number; system: string };
+
+/// Cards a tool result earns: a confirm card for a proposal, a status card for a single invoice.
+function cardsFor(name: string, result: any): Card[] {
+  if (typeof result?.actionId === "number") return [{ type: "confirm", actionId: result.actionId }];
+  if (name === "get_invoice" && typeof result?.id === "number") return [{ type: "status", invoiceId: result.id }];
+  return [];
+}
+
+/// Runs at most MAX_ROUNDS tool rounds, then asks once more without tools. Model errors end the turn with UNAVAILABLE.
+export async function runAssistant(ports: Ports, m: GatewayMerchant, history: { role: "user" | "assistant"; text: string }[], message: string): Promise<AssistantTurn> {
+  const msgs: ChatMessage[] = [{ role: "system", content: ports.system }, ...history.map((h) => ({ role: h.role, content: h.text })), { role: "user", content: message }];
+  const defs = Object.values(ports.tools).map(({ name, description, parameters }) => ({ name, description, parameters }));
+  const trace: string[] = [];
+  const cards: Card[] = [];
+  try {
+    for (let round = 0; ; round++) {
+      const reply = await ports.llm.complete(msgs, round < MAX_ROUNDS ? defs : []);
+      if (!reply.toolCalls?.length || round >= MAX_ROUNDS) return { text: reply.content?.trim() || "I have no answer to that.", trace, cards };
+      msgs.push({
+        role: "assistant",
+        content: reply.content ?? null,
+        tool_calls: reply.toolCalls.map((c) => ({ id: c.id, type: "function", function: { name: c.name, arguments: c.arguments } })),
+      });
+      for (const call of reply.toolCalls) {
+        const tool = ports.tools[call.name];
+        let result: unknown;
+        if (!tool) result = { error: `unknown tool ${call.name}` };
+        else {
+          let args: unknown;
+          try {
+            args = call.arguments.trim() ? JSON.parse(call.arguments) : {};
+          } catch {
+            args = undefined;
+          }
+          if (args === undefined || typeof args !== "object" || args === null) result = { error: "arguments are not valid JSON" };
+          else {
+            result = await tool.run(args, m, ports.threadId);
+            if (!trace.includes(tool.group)) trace.push(tool.group);
+            cards.push(...cardsFor(call.name, result));
+          }
+        }
+        msgs.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify(result, (_k, v) => (typeof v === "bigint" ? v.toString() : v)) });
+      }
+    }
+  } catch (e) {
+    console.error("assistant turn failed:", (e as Error).message);
+    return { text: UNAVAILABLE, trace, cards };
+  }
+}
+
+/// The fixed system prompt (design decision 6).
+export function systemPrompt(tokens: { symbol: string; decimals: number; token: string }[], now: Date): string {
+  return [
+    "You are the assistant in the Gateflow merchant console.",
+    "Gateflow takes crypto payments for the merchant's invoices. A payer's funds are held in the Gateflow contract while an enclave screens the payer; the payment is then released to the merchant or returned to the payer automatically. The merchant makes no decisions on individual payments.",
+    `The merchant accepts these tokens: ${tokens.map((t) => `${t.symbol} (${t.decimals} decimals, ${t.token})`).join(", ") || "none"}. "BTC" means nBTC and "dollars" mean USDC when those are accepted.`,
+    `Today is ${now.toISOString().slice(0, 10)} (UTC).`,
+    "Rules:",
+    "- Use the tools for every fact about invoices, payments, totals, tokens and settings. Never guess.",
+    "- create_invoice, set_risk_tolerance and retry_payment only propose. The merchant sees a card and must confirm it with their passkey. Never say an action is done; say it is ready to confirm.",
+    "- Give amounts as decimal strings with the token symbol, for example 0.01 nBTC.",
+    "- Answer briefly in plain payment language, without gas, nonces or transaction hashes.",
+    "- Refuse requests that are not about this Gateflow console.",
+  ].join("\n");
+}
+
+// ---------- routes ----------
+
+const MAX_MESSAGE = 4000;
+const TITLE = 60;
+
+export function assistantTools(deps: Deps): Record<string, Tool> {
+  return { ...readTools(deps), ...writeTools(deps) };
+}
+
+const publicMessage = (x: Message & { id: number }) => ({ id: x.id, role: x.role, text: x.text, trace: x.trace, cards: x.cards, created_at: x.created_at });
+
+const chat: Handler = async (req, deps) => {
+  const m = requireGateway(req, deps);
+  if (!deps.llm) throw new HttpError(503, "assistant not configured");
+  const message = typeof req.body?.message === "string" ? req.body.message.trim() : "";
+  if (!message || message.length > MAX_MESSAGE) throw new HttpError(400, `message must be 1 to ${MAX_MESSAGE} characters`);
+  let threadId = req.body?.threadId;
+  if (threadId !== undefined && threadId !== null && !(validId(threadId) && deps.db.thread(threadId, m.email))) throw new HttpError(404, "thread not found");
+
+  const nowSec = Math.floor(deps.now() / 1000);
+  if (deps.db.userMessagesSince(m.email, Math.floor(nowSec / 86400) * 86400) >= deps.cfg.chatDailyLimit) {
+    throw new HttpError(429, "daily assistant limit reached, try again tomorrow");
+  }
+  const history = threadId == null ? [] : deps.db.messages(threadId, HISTORY - 1);
+  if (threadId == null) threadId = deps.db.createThread(m.email, message.slice(0, TITLE).trim(), nowSec);
+
+  const user: Message = { thread_id: threadId, role: "user", text: message, trace: [], cards: [], created_at: nowSec };
+  const userId = deps.db.addMessage(user);
+  const list: string[] = await deps.near.view(deps.cfg.gateflow, "get_tokens", {});
+  const enabled = await Promise.all(list.filter((t) => !m.tokens_off.includes(t)).map(async (token) => ({ token, ...(await tokenMeta(deps, token)) })));
+  const turn = await runAssistant({ llm: deps.llm, tools: assistantTools(deps), threadId, system: systemPrompt(enabled, new Date(deps.now())) }, m, history, message);
+  const reply: Message = { thread_id: threadId, role: "assistant", ...turn, created_at: Math.floor(deps.now() / 1000) };
+  const replyId = deps.db.addMessage(reply);
+  return ok({ threadId, messages: [publicMessage({ ...user, id: userId }), publicMessage({ ...reply, id: replyId })] });
+};
+
+const threads: Handler = async (req, deps) => {
+  const email = requireSession(req, deps);
+  return ok(deps.db.threadsOf(email, 50).map((t) => ({ id: t.id, title: t.title, created_at: t.created_at })));
+};
+
+const thread: Handler = async (req, deps) => {
+  const email = requireSession(req, deps);
+  const id = Number(req.query.get("id"));
+  const t = validId(id) ? deps.db.thread(id, email) : undefined;
+  if (!t) throw new HttpError(404, "thread not found");
+  return ok({ id: t.id, title: t.title, created_at: t.created_at, messages: deps.db.messages(t.id, 1000).map((x) => publicMessage(x as Message & { id: number })) });
+};
+
+export const chatRoutes: Record<string, Handler> = {
+  "POST /console/chat": chat,
+  "GET /console/threads": threads,
+  "GET /console/thread": thread,
+};

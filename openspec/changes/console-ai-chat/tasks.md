@@ -81,7 +81,7 @@
   1. In `chat.ts`, export `writeTools(deps)`. Each handler validates its input, calls `db.addAction`, and returns `{ actionId, summary }`. The summary is, for example, `"Create invoice 0.01 nBTC, expires in 1 hour"`. Errors return `{ error }`.
   2. Put a node-side `parseAmount(text, decimals): bigint` in `relay/src/checkout.ts` that mirrors the web version.
   3. Commit `feat(relay): assistant write proposals`.
-- [ ] 1.4 Add the assistant loop and `POST /console/chat`. Verify that `node --test` passes `loop_stops_after_six_rounds`, `malformed_tool_args_reported`, `model_error_returns_unavailable`, `daily_limit_429`, `chat_not_configured_503`, `foreign_thread_404`, `trace_groups_tools` and `confirm_card_attached_for_proposal`.
+- [x] 1.4 Add the assistant loop and `POST /console/chat`. Verify that `node --test` passes `loop_stops_after_six_rounds`, `malformed_tool_args_reported`, `model_error_returns_unavailable`, `daily_limit_429`, `chat_not_configured_503`, `foreign_thread_404`, `trace_groups_tools` and `confirm_card_attached_for_proposal`.
   1. Export `runAssistant(ports, merchant, history, message): Promise<{ text: string; trace: string[]; cards: Card[] }>`, following design decision 2.
   2. Write the system prompt from design decision 6 as a constant.
   3. The route creates the thread when needed, checks the limit, stores the user and assistant messages, and returns `{ threadId, messages }`.
