@@ -114,7 +114,7 @@
      - `mixed_actions_refused`.
      - `empty_actions_refused`.
   2. Run: FAIL. 3. Implement. 4. Run: PASS. 5. Commit `feat(relay): delegate allowlist`.
-- [ ] 2.3 Database, static files and the server shell. Verify that `npm test` passes the tests below, and that `GATEFLOW_CONTRACT=x node src/main.ts` serves `GET /console/nope` → 404 `{"error":"not found"}`
+- [x] 2.3 Database, static files and the server shell. Verify that `npm test` passes the tests below, and that `GATEFLOW_CONTRACT=x node src/main.ts` serves `GET /console/nope` → 404 `{"error":"not found"}`
   **Files:** `relay/src/types.ts`, `relay/src/db.ts`, `relay/src/static.ts`, `relay/src/main.ts`, and tests `db.test.ts`, `static.test.ts`, `main.test.ts`.
   **Produces:**
   - `types.ts`: `Config`, `Deps = {cfg; db; near: Near; oneclick: OneClick; now(): number}`, `interface OneClick { tokens(): Promise<any[]>; quote(body: object): Promise<any>; status(depositAddress: string): Promise<any> }`, `Req`, `Res`, `class HttpError extends Error { status: number }` (with a plain constructor body), and `type Handler = (req: Req, deps: Deps) => Promise<Res>`.
