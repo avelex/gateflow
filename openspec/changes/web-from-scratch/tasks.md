@@ -199,7 +199,7 @@
      - `invoice_tab_expired`: Open with `expires_at_sec` equal to `nowSec` gives Expired, and with `nowSec + 1` gives Open.
      - `create_invoice_args`: `"0.01"` at 8 decimals gives `amount: "1000000"`; an empty memo is omitted; a memo of 141 ASCII bytes or 47 three-byte characters throws.
   2. FAIL. 3. Implement `Invoices.tsx`: the tabs All, Open, Paying, Paid, Returned and Expired with counts; a create form whose token select lists only `enabled` tokens; and a detail `Dialog`. 4. PASS, plus the manual check. 5. Commit `feat(web): invoices`.
-- [ ] 4.4 Screening and Settings. Verify that `npm test` passes `screening_tabs` and `payer_label`. Then verify against the dev relay that setting risk tolerance to 20 makes `get_gateway` show `max_risk: 20` after one prompt, and that switching a token off removes it from the invoice form. Also verify that Screening passes the screenshot check against the export's "AML", that Settings "Blockchains & Tokens" passes it against the export tab, and that the Gateway tab matches the "Compliance BYOK" panel layout
+- [x] 4.4 Screening and Settings. Verify that `npm test` passes `screening_tabs` and `payer_label`. Then verify against the dev relay that setting risk tolerance to 20 makes `get_gateway` show `max_risk: 20` after one prompt, and that switching a token off removes it from the invoice form. Also verify that Screening passes the screenshot check against the export's "AML", that Settings "Blockchains & Tokens" passes it against the export tab, and that the Gateway tab matches the "Compliance BYOK" panel layout
   **Source:** Console "AML" and "Settings" blocks.
   **Produces:**
   - `screeningTab(p: Payment): "Pending" | "Refunded" | "Failed" | undefined`

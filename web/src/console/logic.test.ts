@@ -65,3 +65,20 @@ test("create_invoice_args", () => {
   expect(invoiceArgs({ ...form, memo: "a".repeat(140) }).memo).toHaveLength(140);
   expect(() => invoiceArgs({ ...form, amount: "0.000000001" })).toThrow();
 });
+
+import { payerLabel, screeningTab } from "./logic.ts";
+
+test("screening_tabs", () => {
+  const d = new Date();
+  expect(screeningTab(pay(1, "1", "Pending", d))).toBe("Pending");
+  expect(screeningTab(pay(1, "1", "Refunded", d))).toBe("Refunded");
+  expect(screeningTab(pay(1, "1", "SettleFailed", d))).toBe("Failed");
+  expect(screeningTab(pay(1, "1", "RefundFailed", d))).toBe("Failed");
+  expect(screeningTab(pay(1, "1", "Settled", d))).toBeUndefined();
+});
+
+test("payer_label", () => {
+  const d = new Date();
+  expect(payerLabel(pay(1, "1", "Pending", d, { reference: "ab".repeat(16), payer: "intents.near", refund_to: "bob.near" }))).toBe("bob.near");
+  expect(payerLabel(pay(1, "1", "Pending", d, { payer: "alice.near", refund_to: "alice.near" }))).toBe("alice.near");
+});

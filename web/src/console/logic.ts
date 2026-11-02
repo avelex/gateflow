@@ -129,3 +129,10 @@ export function invoiceArgs(form: { gateway: number; token: string; decimals: nu
   if (new TextEncoder().encode(memo).length > 140) throw new Error("memo must be at most 140 bytes");
   return { gateway: form.gateway, token: form.token, amount, expires_in_sec: form.expiresInSec, ...(memo ? { memo } : {}) };
 }
+
+/// The Screening tab of a payment; Settled payments have none.
+export function screeningTab(p: Payment): "Pending" | "Refunded" | "Failed" | undefined {
+  if (p.status === "Pending" || p.status === "Refunded") return p.status;
+  if (p.status === "SettleFailed" || p.status === "RefundFailed") return "Failed";
+  return undefined;
+}
