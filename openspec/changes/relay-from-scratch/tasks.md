@@ -136,7 +136,7 @@
   **Files:** `relay/src/console.ts`, `relay/src/console.test.ts`, plus `relay/src/testing.ts` (`fakeDeps(overrides)` with a `":memory:"` DB, a recording fake `Near`, a fake `OneClick` and a fixed `now`).
   **Produces:** handlers `POST /console/session {email}` → `{step}`, `DELETE /console/session`, and `GET /console/me` → `{email, name, accountId, gatewayId, step}`. Also `requireMerchant(req, deps)`, which throws 401.
   Steps: 1. tests FAIL. 2. implement. 3. PASS. 4. Commit `feat(relay): demo email sessions`.
-- [ ] 3.2 Provisioning. Verify that `npm test` passes the tests below
+- [x] 3.2 Provisioning. Verify that `npm test` passes the tests below
   **Produces:** `slug(name): string`, and `POST /console/onboard {name, publicKey, payoutTo?}` → `{step, accountId}` (design decision 4).
   1. Tests:
      - `slug_basic`: "Kaja Coffee" gives `kaja-coffee`.
