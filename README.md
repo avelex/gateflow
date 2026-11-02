@@ -105,8 +105,8 @@ sequenceDiagram
 
 ```sh
 cd contract && cargo test && cargo build --target wasm32-unknown-unknown --release
-cd enclave && cargo test && cargo build --target wasm32-wasip2 --release
-cd relay && node --test src/*.test.ts
+cd enclave && cargo test && GATEFLOW_CONTRACT=<contract> cargo build --target wasm32-wasip2 --release
+cd relay && npm test
 cd web && npm ci && npx vitest run && npm run build
 ```
 
@@ -147,10 +147,12 @@ cd ../relay && GATEFLOW_CONTRACT=<contract> RELAY_ACCOUNT_ID=<operator> RELAY_PR
 
 The backend only relays `create_gateway`, `create_invoice` and `set_policy` from the merchant's own account, with no deposit and at most 100 Tgas. It cannot sign for the merchant.
 
-Running the relay, the enclave secrets and the deployment steps (testnet and mainnet) are in [GOAL.md → Engineering notes](GOAL.md#engineering-notes).
+Relay modules, tests and the testnet dev deployment are in [`relay/README.md`](relay/README.md). Mainnet deployment steps are tracked in [`openspec/changes/mainnet-launch/tasks.md`](openspec/changes/mainnet-launch/tasks.md).
 
 ## Status
 
-- Contract, enclave and relay for the cross-chain path are implemented and unit-tested. The relay's quotes and its NEAR signer have been run against live 1Click and testnet.
-- The web console and checkout run end to end on testnet: onboarding, invoices, and a direct payment from a named account, which current screening returns.
+- The contract, the enclave and the relay are implemented and unit-tested.
+- The enclave has been checked against the live screening APIs in a local wasmtime run, but has not yet run on OutLayer, because FastFS testnet was down.
+- The relay runs against a testnet dev deployment (`gateflow-dev-v1.testnet`): merchant onboarding, sponsored `create_gateway` and `create_invoice`, fuel funding and the checkout views. A dry 1Click quote passes against the live API. See [`relay/README.md`](relay/README.md).
+- `web/` (the console and the checkout page) and `GOAL.md` are not yet in this repository.
 - Not yet run on mainnet: deployment, enclave registration and live USDC / BTC / ZEC payments. Tracked in [`openspec/changes/mainnet-launch/tasks.md`](openspec/changes/mainnet-launch/tasks.md).
