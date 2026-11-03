@@ -347,3 +347,41 @@ test("console_data_requires_gateway", async () => {
   const { cookies } = await onboarded(deps);
   assert.equal((await call(deps, "GET", "/console/gateway", undefined, cookies)).status, 409);
 });
+
+function withBalances(deps: TestDeps) {
+  deps.near.viewTable["usdc.testnet.ft_metadata"] = { symbol: "USDC", decimals: 6 };
+  deps.near.viewTable["usdc.testnet.ft_balance_of"] = "40000000";
+  deps.near.viewTable["wrap.testnet.ft_balance_of"] = "0";
+}
+
+test("balances_need_session", async () => {
+  assert.equal((await call(fakeDeps(), "GET", "/console/balances")).status, 401);
+});
+
+test("balances_need_gateway", async () => {
+  const deps = fakeDeps();
+  const { cookies } = await onboarded(deps);
+  assert.equal((await call(deps, "GET", "/console/balances", undefined, cookies)).status, 409);
+});
+
+test("balances_of_payout", async () => {
+  const deps = fakeDeps();
+  const cookies = await withGateway(deps);
+  withBalances(deps);
+  const res = await call(deps, "GET", "/console/balances", undefined, cookies);
+  assert.deepEqual(res.json, [
+    { token: "wrap.testnet", symbol: "WRAP", decimals: 24, balance: "0" },
+    { token: "usdc.testnet", symbol: "USDC", decimals: 6, balance: "40000000" },
+  ]);
+  const reads = deps.near.views.filter((v) => v.method === "ft_balance_of");
+  assert.deepEqual(reads.map((v) => v.args), [{ account_id: "kaja-coffee.op.testnet" }, { account_id: "kaja-coffee.op.testnet" }]);
+});
+
+test("balances_include_switched_off", async () => {
+  const deps = fakeDeps();
+  const cookies = await withGateway(deps);
+  withBalances(deps);
+  await call(deps, "PUT", "/console/preferences", { tokensOff: ["usdc.testnet"] }, cookies);
+  const res = await call(deps, "GET", "/console/balances", undefined, cookies);
+  assert.deepEqual((res.json as any[]).map((b) => b.token), ["wrap.testnet", "usdc.testnet"]);
+});

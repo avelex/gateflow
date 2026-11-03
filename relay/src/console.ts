@@ -302,6 +302,21 @@ const tokens: Handler = async (req, deps) => {
   return ok(await Promise.all(list.map(async (token) => ({ token, ...(await tokenMeta(deps, token)), enabled: !m.tokens_off.includes(token) }))));
 };
 
+/// Each allowlisted token with the payout account's raw balance of it.
+const balances: Handler = async (req, deps) => {
+  const m = requireGateway(req, deps);
+  const g = await readGateway(deps, m.gateway_id);
+  const list: string[] = await deps.near.view(deps.cfg.gateflow, "get_tokens", {});
+  return ok(
+    await Promise.all(
+      list.map(async (token) => {
+        const [meta, balance] = await Promise.all([tokenMeta(deps, token), deps.near.view(token, "ft_balance_of", { account_id: g.payout_to })]);
+        return { token, ...meta, balance: String(balance) };
+      }),
+    ),
+  );
+};
+
 const preferences: Handler = async (req, deps) => {
   const m = requireMerchant(req, deps);
   const off = req.body?.tokensOff;
@@ -346,6 +361,7 @@ export const consoleRoutes: Record<string, Handler> = {
   "GET /console/invoices": invoices,
   "GET /console/payments": payments,
   "GET /console/tokens": tokens,
+  "GET /console/balances": balances,
   "PUT /console/preferences": preferences,
   "POST /console/retry": retry,
 };
