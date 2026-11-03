@@ -28,14 +28,15 @@ Run 0.3 and 0.4 before 0.1: the contract needs a working enclave project.
 ## 1. Deploy
 
 - [ ] 1.1 Deploy a fresh mainnet `gateflow` contract with `new(...)` (`intents` = `intents.near`), `add_token` the three tokens, `storage_deposit` the contract on each, then delete the account's full-access key; verify `get_tokens` returns exactly those three and `near account list-keys` shows no keys
-  - 2026-11-03: deployed `gateflow.greatbank5653.near` (wasm SHA256 `983102e92f18b7a0f24f93764c62c40e705390bd8dde1e8600a3c4071be55d6b`, commit `80bec9e`).
-    - Deploy and `new(...)` tx `HMo1MQxm66LbUwCEv2VbFPL36cEkDeS7wgPh7Qs7XY79`, with operator `greatbank5653.near`, relay `relay.greatbank5653.near`, intents `intents.near`, enclave `{outlayer.near, greatbank5653.near/gateflow, greatbank5653.near}` and `execution_deposit` 0.01 NEAR.
-    - `add_token`: USDC `53pzrg1q7pty5UZHXbfrQDmEhmg1vHkXc15n8iozrZTH`, nBTC `9j6M6hASRxaW6172KzfnT2gSTr6VWcbviuMaoRaZ2yyv`, ZEC `CWGbZXvKf37qyA9CpargDJEj3Mw5tT5FAgfke7jN2MDN`.
-    - `storage_deposit`: USDC `6crrEhU6sKYDSKjiQJA2JreME2H1914A9oAJ4av7KK5`, nBTC `BBMYXqfNK39rV34CaTv5Xf4u8FFseXK9YBhYumdyRFbK`, ZEC `4TVb8eEtchUnJbRvwd6UWN6oSS8a1o5GuQaAbEn39vhe`.
-    - `get_tokens` returns exactly the three.
+  - 2026-11-03 (`gateflow-namespace`): deployed `gateflow.near` (wasm SHA256 `683f8fb16c85ff4a05dd87c3e3a84f992dc87d2defb70e7588401747957fb411`, commit `fb0e1c5`, adds `set_payout`).
+    - Deploy and `new(...)` tx `8S1XnbEXVbgcwgwDw2zFUnErHVHhVwiCqipqbnah3wE9`, with operator `ops.gateflow.near`, relay `relay.gateflow.near`, intents `intents.near`, enclave `{outlayer.near, ops.gateflow.near/gateflow, ops.gateflow.near}` and `execution_deposit` 0.01 NEAR.
+    - `add_token` (by `ops.gateflow.near`): USDC `8o4GfzGjteqJ1ATdVK4KQq2GeYao6NEGfK3df2fF25zN`, nBTC `LJTxhtAFw1PnV3NhGF7NnwdhEuSc3Zc7br9MQsYWBkV`, ZEC `AjPp6hugHYdJCaXkAbpuGMozFEreMC2LGbfkGH4nAm1H`.
+    - `storage_deposit` for `gateflow.near`: USDC `GBTgqsqrkdVePKjZR5QZEwTR12tr1SPwYrwUt92xskQf`, nBTC `CAfDiLARyV8FkpZp3vfA9jCvETRhQuKAkBZKGZBHzqcN`, ZEC `13FP7YCkk2J14fjaCMUyWPhdWMPrsShsxvYB4FVN1koS`.
+    - `get_operator` is `ops.gateflow.near`, `get_relay` is `relay.gateflow.near`, `get_tokens` returns exactly the three, and `storage_balance_of(gateflow.near)` is set on each.
     - Open: the owner chose to keep the full-access key for now.
+  - Retired: the first deployment, `gateflow.greatbank5653.near` (commit `80bec9e`, deploy tx `HMo1MQxm66LbUwCEv2VbFPL36cEkDeS7wgPh7Qs7XY79`), was deleted on 2026-11-03 with `relay.greatbank5653.near` (see `gateflow-namespace` 4.5).
 - [ ] 1.2 Build the enclave with `GATEFLOW_CONTRACT=<mainnet gateflow account>`, then `outlayer upload` and `outlayer deploy gateflow <url>` as the account named in `enclave.secrets_owner`. Store a placeholder `default` profile only if 0.3 (d) required it. Call `set_enclave` if the project differs from the one given to `new(...)`. Verify a direct NEAR test payment from a clean account reaches `Settled`
-  - 2026-11-03: built and deployed as `greatbank5653.near/gateflow`. The SHA256, tx hashes and direct-call checks are in `enclave/README.md`. No placeholder profile, since 0.3 (d) did not require one, and no `set_enclave`, since the project matches `new(...)`.
+  - 2026-11-03: built for `gateflow.near` and deployed as `ops.gateflow.near/gateflow`. The SHA256, tx hashes and direct-call checks are in `enclave/README.md`. No placeholder profile, since 0.3 (d) did not require one, and no `set_enclave`, since the project matches `new(...)`.
   - Open: the `Settled` payment. It needs a gateway, so it runs after 1.3.
 - [ ] 1.3 Start the relay against mainnet (`GATEFLOW_CONTRACT`, `RELAY_ACCOUNT_ID`, `RELAY_PRIVATE_KEY`, `NEAR_RPC_URL`, `VITE_NEAR_NETWORK=mainnet` build) and onboard one merchant through the console; verify `get_gateway` for that merchant's gateway returns its owner, payout account and fuel
 
