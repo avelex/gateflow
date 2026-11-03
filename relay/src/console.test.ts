@@ -415,3 +415,71 @@ test("balances_include_switched_off", async () => {
   const res = await call(deps, "GET", "/console/balances", undefined, cookies);
   assert.deepEqual((res.json as any[]).map((b) => b.token), ["wrap.testnet", "usdc.testnet"]);
 });
+
+// ---------- payout registration sync ----------
+
+import { ensureRegistered, syncRegistrations } from "./console.ts";
+
+/// Fakes `storage_balance_of` on `tokens`: registered when listed in `already` or sent a successful `storage_deposit`.
+function withStorage(deps: TestDeps, tokens: string[], already: string[] = []) {
+  withTokens(deps, tokens);
+  for (const t of tokens)
+    deps.near.viewTable[`${t}.storage_balance_of`] = ({ account_id }: any) =>
+      already.includes(`${t}:${account_id}`) || deposits(deps).includes(`${t}:${account_id}`) ? { total: "1250000000000000000000", available: "0" } : null;
+}
+
+const deposits = (deps: TestDeps) =>
+  deps.near.sent.filter((s) => (s.actions[0] as any).functionCall?.method === "storage_deposit" && !(s as any).failed).map((s) => `${s.receiver}:${(s.actions[0] as any).functionCall.args.account_id}`);
+
+function twoMerchants(deps: TestDeps) {
+  for (const [i, who] of ["a", "b"].entries())
+    deps.db.upsertMerchant({ email: `${who}@example.com`, name: who, account_id: `${who}.op.testnet`, public_key: "ed25519:x", gateway_id: i, step: "done", tokens_off: [] });
+  deps.db.upsertMerchant({ email: "c@example.com", name: "c", account_id: "c.op.testnet", public_key: "ed25519:x", gateway_id: null, step: "gateway", tokens_off: [] });
+  deps.near.viewTable["gateflow.testnet.get_gateway"] = ({ gateway }: any) => ({ owner: "x", payout_to: gateway === 0 ? "a.op.testnet" : "b.op.testnet", policy: { max_risk: 50 }, fuel: "0", invoices: 0, payments: 0 });
+}
+
+test("ensure_registered_skips_registered", async () => {
+  const deps = fakeDeps();
+  withStorage(deps, ["wrap.testnet"], ["wrap.testnet:kaja.testnet"]);
+  assert.equal(await ensureRegistered(deps, "kaja.testnet", "wrap.testnet"), false);
+  assert.equal(deps.near.sent.length, 0);
+});
+
+test("ensure_registered_registers_missing", async () => {
+  const deps = fakeDeps();
+  withStorage(deps, ["wrap.testnet"]);
+  assert.equal(await ensureRegistered(deps, "kaja.testnet", "wrap.testnet"), true);
+  assert.equal(deps.near.sent.length, 1);
+  const fc = (deps.near.sent[0].actions[0] as any).functionCall;
+  assert.equal(deps.near.sent[0].receiver, "wrap.testnet");
+  assert.deepEqual(fc.args, { account_id: "kaja.testnet", registration_only: true });
+  assert.equal(fc.deposit, 1250000000000000000000n);
+  assert.equal(fc.gas, 30n * TGAS);
+});
+
+test("ensure_registered_concurrent_once", async () => {
+  const deps = fakeDeps();
+  withStorage(deps, ["wrap.testnet"]);
+  const r = await Promise.all([ensureRegistered(deps, "kaja.testnet", "wrap.testnet"), ensureRegistered(deps, "kaja.testnet", "wrap.testnet")]);
+  assert.deepEqual(r.sort(), [false, true]);
+  assert.equal(deps.near.sent.length, 1);
+});
+
+test("sync_registers_all_payouts", async () => {
+  const deps = fakeDeps();
+  twoMerchants(deps);
+  withStorage(deps, ["wrap.testnet", "usdc.testnet"], ["wrap.testnet:a.op.testnet"]);
+  assert.equal(await syncRegistrations(deps), 3);
+  assert.deepEqual(deposits(deps).sort(), ["usdc.testnet:a.op.testnet", "usdc.testnet:b.op.testnet", "wrap.testnet:b.op.testnet"]);
+  assert.equal(await syncRegistrations(deps), 0);
+});
+
+test("sync_continues_after_failure", async () => {
+  const deps = fakeDeps();
+  twoMerchants(deps);
+  withStorage(deps, ["wrap.testnet", "usdc.testnet"]);
+  deps.near.sendResults.push((s) => (((s as any).failed = true), { hash: "x", error: "boom" }));
+  assert.equal(await syncRegistrations(deps), 3);
+  assert.equal(deps.near.sent.length, 4);
+  assert.equal(deposits(deps).length, 3);
+});

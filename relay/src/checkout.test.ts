@@ -36,7 +36,32 @@ export function withInvoice(deps: TestDeps, inv: Record<string, unknown> = {}, p
   deps.near.viewTable["gateflow.testnet.get_payment"] = () => payment;
   deps.near.viewTable[`${USDC}.ft_metadata`] = { symbol: "USDC", decimals: 6 };
   deps.db.upsertMerchant({ email: "kaja@example.com", name: "Kaja Coffee", account_id: "kaja.op.testnet", public_key: "ed25519:x", gateway_id: 0, step: "done", tokens_off: [] });
+  deps.near.viewTable["gateflow.testnet.get_gateway"] = ({ gateway }: any) =>
+    gateway === 0 ? { owner: "kaja.op.testnet", payout_to: "kaja.op.testnet", policy: { max_risk: 50 }, fuel: "0", invoices: 1, payments: 0 } : null;
+  deps.near.viewTable[`${USDC}.storage_balance_of`] = () => ({ total: "1250000000000000000000", available: "0" });
+  deps.near.viewTable[`${USDC}.storage_balance_bounds`] = { min: "1250000000000000000000", max: "1250000000000000000000" };
 }
+
+test("checkout_registers_payout", async () => {
+  const deps = fakeDeps();
+  withInvoice(deps);
+  deps.near.viewTable[`${USDC}.storage_balance_of`] = () => null;
+  const res = await call(deps, "GET", "/checkout/invoice?id=7");
+  assert.equal(res.status, 200);
+  assert.equal(deps.near.sent.length, 1);
+  assert.equal(deps.near.sent[0].receiver, USDC);
+  assert.deepEqual((deps.near.sent[0].actions[0] as any).functionCall.args, { account_id: "kaja.op.testnet", registration_only: true });
+});
+
+test("checkout_registration_failure_502", async () => {
+  const deps = fakeDeps();
+  withInvoice(deps);
+  deps.near.viewTable[`${USDC}.storage_balance_of`] = () => null;
+  deps.near.sendResults.push(() => ({ hash: "x", error: "not enough balance" }));
+  const res = await call(deps, "GET", "/checkout/invoice?id=7");
+  assert.equal(res.status, 502);
+  assert.equal((res.json as any).id, undefined);
+});
 
 test("checkout_invoice_404", async () => {
   const deps = fakeDeps();

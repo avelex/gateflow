@@ -98,6 +98,41 @@ function failIfError(r: { error?: string }, what: string) {
   if (r.error) throw new HttpError(502, `${what} failed: ${r.error}`);
 }
 
+/// Registers storage for `account` on `token` unless it has some; true when it sent a registration.
+export function ensureRegistered(deps: Deps, account: string, token: string): Promise<boolean> {
+  return withLock(`${account}/${token}`, async () => {
+    if (await deps.near.view(token, "storage_balance_of", { account_id: account })) return false;
+    const bounds = await deps.near.view(token, "storage_balance_bounds", {});
+    const r = await deps.near.send(token, [
+      { functionCall: { method: "storage_deposit", args: { account_id: account, registration_only: true }, gas: 30n * TGAS, deposit: BigInt(bounds.min) } },
+    ]);
+    failIfError(r, `storage registration of ${account} on ${token}`);
+    return true;
+  });
+}
+
+/// Registers every gateway's payout account on every allowlisted token, so a token added later cannot fail a settle.
+/// Failures are logged and skipped; returns the number of registrations sent.
+export async function syncRegistrations(deps: Deps): Promise<number> {
+  const tokens: string[] = await deps.near.view(deps.cfg.gateflow, "get_tokens", {});
+  let n = 0;
+  for (const m of deps.db.merchantsWithGateway()) {
+    try {
+      const g = await deps.near.view(deps.cfg.gateflow, "get_gateway", { gateway: m.gateway_id });
+      for (const token of tokens) {
+        try {
+          if (await ensureRegistered(deps, g.payout_to, token)) n++;
+        } catch (e) {
+          console.error(`registration of gateway ${m.gateway_id} payout on ${token}:`, e);
+        }
+      }
+    } catch (e) {
+      console.error(`gateway ${m.gateway_id}:`, e);
+    }
+  }
+  return n;
+}
+
 const onboard: Handler = async (req, deps) => {
   const email = requireSession(req, deps);
   const name = String(req.body?.name ?? "").trim();

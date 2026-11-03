@@ -2,7 +2,7 @@
 import { createServer, type IncomingMessage } from "node:http";
 import { chatRoutes, llmClient } from "./chat.ts";
 import { checkoutRoutes } from "./checkout.ts";
-import { consoleRoutes } from "./console.ts";
+import { consoleRoutes, syncRegistrations } from "./console.ts";
 import { openDb } from "./db.ts";
 import { rpcNear } from "./near.ts";
 import { serveStatic } from "./static.ts";
@@ -113,4 +113,5 @@ if (import.meta.main) {
   };
   serve(deps).listen(cfg.port, () => console.log(`gateflow relay on :${cfg.port} (contract ${cfg.gateflow})`));
   startWatcher(deps);
+  syncRegistrations(deps).then((n) => console.log(`payout registrations sent: ${n}`), console.error);
 }

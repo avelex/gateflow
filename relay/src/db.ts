@@ -97,6 +97,7 @@ export function openDb(path: string) {
   const byAccount = q("SELECT * FROM merchants WHERE account_id = ?");
   const byGateway = q("SELECT * FROM merchants WHERE gateway_id = ?");
   const count = q("SELECT COUNT(*) AS n FROM merchants");
+  const withGateway = q("SELECT * FROM merchants WHERE gateway_id IS NOT NULL ORDER BY gateway_id");
   const upsert = q(`INSERT INTO merchants (email, name, account_id, public_key, gateway_id, step, tokens_off)
     VALUES (:email, :name, :account_id, :public_key, :gateway_id, :step, :tokens_off)
     ON CONFLICT(email) DO UPDATE SET name = :name, account_id = :account_id, public_key = :public_key,
@@ -128,6 +129,7 @@ export function openDb(path: string) {
     merchantByAccount: (id: string) => toMerchant(byAccount.get(id)),
     merchantByGateway: (id: number) => toMerchant(byGateway.get(id)),
     merchantCount: () => Number((count.get() as any).n),
+    merchantsWithGateway: () => withGateway.all().map((r) => toMerchant(r)!),
     upsertMerchant(m: Merchant) {
       upsert.run({ ...m, tokens_off: JSON.stringify(m.tokens_off) });
     },

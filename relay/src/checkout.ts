@@ -1,6 +1,6 @@
 // /checkout/* API: public invoice details, quotable assets, 1Click quotes with a `ref`, status and deferred screening.
 import { randomBytes } from "node:crypto";
-import { tokenMeta } from "./console.ts";
+import { ensureRegistered, tokenMeta } from "./console.ts";
 import { type Deps, type Handler, HttpError, ok } from "./types.ts";
 
 const TGAS = 10n ** 12n;
@@ -60,6 +60,9 @@ const invoice: Handler = async (req, deps) => {
   const id = invoiceId(req.query.get("id"));
   const inv = await deps.near.view(deps.cfg.gateflow, "get_invoice", { invoice: id });
   if (!inv) throw new HttpError(404, "invoice not found");
+  // A payout account without storage on the token would fail the settle.
+  const g = await deps.near.view(deps.cfg.gateflow, "get_gateway", { gateway: inv.gateway });
+  if (g) await ensureRegistered(deps, g.payout_to, inv.token);
   const meta = await tokenMeta(deps, inv.token);
   const payment = inv.payment === null || inv.payment === undefined ? null : await deps.near.view(deps.cfg.gateflow, "get_payment", { payment: inv.payment });
   return ok({
