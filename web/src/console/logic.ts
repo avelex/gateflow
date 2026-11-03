@@ -1,6 +1,6 @@
 // Pure console rules (tested in logic.test.ts) and the delegate round trip.
 import { api } from "../api.ts";
-import { explorerTx, OUTLAYER_EXECUTIONS, type Screening } from "../checkout/logic.ts";
+import { attestationUrl, explorerTx, OUTLAYER_EXECUTIONS, type Screening } from "../checkout/logic.ts";
 import { formatAmount, parseAmount } from "../format.ts";
 import { type DelegateParams, type MerchantKey, signDelegate } from "../near/delegate.ts";
 import { assertOwner, getPasskeyKey, loadStoredKey } from "../near/key.ts";
@@ -219,7 +219,7 @@ export function screeningFields(p: Payment, project: string, network: string): F
   return [
     ...f,
     { label: "Outcome", value: OUTCOME[s.outcome] },
-    ...(s.requestId !== null ? [{ label: "Request", value: String(s.requestId), href: OUTLAYER_EXECUTIONS }] : []),
+    ...(s.requestId !== null ? [{ label: "Request", value: String(s.requestId), href: s.jobId ? attestationUrl(s.jobId, network) : OUTLAYER_EXECUTIONS }] : []),
     ...(s.wasmHash ? [{ label: "Wasm", value: s.wasmHash, ...(s.wasmUrl ? { href: s.wasmUrl } : {}) }] : []),
     ...(s.timeMs !== null ? [{ label: "Run time", value: `${(s.timeMs / 1000).toFixed(1)} s` }] : []),
     ...(s.costYocto ? [{ label: "Cost", value: `${formatAmount(BigInt(s.costYocto), 24)} NEAR` }] : []),

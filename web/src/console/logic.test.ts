@@ -127,7 +127,7 @@ import { screeningFields } from "./logic.ts";
 
 const EV = {
   txHash: "4e9W", requestId: 2792, project: "ops.gateflow.near/gateflow", wasmHash: "11a4efa612d4c52e", wasmUrl: null,
-  timeMs: 1410, costYocto: "1141000000000000000000", outcome: "approved" as const,
+  timeMs: 1410, costYocto: "1141000000000000000000", outcome: "approved" as const, jobId: null as number | null,
 };
 const PROJECT = "ops.gateflow.near/gateflow";
 const byLabel = (f: ReturnType<typeof screeningFields>) => Object.fromEntries(f.map((x) => [x.label, x.value]));
@@ -141,6 +141,7 @@ test("fields_no_verdict", () => {
   const f = byLabel(screeningFields(pay(3, "1", "Refunded", new Date(), { screening: { ...EV, outcome: "no_verdict" } }), PROJECT, "mainnet"));
   expect(f.Wasm).toBeUndefined();
   expect(f.Outcome).toBe("No verdict within 15 minutes");
+  expect(f.Request).toBeUndefined();
 });
 
 test("fields_unavailable", () => {
@@ -153,4 +154,11 @@ test("fields_cross_chain", () => {
   const f = byLabel(screeningFields(pay(3, "1", "Pending", new Date(), { reference: "r1", deposit_address: "0x76fc" }), PROJECT, "mainnet"));
   expect(f).toMatchObject({ Flow: "Cross-chain", "Deposit address": "0x76fc" });
   expect(f["Screening record"]).toBeUndefined();
+});
+
+test("fields_request_attestation", () => {
+  const f = screeningFields(pay(3, "1", "Settled", new Date(), { screening: { ...EV, requestId: 2796, jobId: 1255332 } }), PROJECT, "mainnet");
+  expect(f.find((x) => x.label === "Request")).toEqual({ label: "Request", value: "2796", href: "https://app.outlayer.ai/attestation/1255332?network=mainnet" });
+  const plain = screeningFields(pay(3, "1", "Settled", new Date(), { screening: EV }), PROJECT, "mainnet");
+  expect(plain.find((x) => x.label === "Request")?.href).toBe("https://app.outlayer.ai/executions");
 });
