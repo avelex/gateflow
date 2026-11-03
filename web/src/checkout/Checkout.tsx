@@ -47,7 +47,7 @@ function HowScreening({ inv }: { inv: CheckoutInvoice }) {
             <li key={c}>{c}</li>
           ))}
         </ul>
-        {code && <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, wordBreak: "break-all" }}>{code}</span>}
+        {code && <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, overflowWrap: "anywhere" }}>{code}</span>}
         <Links links={[{ label: "OutLayer executions", href: OUTLAYER_EXECUTIONS }, ...(SOURCE_URL ? [{ label: "Source code", href: SOURCE_URL }] : [])]} />
       </div>
     </details>
