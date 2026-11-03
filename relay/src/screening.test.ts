@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { evidenceFor, opensPayment, outcome, type Parsed, parseEvidence } from "./screening.ts";
+import { evidenceFor, findJob, opensPayment, outcome, type Parsed, parseEvidence } from "./screening.ts";
 import { fakeDeps } from "./testing.ts";
 
 const TX = JSON.parse(readFileSync(new URL("./fixtures/outlayer-tx-approved.json", import.meta.url), "utf8"));
@@ -136,3 +136,42 @@ test("unknown_tx_not_stored", async () => {
 });
 
 test("no_row_null", async () => assert.equal(await evidenceFor(fakeDeps(), 9, "Settled"), null));
+
+// ---------- OutLayer jobs ----------
+
+const JOBS = JSON.parse(readFileSync(new URL("./fixtures/outlayer-jobs.json", import.meta.url), "utf8"));
+const C8 = "C8UdBVpFo4kNQUU1tWivMeSKGkU3SYu5DNADuQCi35RS";
+const job = (i: number) => ({ job_id: 1000 + i, request_id: i, transaction_hash: `t${i}` });
+
+test("find_job_fixture", async () => {
+  const d = fakeDeps();
+  d.outlayer.jobList = JOBS;
+  assert.equal(await findJob(d, { txHash: C8, signer: "relay.gateflow.near", requestId: 2796 }), 1255332);
+  assert.deepEqual(d.outlayer.calls[0], { user: "relay.gateflow.near", project: "ops.gateflow.near/gateflow", limit: 50, offset: 0 });
+});
+
+test("find_job_request_mismatch", async () => {
+  const d = fakeDeps();
+  d.outlayer.jobList = JOBS;
+  assert.equal(await findJob(d, { txHash: C8, signer: "relay.gateflow.near", requestId: 9999 }), null);
+});
+
+test("find_job_pages", async () => {
+  const d = fakeDeps();
+  d.outlayer.jobList = Array.from({ length: 160 }, (_, i) => job(i));
+  assert.equal(await findJob(d, { txHash: "t120", signer: "s", requestId: 120 }), 1120);
+  assert.equal(d.outlayer.calls.length, 3);
+});
+
+test("find_job_page_cap", async () => {
+  const d = fakeDeps();
+  d.outlayer.jobList = Array.from({ length: 300 }, (_, i) => job(i));
+  assert.equal(await findJob(d, { txHash: "t250", signer: "s", requestId: 250 }), null);
+  assert.equal(d.outlayer.calls.length, 4);
+});
+
+test("find_job_api_error", async () => {
+  const d = fakeDeps();
+  d.outlayer.fail = new Error("down");
+  assert.equal(await findJob(d, { txHash: C8, signer: "s", requestId: 2796 }), null);
+});

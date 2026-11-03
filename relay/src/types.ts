@@ -25,12 +25,18 @@ export type Config = {
   chatDailyLimit: number;
   outlayerContract: string;
   outlayerProject: string;
+  outlayerApi: string;
 };
 
 export interface OneClick {
   tokens(): Promise<any[]>;
   quote(body: object): Promise<any>;
   status(depositAddress: string): Promise<any>;
+}
+
+/// OutLayer's coordinator API (undocumented): jobs of one tx signer, newest first.
+export interface OutLayerApi {
+  jobs(q: { user: string; project: string; limit: number; offset: number }): Promise<any[]>;
 }
 
 export type ChatMessage = { role: "system" | "user" | "assistant" | "tool"; content: string | null; tool_calls?: unknown[]; tool_call_id?: string };
@@ -43,7 +49,7 @@ export interface Llm {
 }
 
 /// `creator` signs merchant account creation as `cfg.merchantParent`; `near` signs everything else.
-export type Deps = { cfg: Config; db: Db; near: Near; creator?: Near; oneclick: OneClick; llm?: Llm; now(): number };
+export type Deps = { cfg: Config; db: Db; near: Near; creator?: Near; oneclick: OneClick; outlayer: OutLayerApi; llm?: Llm; now(): number };
 
 export type Req = {
   method: string;
@@ -98,5 +104,6 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     chatDailyLimit: Number(env.CHAT_DAILY_LIMIT ?? 200),
     outlayerContract: env.OUTLAYER_CONTRACT || "outlayer.near",
     outlayerProject: env.OUTLAYER_PROJECT || "ops.gateflow.near/gateflow",
+    outlayerApi: env.OUTLAYER_API || "https://api.outlayer.ai",
   };
 }

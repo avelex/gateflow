@@ -7,7 +7,7 @@ import { openDb } from "./db.ts";
 import { rpcNear } from "./near.ts";
 import { serveStatic } from "./static.ts";
 import { startWatcher } from "./watcher.ts";
-import { type Deps, type Handler, HttpError, loadConfig, type OneClick, type Req, type Res } from "./types.ts";
+import { type Deps, type Handler, HttpError, loadConfig, type OneClick, type OutLayerApi, type Req, type Res } from "./types.ts";
 
 const CORS = { "access-control-allow-origin": "*", "access-control-allow-headers": "content-type", "access-control-allow-methods": "GET, POST, OPTIONS" };
 const MAX_BODY = 64 * 1024;
@@ -63,6 +63,19 @@ async function readBody(req: IncomingMessage): Promise<any> {
   }
 }
 
+export function outlayerApi(baseUrl: string): OutLayerApi {
+  return {
+    async jobs(q) {
+      const params = new URLSearchParams({ user_account_id: q.user, project: q.project, limit: String(q.limit), offset: String(q.offset) });
+      const res = await fetch(`${baseUrl}/public/jobs?${params}`, { signal: AbortSignal.timeout(5000) });
+      if (!res.ok) throw new Error(`OutLayer ${res.status}`);
+      const body = await res.json();
+      if (!Array.isArray(body)) throw new Error("OutLayer jobs: not a list");
+      return body;
+    },
+  };
+}
+
 export function oneClick(baseUrl: string, apiKey?: string): OneClick {
   const call = async (path: string, init?: RequestInit) => {
     const headers: Record<string, string> = { "content-type": "application/json" };
@@ -109,6 +122,7 @@ if (import.meta.main) {
     // A second client for the same account would race the first on its nonce.
     creator: cfg.merchantParent === cfg.accountId ? undefined : rpcNear({ rpcUrl: cfg.rpcUrl, accountId: cfg.merchantParent, secret: cfg.secret }),
     oneclick: oneClick(cfg.oneclickUrl, cfg.oneclickKey),
+    outlayer: outlayerApi(cfg.outlayerApi),
     llm: cfg.llmApiKey ? llmClient(cfg) : undefined,
     now: Date.now,
   };

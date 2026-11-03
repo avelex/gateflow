@@ -121,3 +121,22 @@ export async function activeVersion(deps: Deps): Promise<string | null> {
   active.set(deps, { value, at: deps.now() });
   return value;
 }
+
+const JOBS_PAGE = 50;
+// ponytail: 4 pages (200 newest jobs per signer); raise it, or ask OutLayer for a tx filter, if lookups start missing.
+const JOBS_PAGES = 4;
+
+/// The OutLayer job that ran this tx's execution `requestId`, from the jobs of the tx signer; null when not listed or on error.
+export async function findJob(deps: Deps, q: { txHash: string; signer: string; requestId: number }): Promise<number | null> {
+  try {
+    for (let page = 0; page < JOBS_PAGES; page++) {
+      const jobs = await deps.outlayer.jobs({ user: q.signer, project: deps.cfg.outlayerProject, limit: JOBS_PAGE, offset: page * JOBS_PAGE });
+      const hit = jobs.find((j) => j?.transaction_hash === q.txHash && j?.request_id === q.requestId);
+      if (hit && Number.isSafeInteger(hit.job_id)) return hit.job_id;
+      if (jobs.length < JOBS_PAGE) return null;
+    }
+  } catch {
+    // OutLayer unreachable or changed: no link
+  }
+  return null;
+}

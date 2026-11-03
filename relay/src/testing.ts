@@ -1,7 +1,7 @@
 // Test doubles: an in-memory DB, a recording fake NEAR client and a scripted 1Click client.
 import { openDb } from "./db.ts";
 import type { Action, Near, TxResult } from "./near.ts";
-import { type ChatMessage, type Completion, type Config, type Deps, type Llm, loadConfig, type OneClick, type Req, type ToolDef } from "./types.ts";
+import { type ChatMessage, type Completion, type Config, type Deps, type Llm, loadConfig, type OneClick, type OutLayerApi, type Req, type ToolDef } from "./types.ts";
 
 export const cfg = (over: Partial<Config> = {}): Config => ({
   ...loadConfig({ GATEFLOW_CONTRACT: "gateflow.testnet", RELAY_ACCOUNT_ID: "op.testnet", WEB_DIST: "/nonexistent" }),
@@ -94,6 +94,21 @@ export function fakeOneClick(): FakeOneClick {
   return o;
 }
 
+export type FakeOutLayer = OutLayerApi & { jobList: any[]; calls: { user: string; project: string; limit: number; offset: number }[]; fail?: Error };
+
+export function fakeOutLayer(): FakeOutLayer {
+  const o: FakeOutLayer = {
+    jobList: [],
+    calls: [],
+    async jobs(q) {
+      o.calls.push(q);
+      if (o.fail) throw o.fail;
+      return structuredClone(o.jobList.slice(q.offset, q.offset + q.limit));
+    },
+  };
+  return o;
+}
+
 export type FakeLlm = Llm & {
   /// Replies in order; an Error is thrown. When empty, the fake answers "ok".
   replies: (Completion | Error)[];
@@ -114,11 +129,11 @@ export function fakeLlm(): FakeLlm {
   return l;
 }
 
-export type TestDeps = Deps & { near: FakeNear; oneclick: FakeOneClick; llm: FakeLlm; clock: { ms: number } };
+export type TestDeps = Deps & { near: FakeNear; oneclick: FakeOneClick; outlayer: FakeOutLayer; llm: FakeLlm; clock: { ms: number } };
 
 export function fakeDeps(over: Partial<Config> = {}): TestDeps {
   const clock = { ms: Date.UTC(2026, 10, 2, 12) };
-  return { cfg: cfg(over), db: openDb(":memory:"), near: fakeNear(), oneclick: fakeOneClick(), llm: fakeLlm(), now: () => clock.ms, clock };
+  return { cfg: cfg(over), db: openDb(":memory:"), near: fakeNear(), oneclick: fakeOneClick(), outlayer: fakeOutLayer(), llm: fakeLlm(), now: () => clock.ms, clock };
 }
 
 export const req = (method: string, path: string, body?: any, cookies: Record<string, string> = {}): Req => {
