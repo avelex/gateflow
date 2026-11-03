@@ -40,22 +40,24 @@ Callers must write out `resource_limits` in full. With `{}`, the OutLayer worker
 
 | | |
 |---|---|
-| Contract (`GATEFLOW_CONTRACT`) | `gateflow.greatbank5653.near` |
-| Project | `greatbank5653.near/gateflow` |
-| Source commit | `80bec9e` |
-| wasm SHA256 | `93c88fe3981bc71c824d53180f9145d361a0fc89b31150d13cdee6efb7d11e41` |
-| FastFS URL | `https://main.fastfs.io/greatbank5653.near/outlayer.near/93c88fe3981bc71c824d53180f9145d361a0fc89b31150d13cdee6efb7d11e41.wasm` |
-| Upload tx | `8dNNZYsAsn3ZyWyZSGUbEGuwoyF7zVMUVDkoWGhGcJCj` |
+| Contract (`GATEFLOW_CONTRACT`) | `gateflow.near` |
+| Project | `ops.gateflow.near/gateflow` |
+| Source commit | `fb0e1c5` (enclave source unchanged since `80bec9e`) |
+| wasm SHA256 | `11a4efa612d4c52ecad82827035968f34f7bc840d2b1fea28a70715f2ee6dabe` |
+| FastFS URL | `https://main.fastfs.io/ops.gateflow.near/outlayer.near/11a4efa612d4c52ecad82827035968f34f7bc840d2b1fea28a70715f2ee6dabe.wasm` |
+| Upload tx | not captured |
 
 Direct-call checks, run on 2026-11-03 against `outlayer.near` before the contract code was deployed:
 
 | Caller | Request | Result | Tx |
 |---|---|---|---|
-| `gateflow.greatbank5653.near` | `screen` `alice.near` | `false` | `9bkPJ5eQrPXquiKFkfCRTb7kvGWgnivSydZax5VjJfpT` |
-| `gateflow.greatbank5653.near` | `screen` `0xd8da6bf26964af9d7eed9e03e53415d37aa96045` | `true` | `2dQ974BhGhXm4XWntnx9ycvyA5GX41wbc1nuvrDXkorK` |
-| `gateflow.greatbank5653.near` | `screen` `0x098b716b8aaf21512996dc57eb0615e2383e2f96` (OFAC SDN) | `false` | `5ScQa33sEZmbfYc64EMwXyG4Z8g8moEMhGR1USndUJvS` |
-| `gateflow.greatbank5653.near` | `screen_intents` with an unknown deposit address | `false` | `2Nw5XkbpcCe99utnhsQnExNXz3tNKDdjLn33pcNdWYTy` |
-| `greatbank5653.near` (second caller) | `screen` `alice.near` | `null` | `BNQZasgeEiVSYqM4aNjmSNp6RbPCWDJfu1M52K6wJDo9` |
+| `gateflow.near` | `screen` `alice.near` | `false` | `CaaCSbGXzn4ReQotS2oLwNt2Fdc7PcC8K3y5TwWoV8F7` |
+| `gateflow.near` | `screen` `0xd8da6bf26964af9d7eed9e03e53415d37aa96045` | `true` | `4e9WUscwEZJ4V87JKR9VDHctY5otTxXCCte3nY3cYn1o` |
+| `gateflow.near` | `screen` `0x098b716b8aaf21512996dc57eb0615e2383e2f96` (OFAC SDN) | `false` | `5zMb4xEuGYpqZvcJq6hoYBysYqJbEVNs5SW3DUvRNbAc` |
+| `gateflow.near` | `screen_intents` with an unknown deposit address | `false` | `FAwDYoBhktcJNep45SMZYJF5C9QtFa8a9KJGGAMEL76Y` |
+| `ops.gateflow.near` (second caller) | `screen` `alice.near` | `null` | `ELcwQKpSzYsVTCbdcuMgWCLo9NZzZECbxcwPQg7otZQR` |
+
+The earlier deployment for `gateflow.greatbank5653.near` (project `greatbank5653.near/gateflow`, wasm `93c88fe3…1e41`, upload tx `8dNNZYsAsn3ZyWyZSGUbEGuwoyF7zVMUVDkoWGhGcJCj`) was retired on 2026-11-03 with that contract account.
 
 ## Testnet
 
