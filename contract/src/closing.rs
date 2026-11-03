@@ -58,7 +58,8 @@ impl Gateflow {
         events::emit("transfer_failed", json!({"payment": payment, "receiver": receiver}));
     }
 
-    /// Anyone may resend a failed settle or refund to the same receiver.
+    /// Anyone may resend a failed transfer: a settle goes to the gateway's current payout,
+    /// a refund to the payment's refund account.
     pub fn retry(&mut self, payment: PaymentId) -> Promise {
         let p = self.payments.get_mut(payment as u32).unwrap_or_else(|| env::panic_str("unknown payment"));
         p.status = match p.status {
@@ -251,6 +252,20 @@ mod tests {
         c.on_closed(0);
         assert_eq!(c.get_payment(0).unwrap().status, PaymentStatus::SettleFailed);
         assert_eq!(c.get_invoice(0).unwrap().status, InvoiceStatus::Paid);
+    }
+
+    #[test]
+    fn retry_settle_goes_to_new_payout() {
+        let mut c = with_payment();
+        as_callback(ok(b"true"), T0 + 30);
+        let _ = c.on_screened(0);
+        as_callback(PromiseResult::Failed, T0 + 31);
+        c.on_closed(0);
+        as_caller(&merchant());
+        c.set_payout(0, near_sdk::test_utils::accounts(4));
+        let _ = c.retry(0);
+        assert_eq!(ft_transfer(), (usdc(), near_sdk::test_utils::accounts(4).to_string(), TEN_USDC.to_string()));
+        assert_eq!(c.get_payment(0).unwrap().status, PaymentStatus::Settled);
     }
 
     #[test]

@@ -26,6 +26,11 @@ impl Gateflow {
         self.owned_gateway_mut(gateway).policy = policy;
     }
 
+    /// Replaces the payout account. Later settles, retries included, go to the new account.
+    pub fn set_payout(&mut self, gateway: GatewayId, payout_to: AccountId) {
+        self.owned_gateway_mut(gateway).payout_to = payout_to;
+    }
+
     #[payable]
     pub fn fund(&mut self, gateway: GatewayId) {
         let g = self.gateway_mut(gateway);
@@ -101,6 +106,28 @@ mod tests {
         let mut c = with_gateway();
         as_caller(&accounts(2));
         c.set_policy(0, policy(10));
+    }
+
+    #[test]
+    fn set_payout_by_owner() {
+        let mut c = with_gateway();
+        c.set_payout(0, accounts(4));
+        assert_eq!(c.get_gateway(0).unwrap().payout_to, accounts(4));
+    }
+
+    #[test]
+    #[should_panic(expected = "not the gateway owner")]
+    fn non_owner_cannot_set_payout() {
+        let mut c = with_gateway();
+        as_caller(&accounts(2));
+        c.set_payout(0, accounts(4));
+    }
+
+    #[test]
+    #[should_panic(expected = "unknown gateway")]
+    fn set_payout_unknown_gateway() {
+        let mut c = with_gateway();
+        c.set_payout(42, accounts(4));
     }
 
     #[test]
