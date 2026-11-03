@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { dispatch } from "./main.ts";
 import { consoleRoutes, SESSION_COOKIE } from "./console.ts";
-import { fakeDeps, req, type TestDeps } from "./testing.ts";
+import { fakeDeps, fakeNear, req, type TestDeps } from "./testing.ts";
 
 const call = (deps: TestDeps, method: string, path: string, body?: any, cookies?: Record<string, string>) =>
   dispatch(consoleRoutes, req(method, path, body, cookies), deps);
@@ -54,7 +54,7 @@ test("logout_deletes_session", async () => {
 
 import { generateKeyPairSync } from "node:crypto";
 import { secretFromSeed, signer } from "./near.ts";
-import { slug } from "./console.ts";
+import { randomLabel } from "./console.ts";
 
 export function newKey() {
   const seed = new Uint8Array(generateKeyPairSync("ed25519").privateKey.export({ format: "der", type: "pkcs8" }).subarray(16));
@@ -72,30 +72,46 @@ export async function onboarded(deps: TestDeps, name = "Kaja Coffee") {
   const cookies = await signedIn(deps);
   const key = newKey();
   const res = await call(deps, "POST", "/console/onboard", { name, publicKey: key.publicKey }, cookies);
-  return { cookies, key, res };
+  return { cookies, key: { ...key, accountId: (res.json as any).accountId as string }, res };
 }
 
-test("slug_basic", () => assert.equal(slug("Kaja Coffee"), "kaja-coffee"));
-test("slug_non_latin_falls_back", () => assert.equal(slug("Кафе"), "merchant"));
-test("slug_trimmed_32", () => {
-  const s = slug("A very long business name that keeps going and going");
-  assert.ok(s.length <= 32);
-  assert.ok(!s.endsWith("-"));
+test("random_label_alphabet", () => {
+  for (let i = 0; i < 200; i++) assert.match(randomLabel(), /^[a-z2-7]{8}$/);
 });
 
-test("slug_suffix_when_taken", async () => {
+test("onboard_account_under_parent", async () => {
+  const deps = fakeDeps({ merchantParent: "merchant.op.testnet" });
+  const { key } = await onboarded(deps);
+  assert.match(key.accountId, /^[a-z2-7]{8}\.merchant\.op\.testnet$/);
+  assert.ok(!key.accountId.includes("kaja"));
+  assert.equal(deps.near.sent[0].receiver, key.accountId);
+});
+
+test("onboard_label_taken_draws_again", async () => {
   const deps = fakeDeps();
-  deps.near.existing.add("kaja-coffee.op.testnet");
-  const { res } = await onboarded(deps);
-  assert.equal((res.json as any).accountId, "kaja-coffee-2.op.testnet");
+  const checked: string[] = [];
+  deps.near.accountExists = async (id) => (checked.push(id), checked.length === 1);
+  const { key } = await onboarded(deps);
+  assert.equal(checked.length, 2);
+  assert.notEqual(key.accountId, checked[0]);
+  assert.equal(key.accountId, checked[1]);
+});
+
+test("onboard_creates_with_creator", async () => {
+  const deps = fakeDeps();
+  deps.creator = fakeNear();
+  const { key } = await onboarded(deps);
+  assert.deepEqual(deps.creator.sent.map((s) => s.receiver), [key.accountId]);
+  assert.ok("createAccount" in deps.creator.sent[0].actions[0]);
+  assert.deepEqual(deps.near.sent.map((s) => s.receiver), ["wrap.testnet", "usdc.testnet"]);
 });
 
 test("onboard_account_tx_actions", async () => {
   const deps = fakeDeps();
   const { res, key } = await onboarded(deps);
-  assert.deepEqual(res.json, { step: "gateway", accountId: "kaja-coffee.op.testnet" });
+  assert.deepEqual(res.json, { step: "gateway", accountId: key.accountId });
   const first = deps.near.sent[0];
-  assert.equal(first.receiver, "kaja-coffee.op.testnet");
+  assert.equal(first.receiver, key.accountId);
   assert.deepEqual(first.actions.slice(0, 2), [{ createAccount: true }, { transfer: 10n ** 22n }]);
   assert.equal(signer(key.secret).publicKeyString, key.publicKey);
   assert.deepEqual([...(first.actions[2] as any).addFullAccessKey], [...signer(key.secret).publicKey]);
@@ -103,13 +119,13 @@ test("onboard_account_tx_actions", async () => {
 
 test("onboard_registers_every_token", async () => {
   const deps = fakeDeps();
-  await onboarded(deps);
+  const { key } = await onboarded(deps);
   const regs = deps.near.sent.slice(1);
   assert.deepEqual(regs.map((s) => s.receiver), ["wrap.testnet", "usdc.testnet"]);
   for (const r of regs) {
     const fc = (r.actions[0] as any).functionCall;
     assert.equal(fc.method, "storage_deposit");
-    assert.deepEqual(fc.args, { account_id: "kaja-coffee.op.testnet", registration_only: true });
+    assert.deepEqual(fc.args, { account_id: key.accountId, registration_only: true });
     assert.equal(fc.deposit, 1250000000000000000000n);
   }
 });
@@ -182,19 +198,19 @@ import { type Action } from "./near.ts";
 
 const TGAS = 10n ** 12n;
 
-function delegate(key: { secret: string }, actions: Action[], sender = "kaja-coffee.op.testnet") {
+function delegate(key: { secret: string; accountId: string }, actions: Action[], sender = key.accountId) {
   return signDelegate({ senderId: sender, receiverId: "gateflow.testnet", actions, nonce: 2n, maxBlockHeight: 1120n, publicKey: signer(key.secret).publicKey }, key.secret);
 }
 
-const createGateway: Action = { functionCall: { method: "create_gateway", args: { payout_to: "kaja-coffee.op.testnet", policy: { max_risk: 50 } }, gas: 30n * TGAS, deposit: 0n } };
+const createGateway = (payout_to: string): Action => ({ functionCall: { method: "create_gateway", args: { payout_to, policy: { max_risk: 50 } }, gas: 30n * TGAS, deposit: 0n } });
 const createInvoice: Action = { functionCall: { method: "create_invoice", args: { gateway: 0, token: "wrap.testnet", amount: "1", expires_in_sec: 3600 }, gas: 30n * TGAS, deposit: 0n } };
 
 test("delegate_params_nonce_plus_one", async () => {
   const deps = fakeDeps();
   const { cookies, key } = await onboarded(deps);
-  deps.near.keys[`kaja-coffee.op.testnet/${key.publicKey}`] = 1n;
+  deps.near.keys[`${key.accountId}/${key.publicKey}`] = 1n;
   const res = await call(deps, "GET", "/console/delegate-params", undefined, cookies);
-  assert.deepEqual(res.json, { nonce: "2", maxBlockHeight: "1120", publicKey: key.publicKey, senderId: "kaja-coffee.op.testnet", receiverId: "gateflow.testnet" });
+  assert.deepEqual(res.json, { nonce: "2", maxBlockHeight: "1120", publicKey: key.publicKey, senderId: key.accountId, receiverId: "gateflow.testnet" });
 });
 
 test("relay_refused_403_sends_nothing", async () => {
@@ -216,7 +232,7 @@ test("relay_invoice_returns_id", async () => {
   const res = await call(deps, "POST", "/console/relay", { signedDelegate: delegate(key, [createInvoice]) }, cookies);
   assert.deepEqual(res.json, { txHash: "tx1", value: 3 });
   const last = deps.near.sent.at(-1)!;
-  assert.equal(last.receiver, "kaja-coffee.op.testnet");
+  assert.equal(last.receiver, key.accountId);
   assert.equal(last.executor, "gateflow.testnet");
   assert.ok("signedDelegate" in last.actions[0]);
 });
@@ -233,7 +249,7 @@ test("create_gateway_sets_gateway_and_funds", async () => {
   const deps = fakeDeps();
   const { cookies, key } = await onboarded(deps);
   deps.near.sendResults.push(() => ({ hash: "tx1", value: 0 }));
-  const res = await call(deps, "POST", "/console/relay", { signedDelegate: delegate(key, [createGateway]) }, cookies);
+  const res = await call(deps, "POST", "/console/relay", { signedDelegate: delegate(key, [createGateway(key.accountId)]) }, cookies);
   assert.equal(res.status, 200);
   const m = deps.db.merchantByEmail("kaja@example.com")!;
   assert.equal(m.gateway_id, 0);
@@ -242,7 +258,7 @@ test("create_gateway_sets_gateway_and_funds", async () => {
   assert.equal(fundTx.receiver, "gateflow.testnet");
   assert.deepEqual((fundTx.actions[0] as any).functionCall.args, { gateway: 0 });
   assert.equal((fundTx.actions[0] as any).functionCall.deposit, deps.cfg.fuelTarget);
-  const again = await call(deps, "POST", "/console/relay", { signedDelegate: delegate(key, [createGateway]) }, cookies);
+  const again = await call(deps, "POST", "/console/relay", { signedDelegate: delegate(key, [createGateway(key.accountId)]) }, cookies);
   assert.equal(again.status, 409);
 });
 
@@ -251,7 +267,7 @@ test("create_gateway_failure_keeps_step", async () => {
   const { cookies, key } = await onboarded(deps);
   deps.near.sendResults.push(() => ({ hash: "tx1", error: "risk cap too high" }));
   const sentBefore = deps.near.sent.length;
-  const res = await call(deps, "POST", "/console/relay", { signedDelegate: delegate(key, [createGateway]) }, cookies);
+  const res = await call(deps, "POST", "/console/relay", { signedDelegate: delegate(key, [createGateway(key.accountId)]) }, cookies);
   assert.equal(res.status, 422);
   assert.equal(deps.db.merchantByEmail("kaja@example.com")?.step, "gateway");
   assert.equal(deps.near.sent.length, sentBefore + 1);
@@ -266,8 +282,8 @@ async function withGateway(deps: TestDeps, g: Partial<{ fuel: string; invoices: 
   const m = deps.db.merchantByEmail("kaja@example.com")!;
   deps.db.upsertMerchant({ ...m, gateway_id: 0, step: "done" });
   deps.near.viewTable["gateflow.testnet.get_gateway"] = {
-    owner: "kaja-coffee.op.testnet",
-    payout_to: "kaja-coffee.op.testnet",
+    owner: m.account_id,
+    payout_to: m.account_id,
     policy: { max_risk: 50 },
     fuel: "100000000000000000000000",
     invoices: 0,
@@ -387,7 +403,8 @@ test("balances_of_payout", async () => {
     { token: "usdc.testnet", symbol: "USDC", decimals: 6, balance: "40000000" },
   ]);
   const reads = deps.near.views.filter((v) => v.method === "ft_balance_of");
-  assert.deepEqual(reads.map((v) => v.args), [{ account_id: "kaja-coffee.op.testnet" }, { account_id: "kaja-coffee.op.testnet" }]);
+  const id = deps.db.merchantByEmail("kaja@example.com")!.account_id;
+  assert.deepEqual(reads.map((v) => v.args), [{ account_id: id }, { account_id: id }]);
 });
 
 test("balances_include_switched_off", async () => {

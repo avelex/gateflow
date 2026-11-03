@@ -1,5 +1,5 @@
 // /console/* API: demo sessions, provisioning, sponsored delegate actions, console data, fuel and retry.
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomInt } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import type { ChatAction, Db, Merchant } from "./db.ts";
 import { decodeSignedDelegate, refusal } from "./delegate.ts";
@@ -54,10 +54,13 @@ const me: Handler = async (req, deps) => {
   return ok({ email, name: m?.name ?? null, accountId: m?.account_id ?? null, gatewayId: m?.gateway_id ?? null, step: m?.step ?? "account" });
 };
 
-/// Account-name slug: lowercase, non-`[a-z0-9]` runs to `-`, at most 32 characters, `merchant` when empty.
-export function slug(name: string): string {
-  const s = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 32).replace(/-+$/, "");
-  return s || "merchant";
+const LABEL_ALPHABET = "abcdefghijklmnopqrstuvwxyz234567";
+
+/// 8 random base32 characters (40 bits): merchant account names carry no business name.
+export function randomLabel(): string {
+  let s = "";
+  for (let i = 0; i < 8; i++) s += LABEL_ALPHABET[randomInt(32)];
+  return s;
 }
 
 const PUBLIC_KEY = /^ed25519:[1-9A-HJ-NP-Za-km-z]+$/;
@@ -83,12 +86,12 @@ function withLock<T>(key: string, fn: () => Promise<T>): Promise<T> {
   return next;
 }
 
-async function freeAccountId(base: string, deps: Deps): Promise<string> {
+async function freeAccountId(deps: Deps): Promise<string> {
   for (let n = 1; n <= 20; n++) {
-    const id = `${n === 1 ? base : `${base}-${n}`}.${deps.cfg.accountId}`;
+    const id = `${randomLabel()}.${deps.cfg.merchantParent}`;
     if (!(await deps.near.accountExists(id))) return id;
   }
-  throw new HttpError(409, "no free account name, try another business name");
+  throw new HttpError(409, "no free account name, try again");
 }
 
 function failIfError(r: { error?: string }, what: string) {
@@ -112,8 +115,8 @@ const onboard: Handler = async (req, deps) => {
     }
 
     if (m.step === "account") {
-      const id = await freeAccountId(slug(name), deps);
-      const r = await deps.near.send(id, [{ createAccount: true }, { transfer: ACCOUNT_FUNDING }, { addFullAccessKey: publicKeyBytes(publicKey) }]);
+      const id = await freeAccountId(deps);
+      const r = await (deps.creator ?? deps.near).send(id, [{ createAccount: true }, { transfer: ACCOUNT_FUNDING }, { addFullAccessKey: publicKeyBytes(publicKey) }]);
       failIfError(r, "account creation");
       m = { ...m, name, public_key: publicKey, account_id: id, step: "tokens" };
       deps.db.upsertMerchant(m);

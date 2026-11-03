@@ -125,7 +125,8 @@ cd ../relay && GATEFLOW_CONTRACT=<contract> RELAY_ACCOUNT_ID=<operator> RELAY_PR
 | Variable | Default | Meaning |
 |---|---|---|
 | `GATEFLOW_CONTRACT` | (required) | Gateflow contract account |
-| `RELAY_ACCOUNT_ID`, `RELAY_PRIVATE_KEY` | (required for writes) | Operator account: creates `<slug>.<operator>` merchant accounts, relays their signed delegate actions, pays gas, storage and fuel |
+| `RELAY_ACCOUNT_ID`, `RELAY_PRIVATE_KEY` | (required for writes) | Relay account: relays merchants' signed delegate actions, pays gas, storage and fuel |
+| `MERCHANT_PARENT` | `RELAY_ACCOUNT_ID` | Account that creates merchant accounts `<label>.<MERCHANT_PARENT>` (8 random `a-z2-7` characters); the relay key must be a full-access key on it |
 | `PUBLIC_URL` | `http://localhost:8787` | Public origin; `https:` turns on `Secure` session cookies |
 | `DB_PATH` | `gateflow.db` | SQLite file with merchants, sessions and quotes; delete it to reset a demo |
 | `WEB_DIST` | `../web/dist` | Built web app to serve |
@@ -145,11 +146,11 @@ cd ../relay && GATEFLOW_CONTRACT=<contract> RELAY_ACCOUNT_ID=<operator> RELAY_PR
 
 1. Sign in with an email. This is a demo sign-in: the email is not verified, and a session can only read.
 2. Create a passkey. The browser derives the merchant's NEAR key from it (WebAuthn PRF); without PRF support it shows a recovery phrase instead. The key never leaves the browser.
-3. Enter the business name. The operator creates `<slug>.<operator>` with the merchant's key as its only access key and registers it on every allowlisted token.
+3. Enter the business name. The backend creates `<label>.<MERCHANT_PARENT>`, where `<label>` is random and not the business name, with the merchant's key as its only access key and registers it on every allowlisted token.
 4. Confirm the gateway with the passkey. The merchant signs `create_gateway` as a NEP-366 delegate action, the backend relays it and funds the gateway's screening fuel.
 5. Create invoices the same way (one passkey prompt each) and share `/pay/<id>`. The payer pays from a NEAR wallet or from another chain; the console shows the invoice as Paying, then Paid or Returned, and returned payments under Screening.
 
-The backend only relays `create_gateway`, `create_invoice` and `set_policy` from the merchant's own account, with no deposit and at most 100 Tgas. It cannot sign for the merchant.
+The backend only relays `create_gateway` (paying out to the merchant's own account), `create_invoice` and `set_policy` from the merchant's own account, with no deposit and at most 100 Tgas. It cannot sign for the merchant.
 
 ### The assistant
 

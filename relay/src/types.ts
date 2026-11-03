@@ -5,6 +5,8 @@ import type { Db } from "./db.ts";
 export type Config = {
   gateflow: string;
   accountId: string;
+  /// Parent of merchant accounts; signs with the relay key.
+  merchantParent: string;
   secret?: string;
   rpcUrl: string;
   publicUrl: string;
@@ -38,7 +40,8 @@ export interface Llm {
   complete(messages: ChatMessage[], tools: ToolDef[]): Promise<Completion>;
 }
 
-export type Deps = { cfg: Config; db: Db; near: Near; oneclick: OneClick; llm?: Llm; now(): number };
+/// `creator` signs merchant account creation as `cfg.merchantParent`; `near` signs everything else.
+export type Deps = { cfg: Config; db: Db; near: Near; creator?: Near; oneclick: OneClick; llm?: Llm; now(): number };
 
 export type Req = {
   method: string;
@@ -74,6 +77,7 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
   return {
     gateflow: env.GATEFLOW_CONTRACT,
     accountId: env.RELAY_ACCOUNT_ID ?? "",
+    merchantParent: env.MERCHANT_PARENT || env.RELAY_ACCOUNT_ID || "",
     secret: env.RELAY_PRIVATE_KEY,
     rpcUrl: env.NEAR_RPC_URL ?? "https://rpc.testnet.fastnear.com",
     publicUrl,
