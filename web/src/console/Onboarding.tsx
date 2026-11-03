@@ -2,36 +2,16 @@
 import { useState } from "react";
 import { api } from "../api.ts";
 import { Button, Checkbox, Input } from "../ds.jsx";
-import { isNearAccount } from "../format.ts";
 import type { MerchantKey } from "../near/delegate.ts";
 import { assertOwner, createFallbackKey, createPasskeyKey, getPasskeyKey, keyMode, PrfUnsupported, rememberPasskeyMode, restoreFallbackKey } from "../near/key.ts";
 import AuthCard, { ERROR_STYLE } from "./AuthCard.tsx";
 import { acquireKey, type Me, onboardingScreen, signAndRelay, TGAS } from "./logic.ts";
-
-const PAYOUT = "gateflow:payoutTo";
-const session = {
-  get: () => {
-    try {
-      return sessionStorage.getItem(PAYOUT) ?? "";
-    } catch {
-      return "";
-    }
-  },
-  set: (v: string) => {
-    try {
-      sessionStorage.setItem(PAYOUT, v);
-    } catch {
-      // the payout field falls back to the merchant's own account
-    }
-  },
-};
 
 export const message = (e: unknown) =>
   e instanceof DOMException && e.name === "NotAllowedError" ? "Passkey prompt was cancelled" : e instanceof Error ? e.message : String(e);
 
 export default function Onboarding({ me, onChange }: { me: Me; onChange: () => void }) {
   const [name, setName] = useState(me.name ?? "");
-  const [payout, setPayout] = useState(session.get);
   const [phrase, setPhrase] = useState<{ text: string; key: MerchantKey }>();
   const [saved, setSaved] = useState(false);
   const [restoring, setRestoring] = useState(false);
@@ -52,8 +32,7 @@ export default function Onboarding({ me, onChange }: { me: Me; onChange: () => v
   };
 
   const onboard = async (key: MerchantKey) => {
-    session.set(payout.trim());
-    await api("POST", "/console/onboard", { name: name.trim(), publicKey: key.publicKey, ...(payout.trim() ? { payoutTo: payout.trim() } : {}) });
+    await api("POST", "/console/onboard", { name: name.trim(), publicKey: key.publicKey });
     onChange();
   };
 
@@ -116,8 +95,8 @@ export default function Onboarding({ me, onChange }: { me: Me; onChange: () => v
   }
 
   if (screen === "gateway") {
-    // The relay checked, created if needed, and registered this account on every token.
-    const payoutTo = me.payoutTo ?? me.accountId!;
+    // The relay registered the merchant's own account on every token.
+    const payoutTo = me.accountId!;
     return (
       <AuthCard title="Confirm your gateway" text={`Paid invoices settle to ${payoutTo}. One passkey prompt confirms it; Gateflow covers the setup costs.`}>
         <Button
@@ -140,16 +119,14 @@ export default function Onboarding({ me, onChange }: { me: Me; onChange: () => v
     );
   }
 
-  const payoutError = payout.trim() && !isNearAccount(payout.trim()) ? "Not a NEAR account" : undefined;
   return (
     <AuthCard title="Set up your business" text={`Signed in as ${me.email}. Demo sign-in: email is not verified.`}>
       <Input label="Business name" placeholder="Kaja Coffee" value={name} onChange={(e) => setName(e.target.value)} />
-      <Input label="Payout account" hint="Optional. A new name.near is created for you; defaults to your Gateflow account." mono placeholder="name.near" value={payout} onChange={(e) => setPayout(e.target.value)} error={payoutError} />
       <Button
         variant="primary"
         fullWidth
         icon="key-round"
-        disabled={busy || !name.trim() || !!payoutError}
+        disabled={busy || !name.trim()}
         onClick={() =>
           run(async () => {
             if (me.step !== "account") return onboard(await acquireKey(keyMode()));
