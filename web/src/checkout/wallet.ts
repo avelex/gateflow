@@ -11,9 +11,9 @@ const network = (import.meta.env.VITE_NEAR_NETWORK ?? "testnet") as "testnet" | 
 let selector: ReturnType<typeof setupWalletSelector> | undefined;
 const getSelector = () => (selector ??= setupWalletSelector({ network, modules: [setupMyNearWallet(), setupMeteorWallet()] }));
 
-/// Opens the wallet picker if no wallet is connected, then sends the invoice's ft_transfer_call.
-/// Redirect wallets leave the page here; the return is handled by `wasSent`.
-export async function payDirect(inv: CheckoutInvoice): Promise<void> {
+/// Opens the wallet picker if no wallet is connected, then sends the invoice's ft_transfer_call and returns its tx hash.
+/// Redirect wallets leave the page here; the return is handled by `wasSent` and `returnedHash`.
+export async function payDirect(inv: CheckoutInvoice): Promise<string> {
   const s = await getSelector();
   if (!s.isSignedIn()) {
     const modal = setupModal(s, {});
@@ -30,4 +30,5 @@ export async function payDirect(inv: CheckoutInvoice): Promise<void> {
     actions: [actionCreators.functionCall(a.method, a.args, BigInt(a.gas), BigInt(a.deposit))],
   });
   if (!outcome?.transaction?.hash) throw new Error("The wallet did not send the payment");
+  return outcome.transaction.hash;
 }

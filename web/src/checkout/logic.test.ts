@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { type CheckoutInvoice, timeline, unpayable } from "./logic.ts";
+import { type CheckoutInvoice, returnedHash, timeline, unpayable } from "./logic.ts";
 
 const base: CheckoutInvoice = {
   id: 7, gateway: 0, merchant: "Kaja Coffee", contract: "gateflow.near", token: "nbtc.bridge.near", symbol: "nBTC", decimals: 8,
@@ -101,4 +101,14 @@ test("saved_quote_bad_storage", () => {
   expect(loadQuote(7, throwing)).toBeUndefined();
   expect(() => saveQuote(7, q, throwing)).not.toThrow();
   expect(() => clearQuote(7, throwing)).not.toThrow();
+});
+
+test("returned_hash_from_redirect", () => {
+  expect(returnedHash("?transactionHashes=8Kd,9Zz")).toBe("8Kd");
+  expect(returnedHash("?transactionHashes=8Kd")).toBe("8Kd");
+});
+
+test("no_hash", () => {
+  expect(returnedHash("")).toBeUndefined();
+  expect(returnedHash("?errorCode=userRejected")).toBeUndefined();
 });

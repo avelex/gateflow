@@ -15,6 +15,20 @@ export type CheckoutInvoice = {
   expiresAtSec: number;
   status: "Open" | "Paying" | "Paid" | "Returned";
   payment: { id: number; status: string; refundTo: string } | null;
+  enclave?: { project: string; activeVersion: string | null };
+  screening?: Screening | null;
+};
+
+/// The relay's screening evidence for a payment (screening-evidence spec).
+export type Screening = {
+  txHash: string;
+  requestId: number | null;
+  project: string | null;
+  wasmHash: string | null;
+  wasmUrl: string | null;
+  timeMs: number | null;
+  costYocto: string | null;
+  outcome: "pending" | "approved" | "rejected" | "failed" | "no_verdict";
 };
 
 export type Step = { label: string; state: "done" | "current" | "todo"; detail?: string };
@@ -93,6 +107,38 @@ export function loadQuote(invoice: number, s?: Storage): SavedQuote | undefined 
 export function clearQuote(invoice: number, s?: Storage): void {
   try {
     store(s).removeItem(QUOTE(invoice));
+  } catch {
+    // nothing stored
+  }
+}
+
+/// The tx hash a redirect wallet returns in `?transactionHashes=`.
+export function returnedHash(search: string): string | undefined {
+  return new URLSearchParams(search).get("transactionHashes")?.split(",")[0] || undefined;
+}
+
+/// A direct-pay tx hash not yet accepted by the relay, kept across the wallet's redirect.
+const TX = (invoice: number) => `gateflow:tx:${invoice}`;
+
+export function saveTx(invoice: number, hash: string, s?: Storage): void {
+  try {
+    store(s).setItem(TX(invoice), hash);
+  } catch {
+    // without storage the hash is reported only from this page load
+  }
+}
+
+export function loadTx(invoice: number, s?: Storage): string | undefined {
+  try {
+    return store(s).getItem(TX(invoice)) ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export function clearTx(invoice: number, s?: Storage): void {
+  try {
+    store(s).removeItem(TX(invoice));
   } catch {
     // nothing stored
   }

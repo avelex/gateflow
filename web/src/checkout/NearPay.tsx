@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Button, Icon } from "../ds.jsx";
 import { formatAmount } from "../format.ts";
-import type { CheckoutInvoice } from "./logic.ts";
+import { type CheckoutInvoice, saveTx } from "./logic.ts";
 
 export const NAMED_WARNING = "Payments sent from named NEAR accounts (like alice.near) are returned by current screening. Pay from another chain to avoid this.";
 const SENT = (id: number) => `gateflow:sent:${id}`;
@@ -43,7 +43,7 @@ export function NearPayButton({ inv, onSent }: { inv: CheckoutInvoice; onSent():
         // without storage, the page shows the timeline once the invoice turns Paying
       }
       const { payDirect } = await import("./wallet.ts");
-      await payDirect(inv);
+      saveTx(inv.id, await payDirect(inv));
       onSent();
     } catch (e) {
       try {

@@ -6,7 +6,7 @@ import { Button, Icon } from "../ds.jsx";
 import { formatAmount, initials, timeLeft } from "../format.ts";
 import CrossChainPay, { DepositPanel } from "./CrossChainPay.tsx";
 import { FOOTNOTE } from "./footnote.ts";
-import { type CheckoutInvoice, clearQuote, loadQuote, type SavedQuote, type Step, timeline, unpayable } from "./logic.ts";
+import { type CheckoutInvoice, clearQuote, clearTx, loadQuote, loadTx, returnedHash, type SavedQuote, saveTx, type Step, timeline, unpayable } from "./logic.ts";
 import { NamedWarning, NearPayButton, wasSent } from "./NearPay.tsx";
 import Timeline, { type Headline } from "./Timeline.tsx";
 
@@ -176,9 +176,21 @@ export default function Checkout({ id }: { id: number }) {
         (x) => !stop && setQuoteStatus(x.status),
         () => {},
       );
+    // The direct-pay tx: the relay answers 404 until the payment is opened and final, so retry until 200 or 422.
+    const returned = returnedHash(location.search);
+    if (returned) saveTx(id, returned);
+    const report = () => {
+      const txHash = loadTx(id);
+      if (txHash)
+        api("POST", "/checkout/tx", { invoice: id, txHash }).then(
+          () => clearTx(id),
+          (e) => e instanceof ApiError && e.status === 422 && clearTx(id),
+        );
+    };
     load();
     status();
-    const t = setInterval(() => (load(), status()), 5000);
+    report();
+    const t = setInterval(() => (load(), status(), report()), 5000);
     return () => ((stop = true), clearInterval(t));
   }, [id, quote]);
 
