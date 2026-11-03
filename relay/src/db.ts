@@ -156,7 +156,10 @@ export function openDb(path: string) {
     },
     /// The first recorded screening tx of a payment wins.
     recordScreening: (payment: number, txHash: string, sender: string) => void newScreening.run(payment, txHash, sender),
-    screening: (payment: number) => screeningOf.get(payment) as { tx_hash: string; sender: string; evidence: string | null } | undefined,
+    screening(payment: number) {
+      const row = screeningOf.get(payment);
+      return row && ({ ...row } as { tx_hash: string; sender: string; evidence: string | null });
+    },
     storeEvidence: (payment: number, evidence: unknown) => void setEvidence.run(JSON.stringify(evidence), payment),
     createThread: (email: string, title: string, now: number) => Number(newThread.run(email, title, now).lastInsertRowid),
     thread(id: number, email: string): Thread | undefined {

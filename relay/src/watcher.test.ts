@@ -18,6 +18,7 @@ test("watcher_screens_on_success", async () => {
   await tick(deps);
   assert.equal((deps.near.sent[0].actions[0] as any).functionCall.method, "screen_intents");
   assert.equal(deps.db.quoteByRef(REF)?.screened, 1);
+  assert.equal(deps.db.screening(4)?.tx_hash, "h1");
   await tick(deps);
   assert.equal(deps.near.sent.length, 1);
 });
@@ -29,6 +30,7 @@ test("watcher_already_started_counts_as_screened", async () => {
   deps.near.sendResults.push(() => ({ hash: "h", error: "screening already started" }));
   await tick(deps);
   assert.equal(deps.db.quoteByRef(REF)?.screened, 1);
+  assert.equal(deps.db.screening(4), undefined);
 });
 
 test("watcher_waits_for_payment", async () => {

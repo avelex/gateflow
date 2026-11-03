@@ -140,13 +140,14 @@ const status: Handler = async (req, deps) => {
   return ok({ status: st?.status ?? "UNKNOWN", screening: deps.db.quoteByDeposit(addr)?.screened === 1 });
 };
 
-/// Sends `screen_intents` from the relay account. "screening already started" counts as done.
+/// Sends `screen_intents` from the relay account and records its tx. "screening already started" counts as done.
 export async function submitScreening(deps: Deps, ref: string, payment: number, depositAddress: string): Promise<{ txHash: string | null }> {
   const r = await deps.near.send(deps.cfg.gateflow, [
     { functionCall: { method: "screen_intents", args: { payment, deposit_address: depositAddress }, gas: 300n * TGAS, deposit: 0n } },
   ]);
   if (r.error && !r.error.includes("screening already started")) throw new HttpError(422, r.error);
   deps.db.markQuote(ref, { status: "SUCCESS", screened: true });
+  if (!r.error) deps.db.recordScreening(payment, r.hash, deps.cfg.accountId);
   return { txHash: r.error ? null : r.hash };
 }
 

@@ -251,4 +251,5 @@ test("screen_success_sends_screen_intents", async () => {
   assert.deepEqual(fc.args, { payment: 4, deposit_address: DEP });
   assert.equal(fc.gas, 300n * 10n ** 12n);
   assert.equal(deps.db.quoteByRef(REF)?.screened, 1);
+  assert.deepEqual(deps.db.screening(4), { tx_hash: "h1", sender: "op.testnet", evidence: null });
 });
