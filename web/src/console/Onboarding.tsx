@@ -116,7 +116,8 @@ export default function Onboarding({ me, onChange }: { me: Me; onChange: () => v
   }
 
   if (screen === "gateway") {
-    const payoutTo = session.get() || me.accountId!;
+    // The relay checked, created if needed, and registered this account on every token.
+    const payoutTo = me.payoutTo ?? me.accountId!;
     return (
       <AuthCard title="Confirm your gateway" text={`Paid invoices settle to ${payoutTo}. One passkey prompt confirms it; Gateflow covers the setup costs.`}>
         <Button
@@ -143,7 +144,7 @@ export default function Onboarding({ me, onChange }: { me: Me; onChange: () => v
   return (
     <AuthCard title="Set up your business" text={`Signed in as ${me.email}. Demo sign-in: email is not verified.`}>
       <Input label="Business name" placeholder="Kaja Coffee" value={name} onChange={(e) => setName(e.target.value)} />
-      <Input label="Payout account" hint="Optional. Defaults to your new Gateflow account." mono placeholder="name.near" value={payout} onChange={(e) => setPayout(e.target.value)} error={payoutError} />
+      <Input label="Payout account" hint="Optional. A new name.near is created for you; defaults to your Gateflow account." mono placeholder="name.near" value={payout} onChange={(e) => setPayout(e.target.value)} error={payoutError} />
       <Button
         variant="primary"
         fullWidth

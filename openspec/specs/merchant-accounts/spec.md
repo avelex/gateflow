@@ -49,6 +49,23 @@ At onboarding the backend SHALL create the NEAR account `<slug>.<operator accoun
 - **WHEN** the derived account id already exists
 - **THEN** the backend appends a short numeric suffix and creates that account instead
 
+### Requirement: Payout account can receive every token
+When the merchant enters a payout account at onboarding, the backend SHALL make sure it can receive every allowlisted token before the gateway is created.
+- If the account exists, the backend SHALL register storage for it on every allowlisted token.
+- If it does not exist and is a top-level name on the network's root account (`<name>.near` or `<name>.testnet`), the backend SHALL create it with the merchant's public key as its only access key, then register it.
+- Any other account that does not exist SHALL be rejected with 400 before any transaction.
+- If the name is taken between the check and the creation, the backend SHALL answer 409 and fall back to the merchant's own account.
+
+The console SHALL sign `create_gateway` with the payout account the backend recorded.
+
+#### Scenario: New payout name
+- **WHEN** Kaja enters `kaja-shop.near`, which does not exist
+- **THEN** the backend creates `kaja-shop.near` with Kaja's key as its only key, registers it on every allowlisted token, and her gateway pays out there
+
+#### Scenario: Payout that cannot be created
+- **WHEN** Kaja enters `shop.someone.near`, which does not exist
+- **THEN** onboarding answers 400 and no account is created
+
 ### Requirement: Gateway provisioned with fuel
 After the account exists, the console SHALL have the merchant sign `create_gateway` with payout to their own account (or another NEAR account they enter) and `max_risk` 50. The backend SHALL relay it, record the gateway id, and fund the gateway's fuel to the configured target.
 

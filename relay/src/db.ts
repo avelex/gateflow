@@ -11,6 +11,8 @@ export type Merchant = {
   gateway_id: number | null;
   step: Step;
   tokens_off: string[];
+  /// Where the gateway settles; `null` means `account_id`.
+  payout_to?: string | null;
 };
 
 export type Quote = {
@@ -45,7 +47,8 @@ CREATE TABLE IF NOT EXISTS merchants (
   public_key TEXT,
   gateway_id INTEGER,
   step TEXT NOT NULL DEFAULT 'account',
-  tokens_off TEXT NOT NULL DEFAULT '[]'
+  tokens_off TEXT NOT NULL DEFAULT '[]',
+  payout_to TEXT
 );
 CREATE TABLE IF NOT EXISTS sessions (token TEXT PRIMARY KEY, email TEXT NOT NULL, created_at INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS quotes (
@@ -92,15 +95,17 @@ const toMerchant = (row: any): Merchant | undefined =>
 export function openDb(path: string) {
   const db = new DatabaseSync(path);
   db.exec(SCHEMA);
+  // Databases created before payout_to existed.
+  if (!(db.prepare("PRAGMA table_info(merchants)").all() as any[]).some((c) => c.name === "payout_to")) db.exec("ALTER TABLE merchants ADD COLUMN payout_to TEXT");
   const q = (sql: string) => db.prepare(sql);
   const byEmail = q("SELECT * FROM merchants WHERE email = ?");
   const byAccount = q("SELECT * FROM merchants WHERE account_id = ?");
   const byGateway = q("SELECT * FROM merchants WHERE gateway_id = ?");
   const count = q("SELECT COUNT(*) AS n FROM merchants");
-  const upsert = q(`INSERT INTO merchants (email, name, account_id, public_key, gateway_id, step, tokens_off)
-    VALUES (:email, :name, :account_id, :public_key, :gateway_id, :step, :tokens_off)
+  const upsert = q(`INSERT INTO merchants (email, name, account_id, public_key, gateway_id, step, tokens_off, payout_to)
+    VALUES (:email, :name, :account_id, :public_key, :gateway_id, :step, :tokens_off, :payout_to)
     ON CONFLICT(email) DO UPDATE SET name = :name, account_id = :account_id, public_key = :public_key,
-      gateway_id = :gateway_id, step = :step, tokens_off = :tokens_off`);
+      gateway_id = :gateway_id, step = :step, tokens_off = :tokens_off, payout_to = :payout_to`);
   const newSession = q("INSERT INTO sessions (token, email, created_at) VALUES (?, ?, ?)");
   const session = q("SELECT email FROM sessions WHERE token = ?");
   const dropSession = q("DELETE FROM sessions WHERE token = ?");
@@ -129,7 +134,7 @@ export function openDb(path: string) {
     merchantByGateway: (id: number) => toMerchant(byGateway.get(id)),
     merchantCount: () => Number((count.get() as any).n),
     upsertMerchant(m: Merchant) {
-      upsert.run({ ...m, tokens_off: JSON.stringify(m.tokens_off) });
+      upsert.run({ payout_to: null, ...m, tokens_off: JSON.stringify(m.tokens_off) });
     },
     createSession: (token: string, email: string, now: number) => void newSession.run(token, email, now),
     sessionEmail: (token: string) => (session.get(token) as any)?.email as string | undefined,

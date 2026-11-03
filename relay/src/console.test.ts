@@ -93,7 +93,7 @@ test("slug_suffix_when_taken", async () => {
 test("onboard_account_tx_actions", async () => {
   const deps = fakeDeps();
   const { res, key } = await onboarded(deps);
-  assert.deepEqual(res.json, { step: "gateway", accountId: "kaja-coffee.op.testnet" });
+  assert.deepEqual(res.json, { step: "gateway", accountId: "kaja-coffee.op.testnet", payoutTo: "kaja-coffee.op.testnet" });
   const first = deps.near.sent[0];
   assert.equal(first.receiver, "kaja-coffee.op.testnet");
   assert.deepEqual(first.actions.slice(0, 2), [{ createAccount: true }, { transfer: 10n ** 22n }]);
@@ -112,6 +112,77 @@ test("onboard_registers_every_token", async () => {
     assert.deepEqual(fc.args, { account_id: "kaja-coffee.op.testnet", registration_only: true });
     assert.equal(fc.deposit, 1250000000000000000000n);
   }
+});
+
+async function onboardWithPayout(deps: TestDeps, payoutTo: unknown) {
+  withTokens(deps);
+  const cookies = await signedIn(deps);
+  const key = newKey();
+  const res = await call(deps, "POST", "/console/onboard", { name: "Kaja Coffee", publicKey: key.publicKey, payoutTo }, cookies);
+  return { cookies, key, res };
+}
+
+const registered = (deps: TestDeps) =>
+  deps.near.sent.filter((s) => (s.actions[0] as any).functionCall?.method === "storage_deposit").map((s) => `${s.receiver}:${(s.actions[0] as any).functionCall.args.account_id}`);
+
+test("onboard_payout_existing_registered", async () => {
+  const deps = fakeDeps();
+  deps.near.existing.add("shop.testnet");
+  const { res, cookies } = await onboardWithPayout(deps, "shop.testnet");
+  assert.deepEqual(res.json, { step: "gateway", accountId: "kaja-coffee.op.testnet", payoutTo: "shop.testnet" });
+  assert.equal(deps.near.sent.filter((s) => s.receiver === "testnet").length, 0);
+  assert.deepEqual(registered(deps), [
+    "wrap.testnet:kaja-coffee.op.testnet",
+    "wrap.testnet:shop.testnet",
+    "usdc.testnet:kaja-coffee.op.testnet",
+    "usdc.testnet:shop.testnet",
+  ]);
+  assert.equal(((await call(deps, "GET", "/console/me", undefined, cookies)).json as any).payoutTo, "shop.testnet");
+});
+
+test("onboard_payout_missing_created_with_merchant_key", async () => {
+  const deps = fakeDeps();
+  let key = "";
+  deps.near.sendResults.push(
+    () => undefined,
+    (s) => {
+      key = (s.actions[0] as any).functionCall.args.new_public_key;
+      deps.near.keys[`newshop.testnet/${key}`] = 0n;
+      return undefined;
+    },
+  );
+  const { res, key: merchant } = await onboardWithPayout(deps, "newshop.testnet");
+  assert.equal((res.json as any).payoutTo, "newshop.testnet");
+  const create = deps.near.sent[1];
+  assert.equal(create.receiver, "testnet");
+  assert.deepEqual((create.actions[0] as any).functionCall.args, { new_account_id: "newshop.testnet", new_public_key: merchant.publicKey });
+  assert.equal((create.actions[0] as any).functionCall.deposit, 10n ** 22n);
+  assert.equal(key, merchant.publicKey);
+  assert.ok(registered(deps).includes("usdc.testnet:newshop.testnet"));
+});
+
+test("onboard_payout_taken_409", async () => {
+  const deps = fakeDeps();
+  const { res } = await onboardWithPayout(deps, "newshop.testnet");
+  assert.equal(res.status, 409);
+  assert.equal(registered(deps).length, 0);
+  assert.equal(deps.db.merchantByEmail("kaja@example.com")?.step, "tokens");
+});
+
+test("onboard_payout_uncreatable_400_before_any_tx", async () => {
+  const deps = fakeDeps();
+  for (const p of ["shop.other.testnet", "shop.near", "not an account"]) {
+    const { res } = await onboardWithPayout(deps, p);
+    assert.equal(res.status, 400, p);
+  }
+  assert.equal(deps.near.sent.length, 0);
+});
+
+test("onboard_payout_own_account_means_default", async () => {
+  const deps = fakeDeps();
+  const { res } = await onboardWithPayout(deps, "");
+  assert.equal((res.json as any).payoutTo, "kaja-coffee.op.testnet");
+  assert.equal(registered(deps).length, 2);
 });
 
 test("onboard_twice_resumes", async () => {

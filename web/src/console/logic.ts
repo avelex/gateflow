@@ -5,7 +5,7 @@ import { type DelegateParams, type MerchantKey, signDelegate } from "../near/del
 import { assertOwner, getPasskeyKey, loadStoredKey } from "../near/key.ts";
 
 export type Step = "account" | "tokens" | "gateway" | "done";
-export type Me = { email: string; name: string | null; accountId: string | null; gatewayId: number | null; step: Step };
+export type Me = { email: string; name: string | null; accountId: string | null; payoutTo?: string | null; gatewayId: number | null; step: Step };
 
 export const TGAS = 10n ** 12n;
 
