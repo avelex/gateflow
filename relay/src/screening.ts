@@ -103,3 +103,21 @@ export async function evidenceFor(deps: Deps, payment: number, status: string): 
   if (tx && status !== "Pending") deps.db.storeEvidence(payment, s);
   return s;
 }
+
+const ACTIVE_TTL_MS = 60_000;
+const active = new WeakMap<Deps, { value: string | null; at: number }>();
+
+/// The OutLayer project's active wasm hash, read at most once per minute; null when OutLayer cannot be read.
+export async function activeVersion(deps: Deps): Promise<string | null> {
+  const hit = active.get(deps);
+  if (hit && deps.now() - hit.at < ACTIVE_TTL_MS) return hit.value;
+  let value: string | null = null;
+  try {
+    const p = await deps.near.view(deps.cfg.outlayerContract, "get_project", { project_id: deps.cfg.outlayerProject });
+    value = typeof p?.active_version === "string" ? p.active_version : null;
+  } catch {
+    // OutLayer unreachable: the invoice still loads
+  }
+  active.set(deps, { value, at: deps.now() });
+  return value;
+}

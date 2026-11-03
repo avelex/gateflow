@@ -253,3 +253,113 @@ test("screen_success_sends_screen_intents", async () => {
   assert.equal(deps.db.quoteByRef(REF)?.screened, 1);
   assert.deepEqual(deps.db.screening(4), { tx_hash: "h1", sender: "op.testnet", evidence: null });
 });
+
+// ---------- screening evidence ----------
+
+const HASH = "4e9WUscwEZJ4V87JKR9VDHctY5otTxXCCte3nY3cYn1o";
+const opened = (payment: number) => ({
+  receipts_outcome: [
+    {
+      outcome: {
+        executor_id: "gateflow.testnet",
+        logs: [`EVENT_JSON:{"standard":"gateflow","version":"1.0.0","event":"payment_opened","data":[{"payment":${payment},"invoice":7,"gateway":0}]}`],
+        status: { SuccessValue: "" },
+      },
+    },
+  ],
+});
+const paid = (deps: TestDeps) => withInvoice(deps, { status: "Paying", payment: 3 }, { status: "Pending", refund_to: "bob.near", payer: "0xabc" });
+
+test("tx_accepted", async () => {
+  const deps = fakeDeps();
+  paid(deps);
+  deps.near.txTable[HASH] = opened(3);
+  const res = await call(deps, "POST", "/checkout/tx", { invoice: 7, txHash: HASH });
+  assert.deepEqual(res.json, { payment: 3 });
+  assert.deepEqual(deps.near.txCalls, [{ hash: HASH, sender: "0xabc" }]);
+  assert.deepEqual(deps.db.screening(3), { tx_hash: HASH, sender: "0xabc", evidence: null });
+});
+
+test("tx_other_payment_422", async () => {
+  const deps = fakeDeps();
+  paid(deps);
+  deps.near.txTable[HASH] = opened(2);
+  assert.equal((await call(deps, "POST", "/checkout/tx", { invoice: 7, txHash: HASH })).status, 422);
+  assert.equal(deps.db.screening(3), undefined);
+});
+
+test("tx_not_final_404", async () => {
+  const deps = fakeDeps();
+  paid(deps);
+  assert.equal((await call(deps, "POST", "/checkout/tx", { invoice: 7, txHash: HASH })).status, 404);
+  assert.equal(deps.db.screening(3), undefined);
+});
+
+test("tx_no_payment_404", async () => {
+  const deps = fakeDeps();
+  withInvoice(deps);
+  assert.equal((await call(deps, "POST", "/checkout/tx", { invoice: 7, txHash: HASH })).status, 404);
+  assert.deepEqual(deps.near.txCalls, []);
+});
+
+test("tx_bad_hash_400", async () => {
+  const deps = fakeDeps();
+  paid(deps);
+  assert.equal((await call(deps, "POST", "/checkout/tx", { invoice: 7, txHash: "0OIl" })).status, 400);
+  assert.equal((await call(deps, "POST", "/checkout/tx", { invoice: 7 })).status, 400);
+});
+
+test("tx_second_report_keeps_first", async () => {
+  const deps = fakeDeps();
+  paid(deps);
+  const other = "5zMb4xEuGYpqZvcJq6hoYBysYqJbEVNs5SW3DUvRNbAc";
+  deps.near.txTable[HASH] = opened(3);
+  deps.near.txTable[other] = opened(3);
+  await call(deps, "POST", "/checkout/tx", { invoice: 7, txHash: HASH });
+  await call(deps, "POST", "/checkout/tx", { invoice: 7, txHash: other });
+  assert.equal(deps.db.screening(3)?.tx_hash, HASH);
+});
+
+test("enclave_included", async () => {
+  const deps = fakeDeps();
+  withInvoice(deps);
+  deps.near.viewTable["outlayer.near.get_project"] = ({ project_id }: any) => (project_id === "ops.gateflow.near/gateflow" ? { active_version: "11a4ef" } : null);
+  const j = (await call(deps, "GET", "/checkout/invoice?id=7")).json as any;
+  assert.deepEqual(j.enclave, { project: "ops.gateflow.near/gateflow", activeVersion: "11a4ef" });
+  assert.equal(j.screening, null);
+});
+
+test("active_version_cached", async () => {
+  const deps = fakeDeps();
+  withInvoice(deps);
+  deps.near.viewTable["outlayer.near.get_project"] = { active_version: "11a4ef" };
+  const reads = () => deps.near.views.filter((v) => v.method === "get_project").length;
+  await call(deps, "GET", "/checkout/invoice?id=7");
+  deps.clock.ms += 5_000;
+  await call(deps, "GET", "/checkout/invoice?id=7");
+  assert.equal(reads(), 1);
+  deps.clock.ms += 61_000;
+  await call(deps, "GET", "/checkout/invoice?id=7");
+  assert.equal(reads(), 2);
+});
+
+test("outlayer_down_null", async () => {
+  const deps = fakeDeps();
+  withInvoice(deps);
+  const res = await call(deps, "GET", "/checkout/invoice?id=7");
+  assert.equal(res.status, 200);
+  assert.equal((res.json as any).enclave.activeVersion, null);
+});
+
+test("screened_invoice_evidence", async () => {
+  const deps = fakeDeps();
+  withInvoice(deps, { status: "Paid", payment: 3 }, { status: "Settled", refund_to: "bob.near", payer: "0xabc" });
+  deps.db.recordScreening(3, HASH, "0xabc");
+  deps.near.txTable[HASH] = JSON.parse(readFileSync(new URL("./fixtures/outlayer-tx-approved.json", import.meta.url), "utf8"));
+  const s = ((await call(deps, "GET", "/checkout/invoice?id=7")).json as any).screening;
+  assert.equal(s.outcome, "approved");
+  assert.equal(s.txHash, HASH);
+  assert.equal(s.requestId, 2792);
+  assert.equal(s.timeMs, 1410);
+  assert.equal(s.costYocto, "1141000000000000000000");
+});

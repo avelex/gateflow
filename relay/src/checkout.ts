@@ -1,11 +1,13 @@
 // /checkout/* API: public invoice details, quotable assets, 1Click quotes with a `ref`, status and deferred screening.
 import { randomBytes } from "node:crypto";
 import { ensureRegistered, tokenMeta } from "./console.ts";
+import { activeVersion, evidenceFor, opensPayment } from "./screening.ts";
 import { type Deps, type Handler, HttpError, ok } from "./types.ts";
 
 const TGAS = 10n ** 12n;
 const NEAR_ACCOUNT = /^(([a-z\d]+[-_])*[a-z\d]+\.)*([a-z\d]+[-_])*[a-z\d]+$/;
 const REF = /^[0-9a-f]{32}$/;
+const TX_HASH = /^[1-9A-HJ-NP-Za-km-z]{43,44}$/;
 const QUOTE_TTL_MS = 30 * 60 * 1000;
 
 export const isNearAccount = (s: unknown): s is string => typeof s === "string" && s.length >= 2 && s.length <= 64 && NEAR_ACCOUNT.test(s);
@@ -78,7 +80,27 @@ const invoice: Handler = async (req, deps) => {
     expiresAtSec: inv.expires_at_sec,
     status: inv.status,
     payment: payment && { id: inv.payment, status: payment.status, refundTo: payment.refund_to },
+    enclave: { project: deps.cfg.outlayerProject, activeVersion: await activeVersion(deps) },
+    screening: payment ? await evidenceFor(deps, inv.payment, payment.status) : null,
   });
+};
+
+/// Records the payer's wallet tx as its payment's screening tx, once RPC shows it opened that payment.
+const reportTx: Handler = async (req, deps) => {
+  const id = invoiceId(req.body?.invoice);
+  const hash = req.body?.txHash;
+  if (typeof hash !== "string" || !TX_HASH.test(hash)) throw new HttpError(400, "txHash must be a NEAR transaction hash");
+  const inv = await deps.near.view(deps.cfg.gateflow, "get_invoice", { invoice: id });
+  if (!inv) throw new HttpError(404, "invoice not found");
+  if (inv.payment === null || inv.payment === undefined) throw new HttpError(404, "invoice has no payment yet");
+  const payment = await deps.near.view(deps.cfg.gateflow, "get_payment", { payment: inv.payment });
+  if (!payment) throw new HttpError(404, "payment not found");
+  // Not final yet, or not signed by the payer: the page retries on 404.
+  const tx = await deps.near.tx(hash, payment.payer);
+  if (!tx) throw new HttpError(404, "transaction not found");
+  if (!opensPayment(tx, deps.cfg.gateflow, inv.payment)) throw new HttpError(422, "transaction did not open this payment");
+  deps.db.recordScreening(inv.payment, hash, payment.payer);
+  return ok({ payment: inv.payment });
 };
 
 const assets: Handler = async (_req, deps) => {
@@ -169,4 +191,5 @@ export const checkoutRoutes: Record<string, Handler> = {
   "POST /checkout/quote": quote,
   "GET /checkout/status": status,
   "POST /checkout/screen": screen,
+  "POST /checkout/tx": reportTx,
 };
