@@ -8,7 +8,7 @@ See proposal.md, "Why". Requirements: `payment-clearing` (the existing enclave r
 - Requests (stdin, from `input_data`):
   - `{"kind":"screen","payer":<account>,"max_risk":<u8>}`
   - `{"kind":"screen_intents","deposit_address":<str>,"invoice":<u64>,"ref":<str>,"amount":<u128 as string>,"max_risk":<u8>}`
-- Call shape: `request_execution` with `response_format: "Json"`, `resource_limits: {}` (60 s, 1B instructions), and `secrets_ref {profile: "default", account_id: secrets_owner}`, with no version pin (the active project version runs).
+- Call shape: `request_execution` with `response_format: "Json"`, `resource_limits` written out as `{"max_instructions":1000000000,"max_memory_mb":128,"max_execution_seconds":60}` (`{}` is never run, see the decision 8 spike results), and `secrets_ref {profile: "default", account_id: secrets_owner}`, with no version pin (the active project version runs).
 - Verdict: `on_screened` reads at most 64 bytes and approves only on `serde_json::from_slice::<bool>(bytes) == Ok(true)`. A failed execution credits `execution_deposit` back to the gateway's fuel from the contract balance, and refunds the payment.
 
 **OutLayer guest facts** (app.outlayer.ai/docs: dev-guide, wasi, sdk, near-integration, secrets, projects, pricing; read 2026-11-01):
@@ -120,6 +120,14 @@ See proposal.md, "Why". Requirements: `payment-clearing` (the existing enclave r
 - (d) whether an execution whose `secrets_ref` names an absent profile runs or fails.
 
 **Stop condition:** if (a), (b) or (c) fails, stop and revise this design. If (d) fails, the operator stores a placeholder profile `default` (`{"GATEFLOW_UNUSED":"1"}`, accessor = the project) before any screening. The `mainnet-launch` runbook gains that step.
+
+**Spike results (2026-11-03, mainnet, run as `mainnet-launch` 0.3).** Testnet could not be used: `test.fastfs.io` returned 502, so no worker could fetch the wasm. The throwaway guest (sha256 `93aa651c007957f308ea1103f9a9425806c93eff753805a3704584112e2b2011`) was deployed as `greatbank5653.near/gateflow-spike` and called directly from that account at 100 Tgas with 0.01 NEAR attached.
+- **`resource_limits: {}` never runs.** The contract stores three nulls, the worker drops the event, and the yield times out after 200 blocks with `Execution promise failed: Failed` (out-layer/outlayer#31). Requests 2776–2780 failed this way, with and without `secrets_ref` and with `input_data` `x` or `{}`. Gateflow now sends explicit limits `{"max_instructions":1000000000,"max_memory_mb":128,"max_execution_seconds":60}` (`contract/src/screening.rs`), and `estimate_execution_cost` for them is 0.0070001 NEAR, under `execution_deposit`.
+- (a) holds. With input `{}`, the receipt result bytes are exactly `74 72 75 65` (`true`). It completed in 615 ms and cost 0.0011088 NEAR. Tx `EGfqm2kPZUBNzsGUNAZNTNHZ922YArgSP2CPx4bP2a3i`.
+- (b) holds. `pred` returns `"greatbank5653.near"`, the calling account. Tx `CjNtRP4r9o6sTY1Mxd7jiuKxceMqpfJ3znaPKGJA66mw`.
+- (c) holds. `http` returns `true`. Tx `GBzmKcNCSm51KZ4q4sfaBYddGnasNcpZ4cDh1b7PPHDW`.
+- (d) An absent profile does not fail the run. Both (b) and (c) passed `secrets_ref {profile: "default", account_id: "greatbank5653.near"}`, and that account has no stored secrets. No placeholder profile is needed.
+- Whether a secret named `NEAR_PREDECESSOR_ID` overrides the system variable was not tested.
 
 **9. End of this change: a direct-call check, not a contract.**
 - A testnet build with `GATEFLOW_CONTRACT=<test account>` is uploaded and deployed as project `<test account>/gateflow`.
