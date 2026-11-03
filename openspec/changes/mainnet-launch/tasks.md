@@ -37,7 +37,7 @@ Run 0.3 and 0.4 before 0.1: the contract needs a working enclave project.
   - Retired: the first deployment, `gateflow.greatbank5653.near` (commit `80bec9e`, deploy tx `HMo1MQxm66LbUwCEv2VbFPL36cEkDeS7wgPh7Qs7XY79`), was deleted on 2026-11-03 with `relay.greatbank5653.near` (see `gateflow-namespace` 4.5).
 - [ ] 1.2 Build the enclave with `GATEFLOW_CONTRACT=<mainnet gateflow account>`, then `outlayer upload` and `outlayer deploy gateflow <url>` as the account named in `enclave.secrets_owner`. Store a placeholder `default` profile only if 0.3 (d) required it. Call `set_enclave` if the project differs from the one given to `new(...)`. Verify a direct NEAR test payment from a clean account reaches `Settled`
   - 2026-11-03: built for `gateflow.near` and deployed as `ops.gateflow.near/gateflow`. The SHA256, tx hashes and direct-call checks are in `enclave/README.md`. No placeholder profile, since 0.3 (d) did not require one, and no `set_enclave`, since the project matches `new(...)`.
-  - Open: the `Settled` payment. It needs a gateway, so it runs after 1.3.
+  - 2026-11-03 (`gateflow-namespace` 4.4): merchant `zqwc2wda.merchant.gateflow.near` onboarded through the console; `get_gateway(0)` has it as `owner` and `payout_to`. Invoice 0 (0.01 USDC) paid cross-chain through 1Click: payment 0 (payer `intents.near`, ref `7835c6f584a87b2ae499d07618310a97`) is `Settled`, and the merchant's USDC balance went from 0 to `10000`.
 - [ ] 1.3 Start the relay against mainnet (`GATEFLOW_CONTRACT`, `RELAY_ACCOUNT_ID`, `RELAY_PRIVATE_KEY`, `NEAR_RPC_URL`, `VITE_NEAR_NETWORK=mainnet` build) and onboard one merchant through the console; verify `get_gateway` for that merchant's gateway returns its owner, payout account and fuel
 
 ## 2. Live cross-chain payments

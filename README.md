@@ -165,10 +165,10 @@ Relay modules, tests and the testnet dev deployment are in [`relay/README.md`](r
 ## Status
 
 - The contract, the enclave and the relay are implemented and unit-tested.
-- The enclave has been checked against the live screening APIs in a local wasmtime run, but has not yet run on OutLayer, because FastFS testnet was down.
+- The enclave runs on OutLayer mainnet as project `ops.gateflow.near/gateflow`; its direct-call checks are in [`enclave/README.md`](enclave/README.md). It has not run on OutLayer testnet, because FastFS testnet was down.
 - The relay runs against a testnet dev deployment (`gateflow-dev-v1.testnet`): merchant onboarding, sponsored `create_gateway` and `create_invoice`, fuel funding and the checkout views. A dry 1Click quote passes against the live API. See [`relay/README.md`](relay/README.md).
-- `web/` (the console and the checkout page) is implemented and unit-tested. Every screen is translated from the `design/` exports. It has been checked against a local relay with in-memory contract and 1Click fakes, with virtual passkeys (with and without PRF); see [`web/README.md`](web/README.md). It has not yet run against the testnet dev deployment, and no payment has been sent through it.
+- `web/` (the console and the checkout page) is implemented and unit-tested. Every screen is translated from the `design/` exports. It has been checked against a local relay with in-memory contract and 1Click fakes, with virtual passkeys (with and without PRF); see [`web/README.md`](web/README.md). On mainnet it onboarded one merchant and took one cross-chain payment.
 - The console assistant is implemented and tested against a stub model, and a passkey Confirm was checked in a local run with fakes. It has not yet run against NEAR AI Cloud or on testnet; the model is not chosen yet.
-- Still open for the payer: the Ethereum-wallet option and a live cross-chain payment (1Click is mainnet only).
+- Still open for the payer: the Ethereum-wallet option.
 - `GOAL.md` is not yet in this repository.
-- Not yet run on mainnet: deployment, enclave registration and live USDC / BTC / ZEC payments. Tracked in [`openspec/changes/mainnet-launch/tasks.md`](openspec/changes/mainnet-launch/tasks.md).
+- Mainnet: the contract is deployed at `gateflow.near` (operator `ops.gateflow.near`, relay `relay.gateflow.near`, merchant accounts under `merchant.gateflow.near`). One 0.01 USDC invoice paid through 1Click from an EVM chain is `Settled`. BTC and ZEC payments are not yet run. Tracked in [`openspec/changes/mainnet-launch/tasks.md`](openspec/changes/mainnet-launch/tasks.md).
