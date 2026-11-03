@@ -73,6 +73,10 @@ After payment starts, the page SHALL show four steps and advance them from backe
 - **WHEN** the invoice's screening outcome is `approved` or `rejected`
 - **THEN** the Screening in enclave step shows the OutLayer request id, the short wasm hash and the run time, with links to the NEAR explorer transaction and to OutLayer executions
 
+#### Scenario: Attestation linked
+- **WHEN** the invoice's screening outcome is `approved` or `rejected` and its `jobId` is 1255332 on mainnet
+- **THEN** the OutLayer link opens `https://app.outlayer.ai/attestation/1255332?network=mainnet` and is labeled as the attestation
+
 #### Scenario: Returned without a verdict
 - **WHEN** the invoice is Returned and its screening outcome is `failed` or `no_verdict`
 - **THEN** the Screening in enclave step says the enclave returned no verdict (`failed`) or no verdict arrived within 15 minutes (`no_verdict`), and shows no request id or wasm hash as the screening code
