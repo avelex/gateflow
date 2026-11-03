@@ -76,3 +76,34 @@ test("empty_actions_refused", () => {
 test("garbage_is_rejected", () => {
   assert.throws(() => decodeSignedDelegate(Buffer.from("not a delegate").toString("base64")));
 });
+
+const gateway = (payout_to?: string): Action => ({
+  functionCall: { method: "create_gateway", args: { payout_to, policy: { max_risk: 50 } }, gas: 30n * TGAS, deposit: 0n },
+});
+const OTHER_PAYOUT = "gateway must pay out to your account";
+
+test("create_gateway_own_payout_allowed", () => {
+  assert.equal(check([gateway("kaja.op.testnet")]), undefined);
+});
+
+test("create_gateway_other_payout_refused", () => {
+  assert.equal(check([gateway("kaja-shop.near")]), OTHER_PAYOUT);
+});
+
+test("create_gateway_bad_args_refused", () => {
+  assert.equal(check([gateway()]), OTHER_PAYOUT);
+  for (const raw of ["not json", "null", "[]"]) {
+    const d = signed([invoice]);
+    d.actions = [{ kind: "functionCall", method: "create_gateway", args: new TextEncoder().encode(raw), gas: TGAS, deposit: 0n }];
+    assert.equal(refusal(d, "kaja.op.testnet", "gateflow.testnet"), OTHER_PAYOUT);
+  }
+});
+
+test("create_gateway_second_action_refused", () => {
+  assert.equal(check([gateway("kaja.op.testnet"), gateway("kaja-shop.near")]), OTHER_PAYOUT);
+});
+
+test("set_payout_refused", () => {
+  const a: Action = { functionCall: { method: "set_payout", args: { gateway: 0, payout_to: "kaja.op.testnet" }, gas: TGAS, deposit: 0n } };
+  assert.equal(check([a]), "method set_payout is not sponsored");
+});

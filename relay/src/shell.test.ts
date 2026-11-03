@@ -11,7 +11,7 @@ import { HttpError } from "./types.ts";
 
 test("db_merchant_roundtrip", () => {
   const db = openDb(":memory:");
-  const m = { email: "kaja@example.com", name: "Kaja", account_id: "kaja.op", public_key: "ed25519:x", gateway_id: 3, step: "done" as const, tokens_off: ["zec.omft.near"], payout_to: "kaja-shop.near" };
+  const m = { email: "kaja@example.com", name: "Kaja", account_id: "kaja.op", public_key: "ed25519:x", gateway_id: 3, step: "done" as const, tokens_off: ["zec.omft.near"] };
   db.upsertMerchant(m);
   assert.deepEqual(db.merchantByEmail("kaja@example.com"), m);
   assert.deepEqual(db.merchantByAccount("kaja.op"), m);
@@ -20,22 +20,6 @@ test("db_merchant_roundtrip", () => {
   db.upsertMerchant({ ...m, step: "gateway", gateway_id: null });
   assert.equal(db.merchantByEmail("kaja@example.com")?.gateway_id, null);
   assert.equal(db.merchantCount(), 1);
-});
-
-test("db_adds_payout_column_to_old_db", async () => {
-  const { DatabaseSync } = await import("node:sqlite");
-  const { mkdtempSync } = await import("node:fs");
-  const { join } = await import("node:path");
-  const { tmpdir } = await import("node:os");
-  const path = join(mkdtempSync(join(tmpdir(), "gateflow-")), "old.db");
-  const old = new DatabaseSync(path);
-  old.exec("CREATE TABLE merchants (email TEXT PRIMARY KEY, name TEXT NOT NULL, account_id TEXT UNIQUE, public_key TEXT, gateway_id INTEGER, step TEXT NOT NULL DEFAULT 'account', tokens_off TEXT NOT NULL DEFAULT '[]')");
-  old.exec("INSERT INTO merchants (email, name, account_id, step) VALUES ('a@b.c', 'A', 'a.op', 'done')");
-  old.close();
-  const db = openDb(path);
-  assert.equal(db.merchantByEmail("a@b.c")?.payout_to, null);
-  db.upsertMerchant({ ...db.merchantByEmail("a@b.c")!, payout_to: "a-shop.near" });
-  assert.equal(db.merchantByEmail("a@b.c")?.payout_to, "a-shop.near");
 });
 
 test("db_quote_lifecycle", () => {

@@ -124,6 +124,15 @@ export function decodeSignedDelegate(b64: string): DelegateAction {
 }
 
 /// Why the operator must not sponsor this delegate action, or `undefined` when it is allowed.
+/// `payout_to` from `create_gateway` JSON args; undefined when the args are not a JSON object.
+function payoutOf(args: Uint8Array): unknown {
+  try {
+    return JSON.parse(new TextDecoder().decode(args))?.payout_to;
+  } catch {
+    return undefined;
+  }
+}
+
 export function refusal(d: DelegateAction, sessionAccount: string, gateflow: string): string | undefined {
   if (d.senderId !== sessionAccount) return "sender is not your account";
   if (d.receiverId !== gateflow) return "receiver is not the Gateflow contract";
@@ -133,6 +142,7 @@ export function refusal(d: DelegateAction, sessionAccount: string, gateflow: str
     if (!ALLOWED_METHODS.includes(a.method)) return `method ${a.method} is not sponsored`;
     if (a.deposit !== 0n) return "deposits are not sponsored";
     if (a.gas > MAX_GAS) return "gas above 100 Tgas";
+    if (a.method === "create_gateway" && payoutOf(a.args) !== d.senderId) return "gateway must pay out to your account";
   }
   return undefined;
 }

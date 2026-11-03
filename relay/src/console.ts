@@ -2,7 +2,6 @@
 import { randomBytes } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import type { ChatAction, Db, Merchant } from "./db.ts";
-import { isNearAccount } from "./checkout.ts";
 import { decodeSignedDelegate, refusal } from "./delegate.ts";
 import { base58decode, publicKeyBytes } from "./near.ts";
 import { type Deps, type Handler, HttpError, ok, type Req } from "./types.ts";
@@ -52,7 +51,7 @@ const signOut: Handler = async (req, deps) => {
 const me: Handler = async (req, deps) => {
   const email = requireSession(req, deps);
   const m = deps.db.merchantByEmail(email);
-  return ok({ email, name: m?.name ?? null, accountId: m?.account_id ?? null, payoutTo: m?.payout_to ?? m?.account_id ?? null, gatewayId: m?.gateway_id ?? null, step: m?.step ?? "account" });
+  return ok({ email, name: m?.name ?? null, accountId: m?.account_id ?? null, gatewayId: m?.gateway_id ?? null, step: m?.step ?? "account" });
 };
 
 /// Account-name slug: lowercase, non-`[a-z0-9]` runs to `-`, at most 32 characters, `merchant` when empty.
@@ -92,12 +91,6 @@ async function freeAccountId(base: string, deps: Deps): Promise<string> {
   throw new HttpError(409, "no free account name, try another business name");
 }
 
-/// The account that creates top-level names on this network: `near` or `testnet`.
-const rootAccount = (deps: Deps) => deps.cfg.accountId.split(".").pop()!;
-
-/// A payout account that does not exist yet is created only as a top-level `<name>.<root>`, with the merchant's key.
-const creatable = (id: string, deps: Deps) => id.split(".").length === 2 && id.endsWith(`.${rootAccount(deps)}`);
-
 function failIfError(r: { error?: string }, what: string) {
   if (r.error) throw new HttpError(502, `${what} failed: ${r.error}`);
 }
@@ -108,12 +101,6 @@ const onboard: Handler = async (req, deps) => {
   const publicKey = req.body?.publicKey;
   if (!name || name.length > 64) throw new HttpError(400, "business name must be 1 to 64 characters");
   if (!validPublicKey(publicKey)) throw new HttpError(400, "not an ed25519 public key");
-  const rawPayout = req.body?.payoutTo;
-  const payoutTo = rawPayout === undefined || rawPayout === "" ? undefined : rawPayout;
-  if (payoutTo !== undefined) {
-    if (!isNearAccount(payoutTo)) throw new HttpError(400, "payout account is not a NEAR account id");
-    if (!(await deps.near.accountExists(payoutTo)) && !creatable(payoutTo, deps)) throw new HttpError(400, `payout account ${payoutTo} does not exist`);
-  }
 
   return withLock(email, async () => {
     let m = deps.db.merchantByEmail(email);
@@ -123,8 +110,6 @@ const onboard: Handler = async (req, deps) => {
     } else if (m.account_id && m.public_key !== publicKey) {
       throw new HttpError(409, "this account is owned by a different passkey");
     }
-    // The payout account can change until its token registrations are done; "" resets it to the merchant's account.
-    if (rawPayout !== undefined && (m.step === "account" || m.step === "tokens")) m = { ...m, payout_to: payoutTo ?? null };
 
     if (m.step === "account") {
       const id = await freeAccountId(slug(name), deps);
@@ -135,33 +120,19 @@ const onboard: Handler = async (req, deps) => {
     }
 
     if (m.step === "tokens") {
-      const payout = m.payout_to && m.payout_to !== m.account_id ? m.payout_to : undefined;
-      if (payout && !(await deps.near.accountExists(payout))) {
-        const r = await deps.near.send(rootAccount(deps), [
-          { functionCall: { method: "create_account", args: { new_account_id: payout, new_public_key: m.public_key }, gas: 100n * TGAS, deposit: ACCOUNT_FUNDING } },
-        ]);
-        failIfError(r, "payout account creation");
-        // `create_account` returns false instead of failing when the name was taken meanwhile.
-        if (!(await deps.near.accessKey(payout, m.public_key!))) {
-          deps.db.upsertMerchant({ ...m, payout_to: null });
-          throw new HttpError(409, `payout account ${payout} was taken, choose another`);
-        }
-      }
       const tokens: string[] = await deps.near.view(deps.cfg.gateflow, "get_tokens", {});
       for (const token of tokens) {
         const bounds = await deps.near.view(token, "storage_balance_bounds", {});
-        for (const account of payout ? [m.account_id, payout] : [m.account_id]) {
-          const r = await deps.near.send(token, [
-            { functionCall: { method: "storage_deposit", args: { account_id: account, registration_only: true }, gas: 30n * TGAS, deposit: BigInt(bounds.min) } },
-          ]);
-          failIfError(r, `storage registration on ${token}`);
-        }
+        const r = await deps.near.send(token, [
+          { functionCall: { method: "storage_deposit", args: { account_id: m.account_id, registration_only: true }, gas: 30n * TGAS, deposit: BigInt(bounds.min) } },
+        ]);
+        failIfError(r, `storage registration on ${token}`);
       }
       m = { ...m, step: "gateway" };
       deps.db.upsertMerchant(m);
     }
 
-    return ok({ step: m.step, accountId: m.account_id, payoutTo: m.payout_to ?? m.account_id });
+    return ok({ step: m.step, accountId: m.account_id });
   });
 };
 
