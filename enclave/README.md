@@ -62,3 +62,15 @@ The earlier deployment for `gateflow.greatbank5653.near` (project `greatbank5653
 ## Testnet
 
 Not deployed. On 2026-11-03, `test.fastfs.io` returned 502, so OutLayer testnet workers could not fetch any newly uploaded wasm ([out-layer/outlayer#32](https://github.com/out-layer/outlayer/issues/32)).
+
+## Execution attestations
+
+Checked on 2026-11-03. OutLayer's on-chain `request_id` (in the `execution_requested` event) is not the id its dashboard uses. Each execution also has a coordinator `job_id`, and the attestation is keyed by that:
+
+- Attestation page: `https://app.outlayer.ai/attestation/<job_id>?network=mainnet`
+- Raw attestation JSON (TDX quote, wasm, input and output hashes): `https://api.outlayer.ai/attestations/<job_id>`
+- `request_id` or tx hash to `job_id`: `GET https://api.outlayer.ai/public/jobs?project=ops.gateflow.near/gateflow&user_account_id=<tx signer>&limit=50`, then match `transaction_hash` or `request_id`. Contract-run screenings are listed under the tx signer, for example `relay.gateflow.near` for `screen_intents`.
+
+None of these API endpoints are documented by OutLayer. The checkout and console link to `https://app.outlayer.ai/executions` and show the `request_id`.
+
+Example: request 2796, tx `C8UdBVpFo4kNQUU1tWivMeSKGkU3SYu5DNADuQCi35RS`, job 1255332, attestation `https://app.outlayer.ai/attestation/1255332?network=mainnet` (wasm `11a4efa6…dabe`).
