@@ -106,7 +106,8 @@ if (import.meta.main) {
     cfg,
     db: openDb(cfg.dbPath),
     near: rpcNear({ rpcUrl: cfg.rpcUrl, accountId: cfg.accountId, secret: cfg.secret }),
-    creator: rpcNear({ rpcUrl: cfg.rpcUrl, accountId: cfg.merchantParent, secret: cfg.secret }),
+    // A second client for the same account would race the first on its nonce.
+    creator: cfg.merchantParent === cfg.accountId ? undefined : rpcNear({ rpcUrl: cfg.rpcUrl, accountId: cfg.merchantParent, secret: cfg.secret }),
     oneclick: oneClick(cfg.oneclickUrl, cfg.oneclickKey),
     llm: cfg.llmApiKey ? llmClient(cfg) : undefined,
     now: Date.now,
