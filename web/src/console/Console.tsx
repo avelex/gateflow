@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, ApiError } from "../api.ts";
 import type { Route } from "../App.tsx";
+import Balance from "./Balance.tsx";
 import Invoices from "./Invoices.tsx";
 import Layout from "./Layout.tsx";
 import type { Me } from "./logic.ts";
@@ -28,5 +29,5 @@ export default function Console({ tab, thread }: { tab: Extract<Route, { page: "
   if (state.kind === "signin") return <SignIn onDone={load} />;
   if (state.kind === "signedout") return <SignedOut onSignIn={() => setState({ kind: "signin" })} />;
   if (state.me.step !== "done") return <Onboarding me={state.me} onChange={load} />;
-  return <Layout tab={tab} thread={thread} onSignOut={() => setState({ kind: "signedout" })} onUnauthorized={() => setState({ kind: "signin" })} screens={{ invoices: (p) => <Invoices {...p} />, screening: (p) => <Screening {...p} />, settings: (p) => <Settings {...p} /> }} />;
+  return <Layout tab={tab} thread={thread} onSignOut={() => setState({ kind: "signedout" })} onUnauthorized={() => setState({ kind: "signin" })} screens={{ invoices: (p) => <Invoices {...p} />, balance: (p) => <Balance {...p} />, screening: (p) => <Screening {...p} />, settings: (p) => <Settings {...p} /> }} />;
 }

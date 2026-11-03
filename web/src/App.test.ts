@@ -6,6 +6,7 @@ test("route_of", () => {
   expect(route("/")).toEqual({ page: "console", tab: "home" });
   expect(route("/invoices")).toEqual({ page: "console", tab: "invoices" });
   expect(route("/screening")).toEqual({ page: "console", tab: "screening" });
+  expect(route("/balance")).toEqual({ page: "console", tab: "balance" });
   expect(route("/pay/x")).toEqual({ page: "redirect" });
   expect(route("/nope")).toEqual({ page: "redirect" });
 });

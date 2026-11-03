@@ -13,21 +13,23 @@ import { usePoll } from "./usePoll.ts";
 
 export type Gateway = { id: number; owner: string; payout_to: string; policy: { max_risk: number }; fuel: string; fuelReady: boolean; invoices: number; payments: number };
 export type Token = { token: string; symbol: string; decimals: number; enabled: boolean };
-export type ConsoleData = { me: Me; gateway: Gateway; invoices: Invoice[]; payments: Payment[]; tokens: Token[]; threads: Thread[] };
+export type Balance = { token: string; symbol: string; decimals: number; balance: string };
+export type ConsoleData = { me: Me; gateway: Gateway; invoices: Invoice[]; payments: Payment[]; tokens: Token[]; balances: Balance[]; threads: Thread[] };
 export type Tab = Extract<Route, { page: "console" }>["tab"];
 /// What every console screen receives.
 export type ScreenProps = { data: ConsoleData; refresh(): void; toast(title: string, body?: string): void };
 
 const load = async (): Promise<ConsoleData> => {
-  const [me, gateway, invoices, payments, tokens, threads] = await Promise.all([
+  const [me, gateway, invoices, payments, tokens, balances, threads] = await Promise.all([
     api<Me>("GET", "/console/me"),
     api<Gateway>("GET", "/console/gateway"),
     api<Invoice[]>("GET", "/console/invoices"),
     api<Payment[]>("GET", "/console/payments"),
     api<Token[]>("GET", "/console/tokens"),
+    api<Balance[]>("GET", "/console/balances"),
     api<Thread[]>("GET", "/console/threads"),
   ]);
-  return { me, gateway, invoices, payments, tokens, threads };
+  return { me, gateway, invoices, payments, tokens, balances, threads };
 };
 
 export default function Layout({
@@ -78,6 +80,7 @@ export default function Layout({
     { label: "Home", icon: "house", key: "home", onClick: () => navigate("/") },
     { label: "Search", icon: "search", kbd: "⌘K", key: "search", onClick: () => setSearchOpen(true) },
     { label: "Invoices", icon: "file-text", key: "invoices", onClick: () => navigate("/invoices") },
+    { label: "Balance", icon: "wallet", key: "balance", onClick: () => navigate("/balance") },
     { label: "Screening", icon: "shield-check", key: "screening", count: pending || null, onClick: () => navigate("/screening") },
   ].map((n) => ({
     ...n,

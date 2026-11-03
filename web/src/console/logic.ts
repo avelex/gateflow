@@ -88,6 +88,13 @@ export function settledToday(payments: Payment[], now: Date): { symbol: string; 
   return [...sums.values()].map((s) => ({ symbol: s.meta.symbol, amount: formatAmount(s.raw, s.meta.decimals) }));
 }
 
+/// Raw amounts of payments in `status`, summed per token contract.
+export function heldByToken(payments: Payment[], status: "Pending" | "SettleFailed"): Map<string, bigint> {
+  const sums = new Map<string, bigint>();
+  for (const p of payments) if (p.status === status) sums.set(p.token, (sums.get(p.token) ?? 0n) + BigInt(p.amount));
+  return sums;
+}
+
 /// Invoices and payments matching by id, exact amount, symbol, memo or payer.
 export function searchMatches(q: string, invoices: Invoice[], payments: Payment[]): { kind: "invoice" | "payment"; id: number; label: string }[] {
   const t = q.trim().toLowerCase();

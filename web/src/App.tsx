@@ -4,10 +4,10 @@ import Console from "./console/Console.tsx";
 
 export type Route =
   | { page: "checkout"; invoice: number }
-  | { page: "console"; tab: "home" | "invoices" | "screening" | "chat"; thread?: number }
+  | { page: "console"; tab: "home" | "invoices" | "balance" | "screening" | "chat"; thread?: number }
   | { page: "redirect" };
 
-const TABS = { "/": "home", "/invoices": "invoices", "/screening": "screening" } as const;
+const TABS = { "/": "home", "/invoices": "invoices", "/balance": "balance", "/screening": "screening" } as const;
 
 export function route(pathname: string): Route {
   const pay = /^\/pay\/(\d+)$/.exec(pathname);

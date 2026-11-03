@@ -10,7 +10,7 @@ test("onboarding_screen", () => {
   expect(onboardingScreen("done", null)).toBe("done");
 });
 
-import { type Invoice, type Payment, searchMatches, settledToday } from "./logic.ts";
+import { heldByToken, type Invoice, type Payment, searchMatches, settledToday } from "./logic.ts";
 
 const USDC = { symbol: "USDC", decimals: 6 };
 const NBTC = { symbol: "nBTC", decimals: 8 };
@@ -105,4 +105,20 @@ test("card_kind_mapping", () => {
   expect(cardModel({ type: "status", invoiceId: 4 }, data)).toMatchObject({ steps: ["Delivered", "Screening", "Released"], current: 1, label: "Screening", payment: payments[2] });
   expect(cardModel({ type: "status", invoiceId: 2 }, data)).toMatchObject({ steps: ["Delivered", "Screening", "Released"], current: 3, label: "Released" });
   expect(cardModel({ type: "status", invoiceId: 3 }, data)).toMatchObject({ steps: ["Delivered", "Screening", "Returned"], current: 2, label: "Failed" });
+});
+
+test("held_by_token", () => {
+  const d = new Date();
+  const ps = [
+    pay(0, "10000000", "Pending", d),
+    pay(1, "5000000", "Pending", d),
+    pay(2, "300", "Pending", d, { token: "nbtc.near", tokenMeta: NBTC }),
+    pay(3, "1", "RefundFailed", d),
+    pay(4, "1", "Settled", d),
+    pay(5, "1", "Refunded", d),
+    pay(6, "7000000", "SettleFailed", d),
+  ];
+  expect(heldByToken(ps, "Pending")).toEqual(new Map([["usdc.near", 15000000n], ["nbtc.near", 300n]]));
+  expect(heldByToken(ps, "SettleFailed")).toEqual(new Map([["usdc.near", 7000000n]]));
+  expect(heldByToken([], "Pending")).toEqual(new Map());
 });
