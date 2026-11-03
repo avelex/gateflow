@@ -29,6 +29,8 @@ export type Screening = {
   timeMs: number | null;
   costYocto: string | null;
   outcome: "pending" | "approved" | "rejected" | "failed" | "no_verdict";
+  /// OutLayer's job id, which keys its attestation page; null until the relay finds it.
+  jobId: number | null;
 };
 
 export type Step = { label: string; state: "done" | "current" | "todo"; detail?: string };
@@ -147,6 +149,8 @@ export function clearTx(invoice: number, s?: Storage): void {
 export const OUTLAYER_EXECUTIONS = "https://app.outlayer.ai/executions";
 export const TEE = "Screened by OutLayer in an Intel TDX enclave (TEE)";
 
+export const attestationUrl = (jobId: number, network: string) => `https://app.outlayer.ai/attestation/${jobId}?network=${network}`;
+
 export const explorerTx = (hash: string, network: string) => `https://${network === "testnet" ? "testnet." : ""}nearblocks.io/txns/${hash}`;
 
 /// The pre-pay line naming the enclave project and, when known, its current code; never claims an unknown version.
@@ -162,6 +166,8 @@ export type Link = { label: string; href: string };
 export function screeningDetail(s: Screening | null | undefined, decided: boolean, network: string): { text: string; links: Link[] } | undefined {
   const tx = (s: Screening): Link => ({ label: "Transaction", href: explorerTx(s.txHash, network) });
   const outlayer: Link = { label: "OutLayer executions", href: OUTLAYER_EXECUTIONS };
+  // Only a run that produced the shown evidence links to its attestation; failed and no_verdict never do.
+  const run = (s: Screening): Link => (s.jobId ? { label: "TEE attestation", href: attestationUrl(s.jobId, network) } : outlayer);
   if (!s) return decided ? { text: "The screening record is unavailable.", links: [outlayer] } : undefined;
   if (s.outcome === "failed") return { text: "The enclave returned no verdict, so the payment was returned.", links: [tx(s)] };
   if (s.outcome === "no_verdict") return { text: "No verdict arrived within 15 minutes, so the payment was returned.", links: [tx(s)] };
@@ -170,7 +176,7 @@ export function screeningDetail(s: Screening | null | undefined, decided: boolea
     s.wasmHash && `code ${s.wasmHash.slice(0, 8)}`,
     s.timeMs !== null && `${(s.timeMs / 1000).toFixed(1)} s`,
   ].filter(Boolean);
-  if (s.outcome === "pending") return facts.length ? { text: `Running in OutLayer · ${facts.join(" · ")}`, links: [tx(s), outlayer] } : undefined;
-  const links = [tx(s), outlayer, ...(s.wasmUrl ? [{ label: "Code", href: s.wasmUrl }] : [])];
+  if (s.outcome === "pending") return facts.length ? { text: `Running in OutLayer · ${facts.join(" · ")}`, links: [tx(s), run(s)] } : undefined;
+  const links = [tx(s), run(s), ...(s.wasmUrl ? [{ label: "Code", href: s.wasmUrl }] : [])];
   return { text: [TEE, ...facts].join(" · "), links };
 }

@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { type CheckoutInvoice, currentCode, explorerTx, returnedHash, type Screening, screeningDetail, timeline, unpayable } from "./logic.ts";
+import { attestationUrl, type CheckoutInvoice, currentCode, explorerTx, returnedHash, type Screening, screeningDetail, timeline, unpayable } from "./logic.ts";
 
 const base: CheckoutInvoice = {
   id: 7, gateway: 0, merchant: "Kaja Coffee", contract: "gateflow.near", token: "nbtc.bridge.near", symbol: "nBTC", decimals: 8,
@@ -115,7 +115,7 @@ test("no_hash", () => {
 
 const EVIDENCE: Screening = {
   txHash: "4e9W", requestId: 2792, project: "ops.gateflow.near/gateflow", wasmHash: "11a4efa612d4c52e", wasmUrl: "https://main.fastfs.io/x.wasm",
-  timeMs: 1410, costYocto: "1141000000000000000000", outcome: "approved",
+  timeMs: 1410, costYocto: "1141000000000000000000", outcome: "approved", jobId: null,
 };
 const labels = (d: ReturnType<typeof screeningDetail>) => d?.links.map((l) => l.label);
 
@@ -158,4 +158,15 @@ test("explorer_testnet", () => expect(explorerTx("4e9W", "testnet")).toBe("https
 test("current_code", () => {
   expect(currentCode({ project: "ops.gateflow.near/gateflow", activeVersion: "11a4efa612d4c52e" })).toBe("Project ops.gateflow.near/gateflow · current code 11a4efa6");
   expect(currentCode({ project: "ops.gateflow.near/gateflow", activeVersion: null })).toBe("Project ops.gateflow.near/gateflow");
+});
+
+test("detail_attestation_link", () => {
+  const d = screeningDetail({ ...EVIDENCE, jobId: 1255332 }, true, "mainnet")!;
+  expect(d.links[1]).toEqual({ label: "TEE attestation", href: "https://app.outlayer.ai/attestation/1255332?network=mainnet" });
+  expect(attestationUrl(7, "testnet")).toBe("https://app.outlayer.ai/attestation/7?network=testnet");
+});
+
+test("detail_failed_no_attestation", () => {
+  const d = screeningDetail({ ...EVIDENCE, outcome: "failed", jobId: 1255332 }, true, "mainnet")!;
+  expect(d.links.map((l) => l.label)).toEqual(["Transaction"]);
 });
