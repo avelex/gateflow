@@ -6,12 +6,53 @@ import { Button, Icon } from "../ds.jsx";
 import { formatAmount, initials, timeLeft } from "../format.ts";
 import CrossChainPay, { DepositPanel } from "./CrossChainPay.tsx";
 import { FOOTNOTE } from "./footnote.ts";
-import { type CheckoutInvoice, clearQuote, clearTx, loadQuote, loadTx, returnedHash, type SavedQuote, saveTx, type Step, timeline, unpayable } from "./logic.ts";
+import { type CheckoutInvoice, clearQuote, clearTx, currentCode, type Link, OUTLAYER_EXECUTIONS, loadQuote, loadTx, returnedHash, type SavedQuote, saveTx, screeningDetail, type Step, TEE, timeline, unpayable } from "./logic.ts";
 import { NamedWarning, NearPayButton, wasSent } from "./NearPay.tsx";
 import Timeline, { type Headline } from "./Timeline.tsx";
 
 const SECTION = { fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--text-3)" } as const;
 const SANS = { fontFamily: "var(--font-sans)", fontSize: 14 };
+const NETWORK = import.meta.env.VITE_NEAR_NETWORK ?? "testnet";
+const SOURCE_URL: string | undefined = import.meta.env.VITE_ENCLAVE_SOURCE_URL || undefined;
+const LINK = { color: "var(--blue-600)", textDecoration: "none" } as const;
+
+function Links({ links }: { links: Link[] }) {
+  return (
+    <span style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+      {links.map((l) => (
+        <a key={l.label} href={l.href} target="_blank" rel="noreferrer" style={LINK}>
+          {l.label}
+        </a>
+      ))}
+    </span>
+  );
+}
+
+const CHECKS = [
+  "Risk score of the paying address",
+  "OFAC sanctions lists for Bitcoin and Zcash senders",
+  "For a cross-chain payment, the swap must match this invoice",
+];
+
+/// The pre-pay "How screening works" disclosure (payer-checkout: Screening explained).
+function HowScreening({ inv }: { inv: CheckoutInvoice }) {
+  const code = currentCode(inv.enclave);
+  return (
+    <details style={{ fontSize: 13, lineHeight: "19px", color: "var(--text-2)" }}>
+      <summary style={{ cursor: "pointer", fontWeight: 600, color: "var(--text-1)" }}>How screening works</summary>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
+        <span>{TEE}. Only the verdict leaves the enclave.</span>
+        <ul style={{ margin: 0, paddingLeft: 18 }}>
+          {CHECKS.map((c) => (
+            <li key={c}>{c}</li>
+          ))}
+        </ul>
+        {code && <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, wordBreak: "break-all" }}>{code}</span>}
+        <Links links={[{ label: "OutLayer executions", href: OUTLAYER_EXECUTIONS }, ...(SOURCE_URL ? [{ label: "Source code", href: SOURCE_URL }] : [])]} />
+      </div>
+    </details>
+  );
+}
 const MONO = { fontFamily: "var(--font-mono)", fontSize: 13 };
 
 function useNow(ms: number) {
@@ -95,6 +136,7 @@ function InvoiceCard({ inv, now, processing }: { inv: CheckoutInvoice; now: numb
               </div>
             </div>
           ))}
+          <HowScreening inv={inv} />
         </div>
       )}
       <span style={{ marginTop: "auto", fontSize: 12, color: "var(--text-3)", display: "flex", alignItems: "center", gap: 6 }}>
@@ -128,7 +170,17 @@ const DESCRIPTIONS: Record<string, (inv: CheckoutInvoice) => string> = {
 
 export function Processing({ inv, quoteStatus, details }: { inv: CheckoutInvoice; quoteStatus?: string; details?: ReactNode }) {
   const steps = timeline(inv, quoteStatus);
-  return <Timeline head={headline(inv, steps)} steps={steps.map((s) => ({ ...s, d: DESCRIPTIONS[s.label]?.(inv) }))} details={details} />;
+  const detail = screeningDetail(inv.screening, inv.status === "Paid" || inv.status === "Returned", NETWORK);
+  const d = (s: Step): ReactNode =>
+    s.label === "Screening in enclave" && detail ? (
+      <span style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <span style={{ wordBreak: "break-word" }}>{detail.text}</span>
+        <Links links={detail.links} />
+      </span>
+    ) : (
+      DESCRIPTIONS[s.label]?.(inv)
+    );
+  return <Timeline head={headline(inv, steps)} steps={steps.map((s) => ({ ...s, d: d(s) }))} details={details} />;
 }
 
 /// The export's "Pay with" tiles.

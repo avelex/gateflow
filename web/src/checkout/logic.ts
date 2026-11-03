@@ -143,3 +143,34 @@ export function clearTx(invoice: number, s?: Storage): void {
     // nothing stored
   }
 }
+
+export const OUTLAYER_EXECUTIONS = "https://app.outlayer.ai/executions";
+export const TEE = "Screened by OutLayer in an Intel TDX enclave (TEE)";
+
+export const explorerTx = (hash: string, network: string) => `https://${network === "testnet" ? "testnet." : ""}nearblocks.io/txns/${hash}`;
+
+/// The pre-pay line naming the enclave project and, when known, its current code; never claims an unknown version.
+export function currentCode(e: CheckoutInvoice["enclave"]): string | undefined {
+  if (!e) return undefined;
+  return e.activeVersion ? `Project ${e.project} · current code ${e.activeVersion.slice(0, 8)}` : `Project ${e.project}`;
+}
+
+export type Link = { label: string; href: string };
+
+/// The "Screening in enclave" row text from the evidence, or undefined to keep the default description.
+/// `failed` and `no_verdict` never name a wasm hash as the screening code.
+export function screeningDetail(s: Screening | null | undefined, decided: boolean, network: string): { text: string; links: Link[] } | undefined {
+  const tx = (s: Screening): Link => ({ label: "Transaction", href: explorerTx(s.txHash, network) });
+  const outlayer: Link = { label: "OutLayer executions", href: OUTLAYER_EXECUTIONS };
+  if (!s) return decided ? { text: "The screening record is unavailable.", links: [outlayer] } : undefined;
+  if (s.outcome === "failed") return { text: "The enclave returned no verdict, so the payment was returned.", links: [tx(s)] };
+  if (s.outcome === "no_verdict") return { text: "No verdict arrived within 15 minutes, so the payment was returned.", links: [tx(s)] };
+  const facts = [
+    s.requestId !== null && `request ${s.requestId}`,
+    s.wasmHash && `code ${s.wasmHash.slice(0, 8)}`,
+    s.timeMs !== null && `${(s.timeMs / 1000).toFixed(1)} s`,
+  ].filter(Boolean);
+  if (s.outcome === "pending") return facts.length ? { text: `Running in OutLayer · ${facts.join(" · ")}`, links: [tx(s), outlayer] } : undefined;
+  const links = [tx(s), outlayer, ...(s.wasmUrl ? [{ label: "Code", href: s.wasmUrl }] : [])];
+  return { text: [TEE, ...facts].join(" · "), links };
+}

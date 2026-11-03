@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { type CheckoutInvoice, returnedHash, timeline, unpayable } from "./logic.ts";
+import { type CheckoutInvoice, currentCode, explorerTx, returnedHash, type Screening, screeningDetail, timeline, unpayable } from "./logic.ts";
 
 const base: CheckoutInvoice = {
   id: 7, gateway: 0, merchant: "Kaja Coffee", contract: "gateflow.near", token: "nbtc.bridge.near", symbol: "nBTC", decimals: 8,
@@ -111,4 +111,51 @@ test("returned_hash_from_redirect", () => {
 test("no_hash", () => {
   expect(returnedHash("")).toBeUndefined();
   expect(returnedHash("?errorCode=userRejected")).toBeUndefined();
+});
+
+const EVIDENCE: Screening = {
+  txHash: "4e9W", requestId: 2792, project: "ops.gateflow.near/gateflow", wasmHash: "11a4efa612d4c52e", wasmUrl: "https://main.fastfs.io/x.wasm",
+  timeMs: 1410, costYocto: "1141000000000000000000", outcome: "approved",
+};
+const labels = (d: ReturnType<typeof screeningDetail>) => d?.links.map((l) => l.label);
+
+test("detail_approved", () => {
+  const d = screeningDetail(EVIDENCE, true, "mainnet")!;
+  expect(d.text).toContain("request 2792");
+  expect(d.text).toContain("11a4efa6");
+  expect(d.text).toContain("1.4 s");
+  expect(d.text).toContain("Intel TDX");
+  expect(labels(d)).toEqual(["Transaction", "OutLayer executions", "Code"]);
+  expect(d.links[0].href).toBe("https://nearblocks.io/txns/4e9W");
+});
+
+test("detail_failed", () => {
+  const d = screeningDetail({ ...EVIDENCE, outcome: "failed" }, true, "mainnet")!;
+  expect(d.text).toContain("returned no verdict");
+  expect(d.text).not.toContain("11a4efa6");
+  expect(labels(d)).toEqual(["Transaction"]);
+});
+
+test("detail_no_verdict", () => {
+  const d = screeningDetail({ ...EVIDENCE, outcome: "no_verdict" }, true, "mainnet")!;
+  expect(d.text).toContain("within 15 minutes");
+  expect(d.text).not.toContain("11a4efa6");
+});
+
+test("detail_null_decided", () => {
+  const d = screeningDetail(null, true, "mainnet")!;
+  expect(d.text).toContain("screening record is unavailable");
+  expect(d.links[0].href).toBe("https://app.outlayer.ai/executions");
+  expect(screeningDetail(null, false, "mainnet")).toBeUndefined();
+});
+
+test("detail_pending_running", () => {
+  expect(screeningDetail({ ...EVIDENCE, outcome: "pending", timeMs: null, wasmHash: null }, false, "mainnet")?.text).toBe("Running in OutLayer · request 2792");
+});
+
+test("explorer_testnet", () => expect(explorerTx("4e9W", "testnet")).toBe("https://testnet.nearblocks.io/txns/4e9W"));
+
+test("current_code", () => {
+  expect(currentCode({ project: "ops.gateflow.near/gateflow", activeVersion: "11a4efa612d4c52e" })).toBe("Project ops.gateflow.near/gateflow · current code 11a4efa6");
+  expect(currentCode({ project: "ops.gateflow.near/gateflow", activeVersion: null })).toBe("Project ops.gateflow.near/gateflow");
 });
