@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { opensPayment, outcome, type Parsed, parseEvidence } from "./screening.ts";
+import { evidenceFor, opensPayment, outcome, type Parsed, parseEvidence } from "./screening.ts";
+import { fakeDeps } from "./testing.ts";
 
 const TX = JSON.parse(readFileSync(new URL("./fixtures/outlayer-tx-approved.json", import.meta.url), "utf8"));
 const HASH = "11a4efa612d4c52ecad82827035968f34f7bc840d2b1fea28a70715f2ee6dabe";
@@ -85,3 +86,53 @@ test("opens_payment", () => {
   assert.equal(opensPayment(opened("gateflow.near", 3), "gateflow.near", 4), false);
   assert.equal(opensPayment(opened("evil.near", 3), "gateflow.near", 3), false);
 });
+
+// ---------- storage ----------
+
+test("record_first_wins", () => {
+  const d = fakeDeps();
+  d.db.recordScreening(4, "first", "op.testnet");
+  d.db.recordScreening(4, "second", "op.testnet");
+  assert.equal(d.db.screening(4)?.tx_hash, "first");
+});
+
+const withTx = () => {
+  const d = fakeDeps({ outlayerContract: "outlayer.near" });
+  d.db.recordScreening(3, "4e9W", "gateflow.near");
+  d.near.txTable["4e9W"] = tx();
+  return d;
+};
+
+test("settled_stores_once", async () => {
+  const d = withTx();
+  const s = await evidenceFor(d, 3, "Settled");
+  assert.equal(s?.outcome, "approved");
+  assert.equal(s?.requestId, 2792);
+  assert.equal(s?.txHash, "4e9W");
+  assert.deepEqual(await evidenceFor(d, 3, "Settled"), s);
+  assert.equal(d.near.txCalls.length, 1);
+});
+
+test("stored_no_rpc", async () => {
+  const d = withTx();
+  await evidenceFor(d, 3, "Settled");
+  d.near.txTable = {};
+  assert.equal((await evidenceFor(d, 3, "Settled"))?.wasmHash, HASH);
+});
+
+test("pending_not_stored", async () => {
+  const d = withTx();
+  assert.equal((await evidenceFor(d, 3, "Pending"))?.outcome, "pending");
+  assert.equal(d.db.screening(3)?.evidence, null);
+});
+
+test("unknown_tx_not_stored", async () => {
+  const d = withTx();
+  d.near.txTable = {};
+  const s = await evidenceFor(d, 3, "Refunded");
+  assert.equal(s?.outcome, "no_verdict");
+  assert.equal(s?.wasmHash, null);
+  assert.equal(d.db.screening(3)?.evidence, null);
+});
+
+test("no_row_null", async () => assert.equal(await evidenceFor(fakeDeps(), 9, "Settled"), null));

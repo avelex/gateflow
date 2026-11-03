@@ -1,4 +1,5 @@
 // Screening evidence: what OutLayer logged in the tx that ran a payment's screening (design decisions 1, 2, 5).
+import type { Deps } from "./types.ts";
 
 export type Outcome = "pending" | "approved" | "rejected" | "failed" | "no_verdict";
 
@@ -88,4 +89,17 @@ export function outcome(status: string, p: Parsed): Outcome {
 /// Whether the Gateflow contract's own receipt in `tx` logged `payment_opened` for `payment`.
 export function opensPayment(tx: any, gateflow: string, payment: number): boolean {
   return events(tx, gateflow, "gateflow").some((x) => x.e.event === "payment_opened" && x.e.data?.some((d) => d?.payment === payment));
+}
+
+/// A payment's evidence: stored once final, read from its recorded tx otherwise; null without a recorded tx.
+export async function evidenceFor(deps: Deps, payment: number, status: string): Promise<Screening | null> {
+  const row = deps.db.screening(payment);
+  if (!row) return null;
+  if (row.evidence) return JSON.parse(row.evidence);
+  const tx = await deps.near.tx(row.tx_hash, row.sender);
+  const { success, verdict, ...p } = parseEvidence(tx, deps.cfg.outlayerContract);
+  // An unknown tx is not final yet: report it, store nothing.
+  const s: Screening = { txHash: row.tx_hash, ...p, outcome: !tx && status !== "Pending" ? "no_verdict" : outcome(status, { ...p, success, verdict }) };
+  if (tx && status !== "Pending") deps.db.storeEvidence(payment, s);
+  return s;
 }

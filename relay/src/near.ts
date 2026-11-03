@@ -180,6 +180,8 @@ export interface Near {
   accountExists(id: string): Promise<boolean>;
   accessKey(account: string, publicKey: string): Promise<{ nonce: bigint } | undefined>;
   head(): Promise<{ height: bigint; hash: Uint8Array }>;
+  /// The final tx status result, or undefined when the RPC does not know the tx (yet).
+  tx(hash: string, sender: string): Promise<any | undefined>;
 }
 
 export class RpcError extends Error {
@@ -271,6 +273,14 @@ export function rpcNear(cfg: { rpcUrl: string; accountId: string; secret?: strin
     async head() {
       const r = await call("block", { finality: "final" });
       return { height: BigInt(r.header.height), hash: base58decode(r.header.hash) };
+    },
+    async tx(hash, sender) {
+      try {
+        return await call("EXPERIMENTAL_tx_status", { tx_hash: hash, sender_account_id: sender, wait_until: "FINAL" });
+      } catch (e) {
+        if (e instanceof RpcError && /UNKNOWN_TRANSACTION/.test(e.message + JSON.stringify(e.cause))) return undefined;
+        throw e;
+      }
     },
   };
 }

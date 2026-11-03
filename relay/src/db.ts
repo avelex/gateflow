@@ -1,4 +1,4 @@
-// SQLite state: merchants, sessions and issued 1Click quotes. Amounts stay on-chain.
+// SQLite state: merchants, sessions, issued 1Click quotes and screening txs. Amounts stay on-chain.
 import { DatabaseSync } from "node:sqlite";
 
 export type Step = "account" | "tokens" | "gateway" | "done";
@@ -56,6 +56,12 @@ CREATE TABLE IF NOT EXISTS quotes (
   status TEXT NOT NULL DEFAULT 'PENDING_DEPOSIT',
   screened INTEGER NOT NULL DEFAULT 0
 );
+CREATE TABLE IF NOT EXISTS screenings (
+  payment INTEGER PRIMARY KEY,
+  tx_hash TEXT NOT NULL,
+  sender TEXT NOT NULL,
+  evidence TEXT
+);
 CREATE TABLE IF NOT EXISTS chat_threads (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   email TEXT NOT NULL,
@@ -111,6 +117,9 @@ export function openDb(path: string) {
   const open = q("SELECT * FROM quotes WHERE screened = 0 AND status NOT IN ('REFUNDED', 'FAILED') AND deadline_ms + 3600000 >= ?");
   const setStatus = q("UPDATE quotes SET status = ? WHERE ref = ?");
   const setScreened = q("UPDATE quotes SET screened = 1 WHERE ref = ?");
+  const newScreening = q("INSERT OR IGNORE INTO screenings (payment, tx_hash, sender) VALUES (?, ?, ?)");
+  const screeningOf = q("SELECT tx_hash, sender, evidence FROM screenings WHERE payment = ?");
+  const setEvidence = q("UPDATE screenings SET evidence = ? WHERE payment = ?");
   const newThread = q("INSERT INTO chat_threads (email, title, created_at) VALUES (?, ?, ?)");
   const threadById = q("SELECT * FROM chat_threads WHERE id = ? AND email = ?");
   const threadsOf = q("SELECT * FROM chat_threads WHERE email = ? ORDER BY id DESC LIMIT ?");
@@ -145,6 +154,10 @@ export function openDb(path: string) {
       if (change.status) setStatus.run(change.status, ref);
       if (change.screened) setScreened.run(ref);
     },
+    /// The first recorded screening tx of a payment wins.
+    recordScreening: (payment: number, txHash: string, sender: string) => void newScreening.run(payment, txHash, sender),
+    screening: (payment: number) => screeningOf.get(payment) as { tx_hash: string; sender: string; evidence: string | null } | undefined,
+    storeEvidence: (payment: number, evidence: unknown) => void setEvidence.run(JSON.stringify(evidence), payment),
     createThread: (email: string, title: string, now: number) => Number(newThread.run(email, title, now).lastInsertRowid),
     thread(id: number, email: string): Thread | undefined {
       const row = threadById.get(id, email);

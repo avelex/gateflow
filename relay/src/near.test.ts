@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createPublicKey, verify, generateKeyPairSync } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { base58decode, base58encode, encodeActions, signer, txResult, secretFromSeed } from "./near.ts";
+import { base58decode, base58encode, encodeActions, rpcNear, signer, txResult, secretFromSeed } from "./near.ts";
 
 const fixture = (name: string) => JSON.parse(readFileSync(new URL(`./fixtures/${name}`, import.meta.url), "utf8"));
 
@@ -64,4 +64,19 @@ test("tx_result_value", () => {
 test("tx_result_top_level_failure", () => {
   const rpc = { result: { status: { Failure: { InvalidTxError: { InvalidNonce: {} } } }, transaction: { hash: "h" }, receipts_outcome: [] } };
   assert.match(txResult(rpc, "gateflow.testnet").error ?? "", /InvalidNonce/);
+});
+
+test("tx_unknown_is_undefined", async () => {
+  const real = globalThis.fetch;
+  const bodies: any[] = [];
+  globalThis.fetch = (async (_url: string, init: any) => {
+    bodies.push(JSON.parse(init.body));
+    return new Response(JSON.stringify({ error: { name: "HANDLER_ERROR", cause: { name: "UNKNOWN_TRANSACTION" }, message: "Server error" } }));
+  }) as typeof fetch;
+  try {
+    assert.equal(await rpcNear({ rpcUrl: "http://rpc", accountId: "op.testnet" }).tx("8Kd", "bob.near"), undefined);
+    assert.deepEqual(bodies[0].params, { tx_hash: "8Kd", sender_account_id: "bob.near", wait_until: "FINAL" });
+  } finally {
+    globalThis.fetch = real;
+  }
 });

@@ -19,6 +19,9 @@ export type FakeNear = Near & {
   sendResults: ((s: Sent) => TxResult | undefined)[];
   existing: Set<string>;
   keys: Record<string, bigint>;
+  /// `hash` -> tx status result; missing means unknown.
+  txTable: Record<string, any>;
+  txCalls: { hash: string; sender: string }[];
 };
 
 export function fakeNear(): FakeNear {
@@ -29,6 +32,8 @@ export function fakeNear(): FakeNear {
     sendResults: [],
     existing: new Set(),
     keys: {},
+    txTable: {},
+    txCalls: [],
     async view(contract, method, args) {
       n.views.push({ contract, method, args });
       const v = n.viewTable[`${contract}.${method}`];
@@ -50,6 +55,11 @@ export function fakeNear(): FakeNear {
     },
     async head() {
       return { height: 1000n, hash: new Uint8Array(32) };
+    },
+    async tx(hash, sender) {
+      n.txCalls.push({ hash, sender });
+      const t = n.txTable[hash];
+      return t === undefined ? undefined : structuredClone(t);
     },
   };
   return n;

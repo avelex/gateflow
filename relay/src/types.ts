@@ -23,6 +23,8 @@ export type Config = {
   llmApiKey?: string;
   llmModel: string;
   chatDailyLimit: number;
+  outlayerContract: string;
+  outlayerProject: string;
 };
 
 export interface OneClick {
@@ -94,5 +96,7 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     llmApiKey: env.LLM_API_KEY || undefined,
     llmModel: env.LLM_MODEL ?? "",
     chatDailyLimit: Number(env.CHAT_DAILY_LIMIT ?? 200),
+    outlayerContract: env.OUTLAYER_CONTRACT || "outlayer.near",
+    outlayerProject: env.OUTLAYER_PROJECT || "ops.gateflow.near/gateflow",
   };
 }
