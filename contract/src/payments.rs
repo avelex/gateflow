@@ -246,6 +246,8 @@ mod tests {
         assert_eq!(args["source"], json!({"Project": {"project_id": "ops.near/gateflow", "version_key": null}}));
         assert_eq!(args["secrets_ref"], json!({"profile": "default", "account_id": "ops.near"}));
         assert_eq!(args["response_format"], "Json");
+        // OutLayer workers drop a request whose limits are `{}` (out-layer/outlayer#31).
+        assert_eq!(args["resource_limits"], json!({"max_instructions": 1_000_000_000u64, "max_memory_mb": 128, "max_execution_seconds": 60}));
         let input: near_sdk::serde_json::Value = near_sdk::serde_json::from_str(args["input_data"].as_str().unwrap()).unwrap();
         assert_eq!(input, json!({"kind": "screen", "payer": payer(), "max_risk": 50}));
         assert!(calls().iter().any(|(_, m, a, _)| m == "on_screened" && a == &json!({"payment": 0})));

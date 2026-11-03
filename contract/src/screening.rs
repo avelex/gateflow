@@ -51,7 +51,8 @@ impl Gateflow {
     pub(crate) fn request_screening(&self, payment: PaymentId, request: Value) -> Promise {
         let args = json!({
             "source": {"Project": {"project_id": self.enclave.project, "version_key": null}},
-            "resource_limits": {},
+            // Explicit OutLayer defaults: workers drop a request whose limits are `{}` (out-layer/outlayer#31).
+            "resource_limits": {"max_instructions": 1_000_000_000u64, "max_memory_mb": 128, "max_execution_seconds": 60},
             "input_data": request.to_string(),
             "secrets_ref": {"profile": "default", "account_id": self.enclave.secrets_owner},
             "response_format": "Json",
