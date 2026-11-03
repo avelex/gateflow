@@ -71,6 +71,6 @@ Checked on 2026-11-03. OutLayer's on-chain `request_id` (in the `execution_reque
 - Raw attestation JSON (TDX quote, wasm, input and output hashes): `https://api.outlayer.ai/attestations/<job_id>`
 - `request_id` or tx hash to `job_id`: `GET https://api.outlayer.ai/public/jobs?project=ops.gateflow.near/gateflow&user_account_id=<tx signer>&limit=50`, then match `transaction_hash` or `request_id`. Contract-run screenings are listed under the tx signer, for example `relay.gateflow.near` for `screen_intents`.
 
-None of these API endpoints are documented by OutLayer. The checkout and console link to `https://app.outlayer.ai/executions` and show the `request_id`.
+None of these API endpoints are documented by OutLayer. The relay does this lookup (`findJob` in `relay/src/screening.ts`) and stores the `job_id` with each payment's screening evidence. The checkout and console link to the attestation page, and fall back to `https://app.outlayer.ai/executions` when the job is not found.
 
 Example: request 2796, tx `C8UdBVpFo4kNQUU1tWivMeSKGkU3SYu5DNADuQCi35RS`, job 1255332, attestation `https://app.outlayer.ai/attestation/1255332?network=mainnet` (wasm `11a4efa6…dabe`).

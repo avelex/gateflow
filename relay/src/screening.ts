@@ -15,7 +15,7 @@ export type Parsed = {
   verdict: boolean | null;
 };
 
-export type Screening = Omit<Parsed, "success" | "verdict"> & { txHash: string; outcome: Outcome };
+export type Screening = Omit<Parsed, "success" | "verdict"> & { txHash: string; outcome: Outcome; jobId: number | null };
 
 type Event = { standard?: string; version?: string; event?: string; data?: any[] };
 
@@ -91,16 +91,46 @@ export function opensPayment(tx: any, gateflow: string, payment: number): boolea
   return events(tx, gateflow, "gateflow").some((x) => x.e.event === "payment_opened" && x.e.data?.some((d) => d?.payment === payment));
 }
 
+const JOB_RETRY_MS = 60_000;
+const jobTries = new WeakMap<Deps, Map<number, number>>();
+
+/// Whether this payment's OutLayer job may be looked up now (once per minute); records the try.
+function mayLookUpJob(deps: Deps, payment: number): boolean {
+  let tries = jobTries.get(deps);
+  if (!tries) jobTries.set(deps, (tries = new Map()));
+  const last = tries.get(payment);
+  if (last !== undefined && deps.now() - last < JOB_RETRY_MS) return false;
+  tries.set(payment, deps.now());
+  return true;
+}
+
 /// A payment's evidence: stored once final, read from its recorded tx otherwise; null without a recorded tx.
+/// A missing OutLayer `jobId` is looked up again at most once a minute and stored once found.
 export async function evidenceFor(deps: Deps, payment: number, status: string): Promise<Screening | null> {
   const row = deps.db.screening(payment);
   if (!row) return null;
-  if (row.evidence) return JSON.parse(row.evidence);
-  const tx = await deps.near.tx(row.tx_hash, row.sender);
-  const { success, verdict, ...p } = parseEvidence(tx, deps.cfg.outlayerContract);
-  // An unknown tx is not final yet: report it, store nothing.
-  const s: Screening = { txHash: row.tx_hash, ...p, outcome: !tx && status !== "Pending" ? "no_verdict" : outcome(status, { ...p, success, verdict }) };
-  if (tx && status !== "Pending") deps.db.storeEvidence(payment, s);
+  let s: Screening;
+  let stored = false;
+  if (row.evidence) {
+    s = { jobId: null, ...JSON.parse(row.evidence) };
+    stored = true;
+  } else {
+    const tx = await deps.near.tx(row.tx_hash, row.sender);
+    const { success, verdict, ...p } = parseEvidence(tx, deps.cfg.outlayerContract);
+    // An unknown tx is not final yet: report it, store nothing.
+    s = { txHash: row.tx_hash, ...p, outcome: !tx && status !== "Pending" ? "no_verdict" : outcome(status, { ...p, success, verdict }), jobId: null };
+    if (tx && status !== "Pending") {
+      deps.db.storeEvidence(payment, s);
+      stored = true;
+    }
+  }
+  if (s.requestId !== null && !s.jobId && mayLookUpJob(deps, payment)) {
+    const jobId = await findJob(deps, { txHash: row.tx_hash, signer: row.sender, requestId: s.requestId });
+    if (jobId !== null) {
+      s = { ...s, jobId };
+      if (stored) deps.db.storeEvidence(payment, s);
+    }
+  }
   return s;
 }
 

@@ -363,3 +363,15 @@ test("screened_invoice_evidence", async () => {
   assert.equal(s.timeMs, 1410);
   assert.equal(s.costYocto, "1141000000000000000000");
 });
+
+test("outlayer_down_invoice_ok", async () => {
+  const deps = fakeDeps();
+  withInvoice(deps, { status: "Paid", payment: 3 }, { status: "Settled", refund_to: "bob.near", payer: "0xabc" });
+  deps.db.recordScreening(3, HASH, "0xabc");
+  deps.near.txTable[HASH] = JSON.parse(readFileSync(new URL("./fixtures/outlayer-tx-approved.json", import.meta.url), "utf8"));
+  deps.outlayer.fail = new Error("down");
+  const res = await call(deps, "GET", "/checkout/invoice?id=7");
+  assert.equal(res.status, 200);
+  assert.equal((res.json as any).screening.jobId, null);
+  assert.equal((res.json as any).screening.outcome, "approved");
+});

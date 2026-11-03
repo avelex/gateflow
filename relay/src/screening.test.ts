@@ -175,3 +175,38 @@ test("find_job_api_error", async () => {
   d.outlayer.fail = new Error("down");
   assert.equal(await findJob(d, { txHash: C8, signer: "s", requestId: 2796 }), null);
 });
+
+// withTx records payment 3 under signer gateflow.near with the 4e9W fixture (request 2792).
+const jobFor = (txHash: string, requestId: number, jobId: number) => ({ job_id: jobId, request_id: requestId, transaction_hash: txHash });
+
+test("job_id_stored", async () => {
+  const d = withTx();
+  d.outlayer.jobList = [jobFor("4e9W", 2792, 1255043)];
+  assert.equal((await evidenceFor(d, 3, "Settled"))?.jobId, 1255043);
+  assert.equal(JSON.parse(d.db.screening(3)!.evidence!).jobId, 1255043);
+  d.clock.ms += 120_000;
+  assert.equal((await evidenceFor(d, 3, "Settled"))?.jobId, 1255043);
+  assert.equal(d.outlayer.calls.length, 1);
+  assert.equal(d.outlayer.calls[0].user, "gateflow.near");
+});
+
+test("job_retry_throttled", async () => {
+  const d = withTx();
+  assert.equal((await evidenceFor(d, 3, "Settled"))?.jobId, null);
+  d.outlayer.jobList = [jobFor("4e9W", 2792, 1255043)];
+  d.clock.ms += 30_000;
+  assert.equal((await evidenceFor(d, 3, "Settled"))?.jobId, null);
+  assert.equal(d.outlayer.calls.length, 1);
+  d.clock.ms += 31_000;
+  assert.equal((await evidenceFor(d, 3, "Settled"))?.jobId, 1255043);
+  assert.equal(JSON.parse(d.db.screening(3)!.evidence!).jobId, 1255043);
+});
+
+test("legacy_evidence_filled", async () => {
+  const d = fakeDeps();
+  d.db.recordScreening(0, C8, "relay.gateflow.near");
+  d.db.storeEvidence(0, { txHash: C8, requestId: 2796, project: "p", wasmHash: "w", wasmUrl: null, timeMs: 1, costYocto: "1", outcome: "approved" });
+  d.outlayer.jobList = JOBS;
+  assert.equal((await evidenceFor(d, 0, "Settled"))?.jobId, 1255332);
+  assert.equal(JSON.parse(d.db.screening(0)!.evidence!).jobId, 1255332);
+});
