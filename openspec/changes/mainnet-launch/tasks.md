@@ -28,7 +28,15 @@ Run 0.3 and 0.4 before 0.1: the contract needs a working enclave project.
 ## 1. Deploy
 
 - [ ] 1.1 Deploy a fresh mainnet `gateflow` contract with `new(...)` (`intents` = `intents.near`), `add_token` the three tokens, `storage_deposit` the contract on each, then delete the account's full-access key; verify `get_tokens` returns exactly those three and `near account list-keys` shows no keys
+  - 2026-11-03: deployed `gateflow.greatbank5653.near` (wasm SHA256 `983102e92f18b7a0f24f93764c62c40e705390bd8dde1e8600a3c4071be55d6b`, commit `80bec9e`).
+    - Deploy and `new(...)` tx `HMo1MQxm66LbUwCEv2VbFPL36cEkDeS7wgPh7Qs7XY79`, with operator `greatbank5653.near`, relay `relay.greatbank5653.near`, intents `intents.near`, enclave `{outlayer.near, greatbank5653.near/gateflow, greatbank5653.near}` and `execution_deposit` 0.01 NEAR.
+    - `add_token`: USDC `53pzrg1q7pty5UZHXbfrQDmEhmg1vHkXc15n8iozrZTH`, nBTC `9j6M6hASRxaW6172KzfnT2gSTr6VWcbviuMaoRaZ2yyv`, ZEC `CWGbZXvKf37qyA9CpargDJEj3Mw5tT5FAgfke7jN2MDN`.
+    - `storage_deposit`: USDC `6crrEhU6sKYDSKjiQJA2JreME2H1914A9oAJ4av7KK5`, nBTC `BBMYXqfNK39rV34CaTv5Xf4u8FFseXK9YBhYumdyRFbK`, ZEC `4TVb8eEtchUnJbRvwd6UWN6oSS8a1o5GuQaAbEn39vhe`.
+    - `get_tokens` returns exactly the three.
+    - Open: the owner chose to keep the full-access key for now.
 - [ ] 1.2 Build the enclave with `GATEFLOW_CONTRACT=<mainnet gateflow account>`, then `outlayer upload` and `outlayer deploy gateflow <url>` as the account named in `enclave.secrets_owner`. Store a placeholder `default` profile only if 0.3 (d) required it. Call `set_enclave` if the project differs from the one given to `new(...)`. Verify a direct NEAR test payment from a clean account reaches `Settled`
+  - 2026-11-03: built and deployed as `greatbank5653.near/gateflow`. The SHA256, tx hashes and direct-call checks are in `enclave/README.md`. No placeholder profile, since 0.3 (d) did not require one, and no `set_enclave`, since the project matches `new(...)`.
+  - Open: the `Settled` payment. It needs a gateway, so it runs after 1.3.
 - [ ] 1.3 Start the relay against mainnet (`GATEFLOW_CONTRACT`, `RELAY_ACCOUNT_ID`, `RELAY_PRIVATE_KEY`, `NEAR_RPC_URL`, `VITE_NEAR_NETWORK=mainnet` build) and onboard one merchant through the console; verify `get_gateway` for that merchant's gateway returns its owner, payout account and fuel
 
 ## 2. Live cross-chain payments
