@@ -334,6 +334,19 @@ test("invoices_newest_first_paged", async () => {
   assert.deepEqual((res.json as any[])[0].tokenMeta, { symbol: "WRAP", decimals: 24 });
 });
 
+test("payments_carry_screening", async () => {
+  const deps = fakeDeps();
+  const cookies = await withGateway(deps, { payments: 2 });
+  deps.near.viewTable["gateflow.testnet.get_payments"] = ({ from_index, limit }: any) =>
+    Array.from({ length: limit }, (_, i) => [from_index + i, { token: "wrap.testnet", amount: "1", status: "Settled" }]);
+  const stored = { txHash: "h", requestId: 2792, project: "p", wasmHash: "w", wasmUrl: null, timeMs: 1, costYocto: "1", outcome: "approved" };
+  deps.db.recordScreening(1, "h", "0xabc");
+  deps.db.storeEvidence(1, stored);
+  const rows = (await call(deps, "GET", "/console/payments", undefined, cookies)).json as any[];
+  assert.deepEqual(rows.find((p) => p.id === 1).screening, stored);
+  assert.equal(rows.find((p) => p.id === 0).screening, null);
+});
+
 test("tokens_respect_preferences", async () => {
   const deps = fakeDeps();
   const cookies = await withGateway(deps);
