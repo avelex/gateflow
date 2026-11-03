@@ -316,8 +316,9 @@ test("gateway_tops_up_before_return", async () => {
 test("gateway_full_no_top_up", async () => {
   const deps = fakeDeps();
   const cookies = await withGateway(deps);
-  await call(deps, "GET", "/console/gateway", undefined, cookies);
+  const res = await call(deps, "GET", "/console/gateway", undefined, cookies);
   assert.equal(deps.near.sent.length, 0);
+  assert.equal((res.json as any).outlayerProject, "ops.gateflow.near/gateflow");
 });
 
 test("invoices_newest_first_paged", async () => {

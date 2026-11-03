@@ -1,5 +1,6 @@
 // Pure console rules (tested in logic.test.ts) and the delegate round trip.
 import { api } from "../api.ts";
+import { explorerTx, OUTLAYER_EXECUTIONS, type Screening } from "../checkout/logic.ts";
 import { formatAmount, parseAmount } from "../format.ts";
 import { type DelegateParams, type MerchantKey, signDelegate } from "../near/delegate.ts";
 import { assertOwner, getPasskeyKey, loadStoredKey } from "../near/key.ts";
@@ -71,6 +72,7 @@ export type Payment = {
   max_risk: number;
   status: string;
   tokenMeta: TokenMeta;
+  screening: Screening | null;
 };
 
 export const amountOf = (x: { amount: string; tokenMeta: TokenMeta }) => formatAmount(BigInt(x.amount), x.tokenMeta.decimals);
@@ -194,4 +196,33 @@ export function takePendingAsk(): string | undefined {
   const t = pendingAsk;
   pendingAsk = undefined;
   return t;
+}
+
+export type Field = { label: string; value: string; href?: string };
+
+const OUTCOME = { pending: "Screening", approved: "Approved", rejected: "Rejected" } as const;
+
+/// The Screening block of an invoice's Details (merchant-console: Invoice screening details).
+/// `failed` and `no_verdict` never show a wasm hash as the screening code.
+export function screeningFields(p: Payment, project: string, network: string): Field[] {
+  const s = p.screening;
+  const f: Field[] = [
+    { label: "Flow", value: p.reference === null ? "Direct" : "Cross-chain" },
+    { label: "Risk limit", value: String(p.max_risk) },
+    ...(p.deposit_address ? [{ label: "Deposit address", value: p.deposit_address }] : []),
+    { label: "Project", value: s?.project ?? project },
+  ];
+  if (!s) return p.status === "Pending" ? f : [...f, { label: "Screening record", value: "Screening record unavailable" }];
+  const tx = { label: "Transaction", value: s.txHash, href: explorerTx(s.txHash, network) };
+  if (s.outcome === "failed") return [...f, { label: "Outcome", value: "The enclave returned no verdict" }, tx];
+  if (s.outcome === "no_verdict") return [...f, { label: "Outcome", value: "No verdict within 15 minutes" }, tx];
+  return [
+    ...f,
+    { label: "Outcome", value: OUTCOME[s.outcome] },
+    ...(s.requestId !== null ? [{ label: "Request", value: String(s.requestId), href: OUTLAYER_EXECUTIONS }] : []),
+    ...(s.wasmHash ? [{ label: "Wasm", value: s.wasmHash, ...(s.wasmUrl ? { href: s.wasmUrl } : {}) }] : []),
+    ...(s.timeMs !== null ? [{ label: "Run time", value: `${(s.timeMs / 1000).toFixed(1)} s` }] : []),
+    ...(s.costYocto ? [{ label: "Cost", value: `${formatAmount(BigInt(s.costYocto), 24)} NEAR` }] : []),
+    tx,
+  ];
 }

@@ -86,6 +86,8 @@ export default function Invoices({ data, refresh, toast }: ScreenProps) {
             inv={selected}
             tab={tabOf(selected)}
             payer={payer(selected)}
+            payment={selected.payment === null ? undefined : data.payments.find((x) => x.id === selected.payment)}
+            project={data.gateway.outlayerProject}
             txHash={open?.txHash}
             onCopy={() => (navigator.clipboard?.writeText(checkoutLink(selected.id)), toast("Payment link copied", checkoutLink(selected.id)))}
           />

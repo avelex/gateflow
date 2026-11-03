@@ -17,7 +17,7 @@ const NBTC = { symbol: "nBTC", decimals: 8 };
 const at = (d: Date) => Math.floor(d.getTime() / 1000);
 const pay = (id: number, amount: string, status: string, opened: Date, extra: Partial<Payment> = {}): Payment => ({
   id, gateway: 0, invoice: id, payer: "alice.near", refund_to: "alice.near", token: "usdc.near", amount, reference: null, deposit_address: null,
-  opened_at_sec: at(opened), max_risk: 50, status, tokenMeta: USDC, ...extra,
+  opened_at_sec: at(opened), max_risk: 50, status, tokenMeta: USDC, screening: null, ...extra,
 });
 const inv = (id: number, amount: string, meta = USDC, extra: Partial<Invoice> = {}): Invoice => ({
   id, gateway: 0, token: "t", amount, expires_at_sec: 0, memo: null, status: "Open", payment: null, tokenMeta: meta, ...extra,
@@ -121,4 +121,36 @@ test("held_by_token", () => {
   expect(heldByToken(ps, "Pending")).toEqual(new Map([["usdc.near", 15000000n], ["nbtc.near", 300n]]));
   expect(heldByToken(ps, "SettleFailed")).toEqual(new Map([["usdc.near", 7000000n]]));
   expect(heldByToken([], "Pending")).toEqual(new Map());
+});
+
+import { screeningFields } from "./logic.ts";
+
+const EV = {
+  txHash: "4e9W", requestId: 2792, project: "ops.gateflow.near/gateflow", wasmHash: "11a4efa612d4c52e", wasmUrl: null,
+  timeMs: 1410, costYocto: "1141000000000000000000", outcome: "approved" as const,
+};
+const PROJECT = "ops.gateflow.near/gateflow";
+const byLabel = (f: ReturnType<typeof screeningFields>) => Object.fromEntries(f.map((x) => [x.label, x.value]));
+
+test("fields_direct_approved", () => {
+  const f = byLabel(screeningFields(pay(3, "1", "Settled", new Date(), { screening: EV }), PROJECT, "mainnet"));
+  expect(f).toMatchObject({ Flow: "Direct", "Risk limit": "50", Project: PROJECT, Outcome: "Approved", Request: "2792", Wasm: "11a4efa612d4c52e", "Run time": "1.4 s", Cost: "0.001141 NEAR", Transaction: "4e9W" });
+});
+
+test("fields_no_verdict", () => {
+  const f = byLabel(screeningFields(pay(3, "1", "Refunded", new Date(), { screening: { ...EV, outcome: "no_verdict" } }), PROJECT, "mainnet"));
+  expect(f.Wasm).toBeUndefined();
+  expect(f.Outcome).toBe("No verdict within 15 minutes");
+});
+
+test("fields_unavailable", () => {
+  const f = byLabel(screeningFields(pay(3, "1", "Settled", new Date()), PROJECT, "mainnet"));
+  expect(f["Screening record"]).toContain("record unavailable");
+  expect(f.Project).toBe(PROJECT);
+});
+
+test("fields_cross_chain", () => {
+  const f = byLabel(screeningFields(pay(3, "1", "Pending", new Date(), { reference: "r1", deposit_address: "0x76fc" }), PROJECT, "mainnet"));
+  expect(f).toMatchObject({ Flow: "Cross-chain", "Deposit address": "0x76fc" });
+  expect(f["Screening record"]).toBeUndefined();
 });

@@ -320,7 +320,7 @@ export async function withMeta(deps: Deps, rows: [number, any][]) {
 
 const gateway: Handler = async (req, deps) => {
   const m = requireGateway(req, deps);
-  return ok({ id: m.gateway_id, ...(await readGateway(deps, m.gateway_id)) });
+  return ok({ id: m.gateway_id, ...(await readGateway(deps, m.gateway_id)), outlayerProject: deps.cfg.outlayerProject });
 };
 
 const invoices: Handler = async (req, deps) => {

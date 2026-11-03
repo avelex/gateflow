@@ -11,7 +11,7 @@ import type { Invoice, Me, Payment, Thread } from "./logic.ts";
 import Search from "./Search.tsx";
 import { usePoll } from "./usePoll.ts";
 
-export type Gateway = { id: number; owner: string; payout_to: string; policy: { max_risk: number }; fuel: string; fuelReady: boolean; invoices: number; payments: number };
+export type Gateway = { id: number; owner: string; payout_to: string; policy: { max_risk: number }; fuel: string; fuelReady: boolean; invoices: number; payments: number; outlayerProject: string };
 export type Token = { token: string; symbol: string; decimals: number; enabled: boolean };
 export type Balance = { token: string; symbol: string; decimals: number; balance: string };
 export type ConsoleData = { me: Me; gateway: Gateway; invoices: Invoice[]; payments: Payment[]; tokens: Token[]; balances: Balance[]; threads: Thread[] };

@@ -1,9 +1,9 @@
 // The export's chat cards (design/Gateflow Console.html, Chat): invoice, status and confirm.
-import { type ReactNode, useEffect, useState } from "react";
+import { Fragment, type ReactNode, useEffect, useState } from "react";
 import { api } from "../api.ts";
 import { Button, FlowSteps, Icon } from "../ds.jsx";
 import { keyMode } from "../near/key.ts";
-import { acquireKey, amountOf, type Card, cardModel, type ChatAction, type Invoice, invoiceTab, payerLabel, signAndRelay, TGAS } from "./logic.ts";
+import { acquireKey, amountOf, type Card, cardModel, type ChatAction, type Invoice, invoiceTab, type Payment, payerLabel, screeningFields, signAndRelay, TGAS } from "./logic.ts";
 import type { ConsoleData } from "./Layout.tsx";
 import { message } from "./Onboarding.tsx";
 
@@ -15,6 +15,7 @@ const FOOT = { display: "flex", flexWrap: "wrap", gap: 8, padding: "12px 20px", 
 export const utc = (sec: number) => new Date(sec * 1000).toISOString().slice(0, 16).replace("T", " ");
 export const nowSec = () => Math.floor(Date.now() / 1000);
 export const checkoutLink = (id: number) => `${location.origin}/pay/${id}`;
+const NETWORK = import.meta.env.VITE_NEAR_NETWORK ?? "testnet";
 
 /// The export's status tag, in its plain form; in-flight states use the export's "Checking" blue.
 export function StatusTag({ label }: { label: string }) {
@@ -34,7 +35,7 @@ const field = (label: string, value: ReactNode, mono = false) => (
 );
 
 /// The export's chat invoice card: amount, checkout link, and Copy payment link / Open checkout.
-export function InvoiceCard({ inv, tab, payer, txHash, onCopy }: { inv: Invoice; tab: string; payer: string; txHash?: string; onCopy(): void }) {
+export function InvoiceCard({ inv, tab, payer, payment, project, txHash, onCopy }: { inv: Invoice; tab: string; payer: string; payment?: Payment; project: string; txHash?: string; onCopy(): void }) {
   return (
     <div style={BOX}>
       <div style={HEAD}>
@@ -65,6 +66,28 @@ export function InvoiceCard({ inv, tab, payer, txHash, onCopy }: { inv: Invoice;
             {field("Payment", inv.payment === null ? "—" : `#${inv.payment}`, true)}
             {txHash && field("Transaction", txHash, true)}
           </div>
+          {payment && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 16 }}>
+              <span style={LABEL}>Screening</span>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: "12px 24px" }}>
+                {screeningFields(payment, project, NETWORK).map((f) => (
+                  <Fragment key={f.label}>
+                  {field(
+                    f.label,
+                    f.href ? (
+                      <a href={f.href} target="_blank" rel="noreferrer" style={{ color: "var(--blue-600)", textDecoration: "none" }}>
+                        {f.value}
+                      </a>
+                    ) : (
+                      f.value
+                    ),
+                    /^(Wasm|Transaction|Deposit address|Project|Request)$/.test(f.label),
+                  )}
+                  </Fragment>
+                ))}
+              </div>
+            </div>
+          )}
         </details>
       </div>
       <div style={FOOT}>
@@ -174,7 +197,7 @@ export function ChatCard({ card, data, onAsk, onChanged, toast }: { card: Card; 
   const follow = `What is the status of invoice #${inv.id}?`;
   return (
     <>
-      <InvoiceCard inv={inv} tab={invoiceTab(inv, nowSec())} payer={p ? payerLabel(p) : "Not paid yet"} onCopy={() => (navigator.clipboard?.writeText(checkoutLink(inv.id)), toast("Payment link copied", checkoutLink(inv.id)))} />
+      <InvoiceCard inv={inv} tab={invoiceTab(inv, nowSec())} payer={p ? payerLabel(p) : "Not paid yet"} payment={p} project={data.gateway.outlayerProject} onCopy={() => (navigator.clipboard?.writeText(checkoutLink(inv.id)), toast("Payment link copied", checkoutLink(inv.id)))} />
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
         <div className="hv" onClick={() => onAsk(follow)} style={{ display: "flex", alignItems: "center", gap: 6, height: 28, padding: "0 10px", border: "1px solid var(--border-2)", borderRadius: "var(--radius-2)", background: "var(--surface-card)", fontSize: 13, color: "var(--text-2)", cursor: "pointer" }}>
           <Icon name="corner-down-right" size={13} />
