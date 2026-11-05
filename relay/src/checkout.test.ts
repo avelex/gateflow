@@ -386,3 +386,22 @@ test("checkout_nbtc_symbol", async () => {
   assert.equal(res.status, 200);
   assert.equal((res.json as any).symbol, "BTC");
 });
+
+test("checkout_times_paid", async () => {
+  const deps = fakeDeps();
+  const ref = "ab".repeat(16);
+  withInvoice(deps, { status: "Paid", payment: 4 }, { status: "Settled", ref, refund_to: "bob.near", opened_at_sec: 1793857812 });
+  deps.db.insertQuote({ ref, invoice: 7, deposit_address: "dep", deadline_ms: deps.now() + 60_000 });
+  deps.db.markQuote(ref, { status: "PROCESSING", nowMs: 1793857780_000 });
+  deps.db.recordScreening(4, "h", "relay.testnet");
+  deps.db.storeEvidence(4, { txHash: "h", requestId: 1, project: "p", wasmHash: "w", wasmUrl: null, timeMs: 1, costYocto: "1", outcome: "approved", jobId: 9, screenedAtSec: 1793857840, closedAtSec: 1793857841 });
+  const res = await call(deps, "GET", "/checkout/invoice?id=7");
+  assert.deepEqual((res.json as any).times, { depositSeenAtSec: 1793857780, openedAtSec: 1793857812, screenedAtSec: 1793857840, closedAtSec: 1793857841 });
+});
+
+test("checkout_times_open_null", async () => {
+  const deps = fakeDeps();
+  withInvoice(deps);
+  const res = await call(deps, "GET", "/checkout/invoice?id=7");
+  assert.deepEqual((res.json as any).times, { depositSeenAtSec: null, openedAtSec: null, screenedAtSec: null, closedAtSec: null });
+});

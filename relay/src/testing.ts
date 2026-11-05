@@ -22,6 +22,8 @@ export type FakeNear = Near & {
   /// `hash` -> tx status result; missing means unknown.
   txTable: Record<string, any>;
   txCalls: { hash: string; sender: string }[];
+  /// Block hash -> timestamp in seconds; missing throws like an RPC error.
+  blocks: Record<string, number>;
 };
 
 export function fakeNear(): FakeNear {
@@ -34,6 +36,7 @@ export function fakeNear(): FakeNear {
     keys: {},
     txTable: {},
     txCalls: [],
+    blocks: {},
     async view(contract, method, args) {
       n.views.push({ contract, method, args });
       const v = n.viewTable[`${contract}.${method}`];
@@ -55,6 +58,11 @@ export function fakeNear(): FakeNear {
     },
     async head() {
       return { height: 1000n, hash: new Uint8Array(32) };
+    },
+    async block(hash) {
+      const t = n.blocks[hash];
+      if (t === undefined) throw new Error(`no fake block ${hash}`);
+      return { timestampSec: t };
     },
     async tx(hash, sender) {
       n.txCalls.push({ hash, sender });

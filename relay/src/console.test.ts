@@ -340,7 +340,7 @@ test("payments_carry_screening", async () => {
   const cookies = await withGateway(deps, { payments: 2 });
   deps.near.viewTable["gateflow.testnet.get_payments"] = ({ from_index, limit }: any) =>
     Array.from({ length: limit }, (_, i) => [from_index + i, { token: "wrap.testnet", amount: "1", status: "Settled" }]);
-  const stored = { txHash: "h", requestId: 2792, project: "p", wasmHash: "w", wasmUrl: null, timeMs: 1, costYocto: "1", outcome: "approved", jobId: 1255043 };
+  const stored = { txHash: "h", requestId: 2792, project: "p", wasmHash: "w", wasmUrl: null, timeMs: 1, costYocto: "1", outcome: "approved", jobId: 1255043, screenedAtSec: 1793857840, closedAtSec: 1793857841 };
   deps.db.recordScreening(1, "h", "0xabc");
   deps.db.storeEvidence(1, stored);
   const rows = (await call(deps, "GET", "/console/payments", undefined, cookies)).json as any[];

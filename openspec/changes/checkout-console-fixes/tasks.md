@@ -77,7 +77,7 @@
   - The `quote` handler in `checkout.ts` stores `origin_chain: originChain(tokens, b.originAsset)`.
   - Add `watcher_records_deposit_seen` to `watcher.test.ts`: statuses `PENDING_DEPOSIT` at t=1000, then `PROCESSING` at t=16000, then `SUCCESS` at t=31000, leave `deposit_seen_ms` at 16000.
   - Verify: `cd relay && npm test`.
-- [ ] 4.3 Read the block times into the evidence.
+- [x] 4.3 Read the block times into the evidence.
   - Add `block(hash: string): Promise<{ timestampSec: number }>` to the `Near` port in `relay/src/near.ts`. It wraps RPC `block` with `block_id`, using `Math.floor(header.timestamp / 1e9)`. Add it to the fake in `testing.ts` too.
   - `parseEvidence` also returns `completedBlock: string | null`, the `block_hash` of the `outlayer.near` receipt holding `execution_completed`.
   - Add `closedBlock(tx, gateflow, payment): string | null` in `screening.ts`: the `block_hash` of the receipt whose `executor_id` is the Gateflow contract and that logs a `gateflow` `payment_closed` event with `data[0].payment === payment`.
@@ -90,7 +90,7 @@
     - `pending_has_no_times`
     - `legacy_evidence_gets_times`: stored evidence without the key causes one `tx` call, and a second request makes no RPC call
   - Verify: `cd relay && npm test`.
-- [ ] 4.4 `GET /checkout/invoice` returns `times: {depositSeenAtSec, openedAtSec, screenedAtSec, closedAtSec}`, each `number | null`:
+- [x] 4.4 `GET /checkout/invoice` returns `times: {depositSeenAtSec, openedAtSec, screenedAtSec, closedAtSec}`, each `number | null`:
   - `depositSeenAtSec` comes from the quote matching `payment.ref`.
   - `openedAtSec` comes from `payment.opened_at_sec`.
   - The other two come from the evidence.

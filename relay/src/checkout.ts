@@ -67,6 +67,8 @@ const invoice: Handler = async (req, deps) => {
   if (g) await ensureRegistered(deps, g.payout_to, inv.token);
   const meta = await tokenMeta(deps, inv.token);
   const payment = inv.payment === null || inv.payment === undefined ? null : await deps.near.view(deps.cfg.gateflow, "get_payment", { payment: inv.payment });
+  const screening = payment ? await evidenceFor(deps, inv.payment, payment.status) : null;
+  const seen = payment?.ref ? deps.db.quoteByRef(payment.ref)?.deposit_seen_ms : null;
   return ok({
     id,
     gateway: inv.gateway,
@@ -81,7 +83,13 @@ const invoice: Handler = async (req, deps) => {
     status: inv.status,
     payment: payment && { id: inv.payment, status: payment.status, refundTo: payment.refund_to },
     enclave: { project: deps.cfg.outlayerProject, activeVersion: await activeVersion(deps) },
-    screening: payment ? await evidenceFor(deps, inv.payment, payment.status) : null,
+    screening,
+    times: {
+      depositSeenAtSec: seen === null || seen === undefined ? null : Math.floor(seen / 1000),
+      openedAtSec: payment?.opened_at_sec ?? null,
+      screenedAtSec: screening?.screenedAtSec ?? null,
+      closedAtSec: screening?.closedAtSec ?? null,
+    },
   });
 };
 

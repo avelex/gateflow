@@ -17,6 +17,7 @@ export type CheckoutInvoice = {
   payment: { id: number; status: string; refundTo: string } | null;
   enclave?: { project: string; activeVersion: string | null };
   screening?: Screening | null;
+  times?: StepTimes;
 };
 
 /// The relay's screening evidence for a payment (screening-evidence spec).
@@ -31,7 +32,13 @@ export type Screening = {
   outcome: "pending" | "approved" | "rejected" | "failed" | "no_verdict";
   /// OutLayer's job id, which keys its attestation page; null until the relay finds it.
   jobId: number | null;
+  /// Block times (UTC seconds) of the run's completion and the payment's close; null or absent when unknown.
+  screenedAtSec?: number | null;
+  closedAtSec?: number | null;
 };
+
+/// UTC seconds of each processing step; null when unknown (checkout-relay: Checkout invoice details).
+export type StepTimes = { depositSeenAtSec: number | null; openedAtSec: number | null; screenedAtSec: number | null; closedAtSec: number | null };
 
 export type Step = { label: string; state: "done" | "current" | "todo"; detail?: string };
 

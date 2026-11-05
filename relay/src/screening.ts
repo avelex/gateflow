@@ -15,7 +15,15 @@ export type Parsed = {
   verdict: boolean | null;
 };
 
-export type Screening = Omit<Parsed, "success" | "verdict"> & { txHash: string; outcome: Outcome; jobId: number | null };
+export type Screening = Omit<Parsed, "success" | "verdict"> & {
+  txHash: string;
+  outcome: Outcome;
+  jobId: number | null;
+  /// Block times (UTC seconds) of the run's completion and of the payment's close; null when unknown.
+  /// Stored evidence without these keys predates them.
+  screenedAtSec?: number | null;
+  closedAtSec?: number | null;
+};
 
 type Event = { standard?: string; version?: string; event?: string; data?: any[] };
 
@@ -86,6 +94,28 @@ export function outcome(status: string, p: Parsed): Outcome {
   return "no_verdict";
 }
 
+/// Block hashes of the `outlayer` receipt that logged `execution_completed` and of the Gateflow receipt that logged
+/// `payment_closed` for `payment`; null where the tx holds no such receipt.
+export function stepBlocks(tx: any, outlayer: string, gateflow: string, payment: number): { screened: string | null; closed: string | null } {
+  const completed = events(tx, outlayer, "near-outlayer").find((x) => x.e.event === "execution_completed");
+  const closed = events(tx, gateflow, "gateflow").find((x) => x.e.event === "payment_closed" && x.e.data?.some((d) => d?.payment === payment));
+  return { screened: str(completed?.receipt.block_hash), closed: str(closed?.receipt.block_hash) };
+}
+
+/// The timestamp of each block in `stepBlocks`; null for a missing block or a failed read.
+async function stepTimes(deps: Deps, tx: any, payment: number): Promise<{ screenedAtSec: number | null; closedAtSec: number | null }> {
+  const b = stepBlocks(tx, deps.cfg.outlayerContract, deps.cfg.gateflow, payment);
+  const at = async (hash: string | null) => {
+    if (!hash) return null;
+    try {
+      return (await deps.near.block(hash)).timestampSec;
+    } catch {
+      return null;
+    }
+  };
+  return { screenedAtSec: await at(b.screened), closedAtSec: await at(b.closed) };
+}
+
 /// Whether the Gateflow contract's own receipt in `tx` logged `payment_opened` for `payment`.
 export function opensPayment(tx: any, gateflow: string, payment: number): boolean {
   return events(tx, gateflow, "gateflow").some((x) => x.e.event === "payment_opened" && x.e.data?.some((d) => d?.payment === payment));
@@ -111,17 +141,26 @@ export async function evidenceFor(deps: Deps, payment: number, status: string): 
   if (!row) return null;
   let s: Screening;
   let stored = false;
-  if (row.evidence) {
-    s = { jobId: null, ...JSON.parse(row.evidence) };
+  const saved: Screening | null = row.evidence ? { jobId: null, ...JSON.parse(row.evidence) } : null;
+  if (saved && "closedAtSec" in saved) {
+    s = saved;
     stored = true;
   } else {
     const tx = await deps.near.tx(row.tx_hash, row.sender);
-    const { success, verdict, ...p } = parseEvidence(tx, deps.cfg.outlayerContract);
-    // An unknown tx is not final yet: report it, store nothing.
-    s = { txHash: row.tx_hash, ...p, outcome: !tx && status !== "Pending" ? "no_verdict" : outcome(status, { ...p, success, verdict }), jobId: null };
-    if (tx && status !== "Pending") {
+    if (saved) {
+      // Stored before step times existed: add them once, keeping the stored evidence even if the tx is gone.
+      s = { ...saved, ...(tx ? await stepTimes(deps, tx, payment) : { screenedAtSec: null, closedAtSec: null }) };
       deps.db.storeEvidence(payment, s);
       stored = true;
+    } else {
+      const { success, verdict, ...p } = parseEvidence(tx, deps.cfg.outlayerContract);
+      // An unknown tx is not final yet: report it, store nothing.
+      s = { txHash: row.tx_hash, ...p, outcome: !tx && status !== "Pending" ? "no_verdict" : outcome(status, { ...p, success, verdict }), jobId: null, screenedAtSec: null, closedAtSec: null };
+      if (tx && status !== "Pending") {
+        s = { ...s, ...(await stepTimes(deps, tx, payment)) };
+        deps.db.storeEvidence(payment, s);
+        stored = true;
+      }
     }
   }
   if (s.requestId !== null && !s.jobId && mayLookUpJob(deps, payment)) {

@@ -182,6 +182,8 @@ export interface Near {
   head(): Promise<{ height: bigint; hash: Uint8Array }>;
   /// The final tx status result, or undefined when the RPC does not know the tx (yet).
   tx(hash: string, sender: string): Promise<any | undefined>;
+  /// A block's timestamp, in whole UTC seconds.
+  block(hash: string): Promise<{ timestampSec: number }>;
 }
 
 export class RpcError extends Error {
@@ -273,6 +275,10 @@ export function rpcNear(cfg: { rpcUrl: string; accountId: string; secret?: strin
     async head() {
       const r = await call("block", { finality: "final" });
       return { height: BigInt(r.header.height), hash: base58decode(r.header.hash) };
+    },
+    async block(hash) {
+      const r = await call("block", { block_id: hash });
+      return { timestampSec: Math.floor(Number(r.header.timestamp) / 1e9) };
     },
     async tx(hash, sender) {
       try {

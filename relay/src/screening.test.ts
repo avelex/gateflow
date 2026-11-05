@@ -210,3 +210,62 @@ test("legacy_evidence_filled", async () => {
   assert.equal((await evidenceFor(d, 0, "Settled"))?.jobId, 1255332);
   assert.equal(JSON.parse(d.db.screening(0)!.evidence!).jobId, 1255332);
 });
+
+// ---------- step times ----------
+
+const SCREENED_BLOCK = "5sWEycTUyz7va7cDpV8eB5oXqzGGRwCmvNZVBGVsTV93";
+const CLOSED_BLOCK = "4cHQX9kYBXDPsNR1NoPGweB3N3bVnnucdnp424KpSnLG";
+const closedLog = (payment: number) => `EVENT_JSON:{"standard":"gateflow","version":"1.0.0","event":"payment_closed","data":[{"payment":${payment},"invoice":0,"status":"Settled"}]}`;
+const withTimes = (closer = "gateflow.near") => {
+  const d = fakeDeps({ outlayerContract: "outlayer.near", gateflow: "gateflow.near" });
+  const t = tx();
+  const r = t.receipts_outcome.find((x: any) => x.block_hash === CLOSED_BLOCK);
+  r.outcome.executor_id = closer;
+  r.outcome.logs.push(closedLog(3));
+  d.near.txTable["4e9W"] = t;
+  d.near.blocks = { [SCREENED_BLOCK]: 1793857840, [CLOSED_BLOCK]: 1793857841 };
+  d.db.recordScreening(3, "4e9W", "gateflow.near");
+  return d;
+};
+
+test("evidence_has_times", async () => {
+  const s = await evidenceFor(withTimes(), 3, "Settled");
+  assert.equal(s?.screenedAtSec, 1793857840);
+  assert.equal(s?.closedAtSec, 1793857841);
+});
+
+test("spoofed_close_ignored", async () => {
+  const s = await evidenceFor(withTimes("evil.near"), 3, "Settled");
+  assert.equal(s?.screenedAtSec, 1793857840);
+  assert.equal(s?.closedAtSec, null);
+});
+
+test("pending_has_no_times", async () => {
+  const d = withTimes();
+  const s = await evidenceFor(d, 3, "Pending");
+  assert.equal(s?.screenedAtSec, null);
+  assert.equal(s?.closedAtSec, null);
+});
+
+test("legacy_evidence_gets_times", async () => {
+  const d = withTimes();
+  d.db.storeEvidence(3, { txHash: "4e9W", requestId: 2792, project: "p", wasmHash: HASH, wasmUrl: null, timeMs: 1410, costYocto: "1", outcome: "approved", jobId: 7 });
+  const s = await evidenceFor(d, 3, "Settled");
+  assert.equal(s?.closedAtSec, 1793857841);
+  assert.equal(s?.jobId, 7);
+  assert.equal(s?.outcome, "approved");
+  assert.equal(d.near.txCalls.length, 1);
+  await evidenceFor(d, 3, "Settled");
+  assert.equal(d.near.txCalls.length, 1);
+});
+
+test("legacy_evidence_tx_gone_kept", async () => {
+  const d = withTimes();
+  d.near.txTable = {};
+  d.db.storeEvidence(3, { txHash: "4e9W", requestId: 2792, project: "p", wasmHash: HASH, wasmUrl: null, timeMs: 1410, costYocto: "1", outcome: "approved", jobId: 7 });
+  const s = await evidenceFor(d, 3, "Settled");
+  assert.equal(s?.outcome, "approved");
+  assert.equal(s?.closedAtSec, null);
+  await evidenceFor(d, 3, "Settled");
+  assert.equal(d.near.txCalls.length, 1);
+});
