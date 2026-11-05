@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { attestationUrl, type CheckoutInvoice, currentCode, explorerTx, returnedHash, type Screening, screeningDetail, timeline, unpayable } from "./logic.ts";
+import { attestationUrl, type CheckoutInvoice, explorerTx, returnedHash, type Screening, screeningDetail, timeline, unpayable } from "./logic.ts";
 
 const base: CheckoutInvoice = {
   id: 7, gateway: 0, merchant: "Kaja Coffee", contract: "gateflow.near", token: "nbtc.bridge.near", symbol: "nBTC", decimals: 8,
@@ -154,11 +154,6 @@ test("detail_pending_running", () => {
 });
 
 test("explorer_testnet", () => expect(explorerTx("4e9W", "testnet")).toBe("https://testnet.nearblocks.io/txns/4e9W"));
-
-test("current_code", () => {
-  expect(currentCode({ project: "ops.gateflow.near/gateflow", activeVersion: "11a4efa612d4c52e" })).toBe("Project ops.gateflow.near/gateflow · current code 11a4efa6");
-  expect(currentCode({ project: "ops.gateflow.near/gateflow", activeVersion: null })).toBe("Project ops.gateflow.near/gateflow");
-});
 
 test("detail_attestation_link", () => {
   const d = screeningDetail({ ...EVIDENCE, jobId: 1255332 }, true, "mainnet")!;

@@ -142,7 +142,6 @@ cd ../relay && GATEFLOW_CONTRACT=<contract> RELAY_ACCOUNT_ID=<operator> RELAY_PR
 | `LLM_MODEL` | none | Model id with tool calling, from `GET <LLM_BASE_URL>/model/list`. Tested: `z-ai/glm-5.3-flash` (runs in a TEE, operated by NEAR AI) |
 | `CHAT_DAILY_LIMIT` | `200` | Assistant messages per merchant per UTC day; beyond it chat answers 429 |
 | `VITE_NEAR_NETWORK` (web build) | `testnet` | Network for the checkout's NEAR wallets |
-| `VITE_ENCLAVE_SOURCE_URL` (web build) | none | Link to the enclave source shown next to the wasm hash; hidden when unset |
 | `VITE_REOWN_PROJECT_ID` (web build) | none | Reserved for the Ethereum-wallet payer option, which is not wired yet (out of scope in `openspec/changes/web-from-scratch/proposal.md`) |
 
 ### The merchant's side

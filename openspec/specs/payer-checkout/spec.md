@@ -17,14 +17,6 @@ Gives a payer a public page for one invoice where they pay from a NEAR wallet or
 - **WHEN** a payer opens `/pay/999999` and the invoice does not exist
 - **THEN** the page shows "Invoice not found" and no payment options
 
-#### Scenario: Screening explained
-- **WHEN** a payer expands "How screening works" on an Open invoice
-- **THEN** the page lists the checks run (risk score of the paying address, OFAC lists for Bitcoin and Zcash senders, the cross-chain swap matching the invoice), says the checks run in an Intel TDX enclave (TEE) operated by OutLayer, and shows the OutLayer project and its current wasm hash
-
-#### Scenario: Current code unknown
-- **WHEN** the invoice details carry no active wasm hash
-- **THEN** the explanation shows the project without a hash and claims no code version
-
 ### Requirement: Unpayable invoice
 For an invoice that is Paid, Returned, or Open past its expiry, the page SHALL show that state and SHALL NOT offer payment options.
 

@@ -194,12 +194,6 @@ export const attestationUrl = (jobId: number, network: string) => `https://app.o
 
 export const explorerTx = (hash: string, network: string) => `https://${network === "testnet" ? "testnet." : ""}nearblocks.io/txns/${hash}`;
 
-/// The pre-pay line naming the enclave project and, when known, its current code; never claims an unknown version.
-export function currentCode(e: CheckoutInvoice["enclave"]): string | undefined {
-  if (!e) return undefined;
-  return e.activeVersion ? `Project ${e.project} · current code ${e.activeVersion.slice(0, 8)}` : `Project ${e.project}`;
-}
-
 export type Link = { label: string; href: string };
 
 /// The "Screening in enclave" row text from the evidence, or undefined to keep the default description.
