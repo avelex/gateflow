@@ -188,6 +188,12 @@ export function openDb(path: string) {
   const devInit = q("INSERT OR IGNORE INTO gateway_dev (gateway) VALUES (?)");
   const setWebhook = q("UPDATE gateway_dev SET webhook_url = ?, webhook_secret = ? WHERE gateway = ?");
   const setOrigins = q("UPDATE gateway_dev SET origins = ? WHERE gateway = ?");
+  const newDelivery = q("INSERT INTO webhook_deliveries (invoice, event, body, next_at_ms) VALUES (?, ?, ?, ?)");
+  // Only the oldest pending event of each invoice is due, so events arrive in transition order.
+  const due = q(`SELECT d.*, a.gateway FROM webhook_deliveries d JOIN api_invoices a ON a.invoice = d.invoice
+    WHERE d.done = 0 AND d.next_at_ms <= ? AND d.id = (SELECT MIN(id) FROM webhook_deliveries WHERE invoice = d.invoice AND done = 0)
+    ORDER BY d.id`);
+  const finishDelivery = q("UPDATE webhook_deliveries SET done = ?, attempts = ?, next_at_ms = ? WHERE id = ?");
   const keyOwner = q("SELECT email FROM api_keys WHERE hash = ? AND revoked_at IS NULL");
 
   return {
@@ -268,6 +274,12 @@ export function openDb(path: string) {
       devInit.run(gateway);
       setOrigins.run(JSON.stringify(origins), gateway);
     },
+    queueDelivery: (invoice: number, event: string, body: string, nowMs: number) => void newDelivery.run(invoice, event, body, nowMs),
+    dueDeliveries: (nowMs: number) => due.all(nowMs).map((r) => ({ ...r }) as Delivery),
+    /// `next_at_ms` null closes the delivery: delivered (`ok`) or given up.
+    updateDelivery(id: number, attempts: number, nextAtMs: number | null, ok: boolean) {
+      finishDelivery.run(nextAtMs === null ? (ok ? 1 : 2) : 0, attempts, nextAtMs ?? 0, id);
+    },
     merchantByKeyHash(hash: string) {
       const row = keyOwner.get(hash) as { email: string } | undefined;
       return row && toMerchant(byEmail.get(row.email));
@@ -276,5 +288,6 @@ export function openDb(path: string) {
 }
 
 export type Db = ReturnType<typeof openDb>;
+export type Delivery = { id: number; invoice: number; gateway: number; event: string; body: string; attempts: number; next_at_ms: number; done: number };
 export type GatewayDev = { webhook_url: string | null; webhook_secret: string | null; origins: string[] };
 export type ApiInvoice = { invoice: number; gateway: number; order_id: string | null; status: string; expires_at_ms: number };

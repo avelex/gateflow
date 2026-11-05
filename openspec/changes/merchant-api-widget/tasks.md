@@ -142,7 +142,7 @@
   - `webhook_requires_https`
   - `webhook_secret_once`
   - `origins_validated`
-- [ ] 4.2 Add pure helpers in `api.ts`:
+- [x] 4.2 Add pure helpers in `api.ts`:
   - `signature(secret, t, body): string`. Test `signature_vector` against a fixed HMAC-SHA256 vector.
   - `retryAt(attempts, nowMs): number | undefined`. It returns undefined after 5 retries. Test `retry_schedule`.
   - `isPrivateAddress(ip): boolean`. It covers loopback, RFC 1918, link-local, `::1` and `fc00::/7`.
