@@ -4,9 +4,9 @@ import { api, ApiError } from "../api.ts";
 import { logo, tokenIcon } from "../assets.ts";
 import { Button, Icon } from "../ds.jsx";
 import { formatAmount, initials, timeLeft } from "../format.ts";
-import CrossChainPay, { DepositPanel } from "./CrossChainPay.tsx";
+import CrossChainPay, { type Asset, DepositPanel, NetworkList } from "./CrossChainPay.tsx";
 import { FOOTNOTE } from "./footnote.ts";
-import { type CheckoutInvoice, clearQuote, clearTx, type Link, loadQuote, loadTx, returnedHash, type SavedQuote, saveTx, screeningDetail, type Step, timeline, unpayable } from "./logic.ts";
+import { blockedReason, type CheckoutInvoice, clearQuote, clearTx, type Link, loadQuote, loadTx, type Method, returnedHash, type SavedQuote, saveTx, screeningDetail, type Step, timeline, unpayable } from "./logic.ts";
 import { NamedWarning, NearPayButton, wasSent } from "./NearPay.tsx";
 import Timeline, { type Headline } from "./Timeline.tsx";
 
@@ -157,32 +157,41 @@ export function Processing({ inv, quoteStatus, details }: { inv: CheckoutInvoice
 }
 
 /// The export's "Pay with" tiles.
-export function PayWith({ mode, onMode, children }: { mode: "wallet" | "qr"; onMode(m: "wallet" | "qr"): void; children?: ReactNode }) {
-  const tile = (m: "wallet" | "qr", icon: string, title: string, sub: string) => (
-    <div onClick={() => onMode(m)} style={{ display: "flex", flexDirection: "column", gap: 4, padding: "14px 16px", borderRadius: "var(--radius-2)", cursor: "pointer", border: `1px solid ${mode === m ? "var(--ee-blue)" : "var(--border-2)"}`, boxShadow: mode === m ? "0 0 0 1px var(--ee-blue)" : "none" }}>
-      <span style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, fontWeight: 600 }}>
-        <Icon name={icon} size={16} />
-        {title}
-      </span>
-      <span style={{ fontSize: 13, color: "var(--text-3)" }}>{sub}</span>
-    </div>
-  );
+/// "Pay by": both methods, the network's own one selected and the other disabled with its reason.
+function PayWith({ chain }: { chain: string }) {
+  const tile = (m: Method, icon: string, title: string, sub: string) => {
+    const reason = blockedReason(chain, m);
+    const on = !reason;
+    return (
+      <button
+        type="button"
+        aria-pressed={on}
+        disabled={!on}
+        style={{ display: "flex", flexDirection: "column", gap: 4, padding: "14px 16px", textAlign: "left", font: "inherit", borderRadius: "var(--radius-2)", background: on ? "var(--surface-card)" : "var(--ink-50)", color: on ? "var(--text-1)" : "var(--text-3)", cursor: on ? "default" : "not-allowed", border: `1px solid ${on ? "var(--ee-blue)" : "var(--border-1)"}`, boxShadow: on ? "0 0 0 1px var(--ee-blue)" : "none" }}
+      >
+        <span style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, fontWeight: 600 }}>
+          <Icon name={icon} size={16} />
+          {title}
+        </span>
+        <span style={{ fontSize: 13, color: "var(--text-3)" }}>{reason ?? sub}</span>
+      </button>
+    );
+  };
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <span style={{ fontSize: 17, fontWeight: 600, letterSpacing: "-0.01em" }}>Pay with</span>
+      <span style={{ fontSize: 17, fontWeight: 600, letterSpacing: "-0.01em" }}>Pay by</span>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10 }}>
         {tile("wallet", "wallet", "Browser wallet", "Sign and pay in one step")}
         {tile("qr", "qr-code", "Address or QR", "Any wallet or exchange")}
       </div>
-      {children}
     </div>
   );
 }
 
-
 export default function Checkout({ id }: { id: number }) {
   const [inv, setInv] = useState<CheckoutInvoice | null | undefined>();
-  const [mode, setMode] = useState<"wallet" | "qr">("wallet");
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [network, setNetwork] = useState<string>();
   const [sent, setSent] = useState(() => wasSent(id));
   const [quote, setQuote] = useState<SavedQuote | undefined>(() => loadQuote(id));
   const [quoteStatus, setQuoteStatus] = useState<string>();
@@ -219,11 +228,17 @@ export default function Checkout({ id }: { id: number }) {
     return () => ((stop = true), clearInterval(t));
   }, [id, quote]);
 
+  // The origin chains besides NEAR; a failed request leaves NEAR alone.
+  useEffect(() => {
+    api<Asset[]>("GET", `/checkout/assets?invoice=${id}`).then(setAssets, () => setAssets([]));
+  }, [id]);
+
   if (inv === undefined) return null;
   if (inv === null) {
     return <Page right={<Message title="Invoice not found" text="Check the link with the merchant who sent it." />} />;
   }
   const blocked = unpayable(inv, now);
+  const asset = assets.find((a) => a.assetId === network);
   const processing = inv.status !== "Open" || sent || !!quote;
   const qs = quote ? (quoteStatus ?? "PENDING_DEPOSIT") : undefined;
   const waiting = inv.status === "Open" && (qs === "PENDING_DEPOSIT" || qs === "UNKNOWN");
@@ -246,21 +261,23 @@ export default function Checkout({ id }: { id: number }) {
           <Processing inv={inv} quoteStatus={qs} details={deposit || undefined} />
         ) : blocked === "expired" ? (
           <Message title="This invoice has expired" text="Ask the merchant for a new invoice." />
-        ) : mode === "qr" ? (
-          <CrossChainPay inv={inv} onQuote={setQuote}>
-            <PayWith mode={mode} onMode={setMode}>
-              <DepositPanel now={now} />
-            </PayWith>
-          </CrossChainPay>
         ) : (
           <>
-            <PayWith mode={mode} onMode={setMode}>
-              {mode === "wallet" && <NamedWarning />}
-            </PayWith>
-            <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 10 }}>
-              {mode === "wallet" && <NearPayButton inv={inv} onSent={() => setSent(true)} />}
-              <span style={{ fontSize: 12, lineHeight: "18px", color: "var(--text-3)", textAlign: "center" }}>{FOOTNOTE}</span>
-            </div>
+            <NetworkList symbol={inv.symbol} assets={assets} picked={network} onPick={setNetwork} />
+            {network && <PayWith chain={asset?.chain ?? "near"} />}
+            {asset ? (
+              <CrossChainPay key={asset.assetId} inv={inv} asset={asset} onQuote={setQuote}>
+                <DepositPanel now={now} />
+              </CrossChainPay>
+            ) : (
+              <>
+                {network === "near" && <NamedWarning />}
+                <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 10 }}>
+                  {network === "near" && <NearPayButton inv={inv} onSent={() => setSent(true)} />}
+                  <span style={{ fontSize: 12, lineHeight: "18px", color: "var(--text-3)", textAlign: "center" }}>{FOOTNOTE}</span>
+                </div>
+              </>
+            )}
           </>
         )
       }

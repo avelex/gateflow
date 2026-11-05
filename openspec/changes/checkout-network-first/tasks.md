@@ -41,7 +41,7 @@
 
 ## 2. Network-first column
 
-- [ ] 2.1 Restructure the payment column.
+- [x] 2.1 Restructure the payment column.
   - **`CrossChainPay.tsx`:**
     - Export a `NetworkList({ symbol, assets, picked, onPick })`. It renders a `role="group"` labeled `Pay <symbol> from`, the label, a NEAR `ChainRow` (chain `near`, letter fallback), then `chainRows(assets)` rows.
     - Change `CrossChainPay` to `({ inv, asset, onQuote, children })`. Drop its fetch, list and auto-select.
