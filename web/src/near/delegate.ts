@@ -1,7 +1,7 @@
 // The merchant's NEP-366 signed delegate actions, signed in WebCrypto.
-import { base58encode, delegateHashInput, encodeDelegateAction, encodeSignedDelegate, type FunctionCall } from "./borsh.ts";
+import { base58encode, delegateHashInput, encodeDelegateAction, encodeSignedDelegate, type FunctionCall, type KeyAction } from "./borsh.ts";
 
-export type DelegateParams = { senderId: string; receiverId: string; nonce: bigint; maxBlockHeight: bigint; actions: FunctionCall[] };
+export type DelegateParams = { senderId: string; receiverId: string; nonce: bigint; maxBlockHeight: bigint; actions: (FunctionCall | KeyAction)[] };
 export type MerchantKey = { publicKey: string; sign(msg: Uint8Array<ArrayBuffer>): Promise<Uint8Array> };
 
 const PKCS8_ED25519 = [0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x04, 0x22, 0x04, 0x20];

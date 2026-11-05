@@ -257,3 +257,19 @@ test("invoice_steps_returned", () => {
   const s = invoiceSteps(inv(6, "1", USDC, { status: "Returned", payment: 5 }), p, "mainnet", 0);
   expect(s.slice(-2).map((x) => x.title)).toEqual(["Screened: rejected", "Returned to payer"]);
 });
+
+import { enableAction, snippets } from "./logic.ts";
+
+test("snippets_use_origin", () => {
+  const s = snippets("https://gw.example");
+  expect(s.curl).toContain("curl https://gw.example/api/v1/invoices");
+  expect(s.curl).toContain("Authorization: Bearer gf_live_");
+  expect(s.widget).toContain('<script src="https://gw.example/js/v1/gateflow.js"></script>');
+  expect(s.widget).toContain("Gateflow.open(");
+});
+
+test("enable_action_matches_dev", () => {
+  const dev = { available: true, enabled: false, signerPublicKey: "ed25519:abc", allowance: null, receiver: "gateflow.testnet", methods: ["create_invoice"], webhookUrl: null, origins: [] };
+  expect(enableAction(dev)).toEqual({ addKey: { publicKey: "ed25519:abc", allowance: null, receiver: "gateflow.testnet", methods: ["create_invoice"] } });
+  expect((enableAction({ ...dev, allowance: "5" }) as any).addKey.allowance).toBe(5n);
+});

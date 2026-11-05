@@ -78,21 +78,34 @@ export class Writer {
 }
 
 export type FunctionCall = { method: string; args: object; gas: bigint };
+/// AddKey with a FunctionCall permission, or DeleteKey (the merchant API's invoice signer key).
+export type KeyAction = { addKey: { publicKey: string; allowance: bigint | null; receiver: string; methods: string[] } } | { deleteKey: string };
 
-/// Borsh `DelegateAction` with FunctionCall actions only, deposit always 0.
+const keyBytes = (pk: string) => base58decode(pk.replace(/^ed25519:/, ""));
+
+/// Borsh `DelegateAction` with zero-deposit FunctionCall actions or key actions.
 export function encodeDelegateAction(d: {
   senderId: string;
   receiverId: string;
   nonce: bigint;
   maxBlockHeight: bigint;
-  actions: FunctionCall[];
+  actions: (FunctionCall | KeyAction)[];
   publicKey: string;
 }): Uint8Array<ArrayBuffer> {
   const w = new Writer().string(d.senderId).string(d.receiverId).u32(d.actions.length);
   for (const a of d.actions) {
-    w.u8(2).string(a.method).bytes(new TextEncoder().encode(JSON.stringify(a.args))).uint(a.gas, 8).uint(0n, 16);
+    if ("method" in a) w.u8(2).string(a.method).bytes(new TextEncoder().encode(JSON.stringify(a.args))).uint(a.gas, 8).uint(0n, 16);
+    else if ("deleteKey" in a) w.u8(6).u8(0).raw(keyBytes(a.deleteKey));
+    else {
+      const k = a.addKey;
+      w.u8(5).u8(0).raw(keyBytes(k.publicKey)).uint(0n, 8).u8(0);
+      if (k.allowance === null) w.u8(0);
+      else w.u8(1).uint(k.allowance, 16);
+      w.string(k.receiver).u32(k.methods.length);
+      for (const m of k.methods) w.string(m);
+    }
   }
-  return w.uint(d.nonce, 8).uint(d.maxBlockHeight, 8).u8(0).raw(base58decode(d.publicKey.replace(/^ed25519:/, ""))).done();
+  return w.uint(d.nonce, 8).uint(d.maxBlockHeight, 8).u8(0).raw(keyBytes(d.publicKey)).done();
 }
 
 /// `u32le(2^30 + 366) || borsh(DelegateAction)`, the NEP-366 signing input before sha256.

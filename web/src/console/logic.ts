@@ -3,6 +3,7 @@ import { api } from "../api.ts";
 import { attestationUrl, explorerTx, OUTLAYER_EXECUTIONS, type Screening } from "../checkout/logic.ts";
 import { chainName } from "../assets.ts";
 import { formatAmount, parseAmount } from "../format.ts";
+import type { KeyAction } from "../near/borsh.ts";
 import { type DelegateParams, type MerchantKey, signDelegate } from "../near/delegate.ts";
 import { assertOwner, getPasskeyKey, loadStoredKey } from "../near/key.ts";
 
@@ -43,6 +44,46 @@ export async function signAndRelay(key: MerchantKey, actions: DelegateParams["ac
     actions,
   });
   return api("POST", "/console/relay", actionId === undefined ? { signedDelegate } : { signedDelegate, actionId });
+}
+
+/// Signs one key action on the merchant's own account (Enable or Disable API) and relays it.
+export async function signKeyAction(key: MerchantKey, action: KeyAction): Promise<{ txHash: string; value: unknown }> {
+  const p = await api<Params>("GET", "/console/delegate-params");
+  assertOwner(key, p.publicKey);
+  const signedDelegate = await signDelegate(key, { senderId: p.senderId, receiverId: p.senderId, nonce: BigInt(p.nonce), maxBlockHeight: BigInt(p.maxBlockHeight), actions: [action] });
+  return api("POST", "/console/relay", { signedDelegate });
+}
+
+/// GET /console/dev: whether this relay offers the API and whether the merchant enabled it.
+export type Dev = {
+  available: boolean;
+  enabled: boolean;
+  signerPublicKey: string | null;
+  allowance: string | null;
+  receiver: string;
+  methods: string[];
+  webhookUrl: string | null;
+  origins: string[];
+};
+
+/// The signer key AddKey that Enable API signs, exactly as the relay's guard expects.
+export const enableAction = (d: Dev): KeyAction => ({
+  addKey: { publicKey: d.signerPublicKey!, allowance: d.allowance === null ? null : BigInt(d.allowance), receiver: d.receiver, methods: d.methods },
+});
+
+/// Copyable integration examples for the relay at `origin` (merchant-console: Integration snippet).
+export function snippets(origin: string) {
+  return {
+    curl: `curl ${origin}/api/v1/invoices \\
+  -H "Authorization: Bearer gf_live_..." \\
+  -H "content-type: application/json" \\
+  -d '{"amount":"10.00","currency":"USDC","order_id":"order_123"}'`,
+    widget: `<script src="${origin}/js/v1/gateflow.js"></script>
+<script>
+  // id from POST /api/v1/invoices on your server
+  Gateflow.open(id, { onStatus: (e) => console.log(e.status) });
+</script>`,
+  };
 }
 
 export type TokenMeta = { symbol: string; decimals: number };
