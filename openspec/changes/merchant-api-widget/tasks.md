@@ -174,14 +174,14 @@
   - `allowed_parent`
   - `return_link_adds_params`
   - `return_link_refuses_unlisted`
-- [ ] 5.2 In `Checkout.tsx`, `?embed=1` hides the header and footer and uses a transparent background. On each `widgetStatus` change, post `{source: "gateflow", invoice, status}` to `parent` with targetOrigin = the `parent` query parameter, only when `allowedParent` is true.
+- [x] 5.2 In `Checkout.tsx`, `?embed=1` hides the header and footer and uses a transparent background. On each `widgetStatus` change, post `{source: "gateflow", invoice, status}` to `parent` with targetOrigin = the `parent` query parameter, only when `allowedParent` is true.
   - When embedded, picking NEAR shows the "Open in new tab" button (`window.open('/pay/<id>')`) in place of `NearPay`.
   - A valid `return_url` shows "Back to shop" in final states.
   - Verify with `npm run build`, then load `/pay/<id>?embed=1&parent=http://localhost:8080` in an iframe on a test page and see the status messages in the console.
 
 ## 6. Widget script
 
-- [ ] 6.1 Create `web/public/js/v1/gateflow.js`, an IIFE that defines `window.Gateflow = {open(id, {onStatus}), close()}`.
+- [x] 6.1 Create `web/public/js/v1/gateflow.js`, an IIFE that defines `window.Gateflow = {open(id, {onStatus}), close()}`.
   - It works out the relay origin from its own `script.src`.
   - The modal lives in a shadow root on `document.body`: a backdrop, a close button, and an iframe `src=<relay>/pay/<id>?embed=1&parent=<location.origin>`. It is full-screen under 480 px.
   - Accept a message only when `e.origin === relay && e.source === iframe.contentWindow && e.data.source === "gateflow"`.

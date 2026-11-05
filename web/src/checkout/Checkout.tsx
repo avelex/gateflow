@@ -6,7 +6,7 @@ import { Button, Icon } from "../ds.jsx";
 import { formatAmount, initials, timeLeft } from "../format.ts";
 import CrossChainPay, { type Asset, DepositPanel, NetworkList } from "./CrossChainPay.tsx";
 import { FOOTNOTE } from "./footnote.ts";
-import { blockedReason, type CheckoutInvoice, clearQuote, clearTx, type Link, loadQuote, loadTx, type Method, returnedHash, type SavedQuote, saveTx, screeningDetail, type Step, timeline, unpayable } from "./logic.ts";
+import { allowedParent, blockedReason, type CheckoutInvoice, clearQuote, clearTx, type Link, loadQuote, loadTx, type Method, returnedHash, returnLink, type SavedQuote, saveTx, screeningDetail, type Step, timeline, unpayable, widgetStatus } from "./logic.ts";
 import { NamedWarning, NearPayButton, wasSent } from "./NearPay.tsx";
 import Timeline, { type Headline } from "./Timeline.tsx";
 
@@ -14,6 +14,12 @@ const SECTION = { fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", textTr
 const SANS = { fontFamily: "var(--font-sans)", fontSize: 14 };
 const NETWORK = import.meta.env.VITE_NEAR_NETWORK ?? "testnet";
 const LINK = { color: "var(--blue-600)", textDecoration: "none" } as const;
+
+// checkout-widget: `?embed=1` inside the shop's modal, `parent` names the shop origin, `return_url` the redirect back.
+const QUERY = new URLSearchParams(location.search);
+const EMBED = QUERY.get("embed") === "1";
+const PARENT = QUERY.get("parent");
+const RETURN_URL = QUERY.get("return_url");
 
 function Links({ links }: { links: Link[] }) {
   return (
@@ -44,6 +50,13 @@ function Page({ left, right }: { left?: ReactNode; right: ReactNode }) {
     document.body.classList.add("checkout");
     return () => document.body.classList.remove("checkout");
   }, []);
+  if (EMBED)
+    return (
+      <div data-screen-label="Checkout" style={{ fontFamily: "var(--font-sans)", color: "var(--text-1)", background: "var(--surface-card)", display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))", minHeight: "100vh" }}>
+        {left}
+        <div style={{ padding: 28, display: "flex", flexDirection: "column", gap: 24 }}>{right}</div>
+      </div>
+    );
   return (
     <div data-screen-label="Checkout" style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", fontFamily: "var(--font-sans)", color: "var(--text-1)", background: "var(--ink-100)" }}>
       <div style={{ width: "100%", height: 4, display: "flex", flex: "none" }}>
@@ -232,6 +245,11 @@ export default function Checkout({ id }: { id: number }) {
     api<Asset[]>("GET", `/checkout/assets?invoice=${id}`).then(setAssets, () => setAssets([]));
   }, [id]);
 
+  const ws = inv ? widgetStatus(inv, now) : undefined;
+  useEffect(() => {
+    if (EMBED && ws && inv && allowedParent(inv.origins, PARENT) && window.parent !== window) window.parent.postMessage({ source: "gateflow", invoice: id, status: ws }, PARENT);
+  }, [ws, id, inv?.origins?.join(" ")]);
+
   if (inv === undefined) return null;
   if (inv === null) {
     return <Page right={<Message title="Invoice not found" text="Check the link with the merchant who sent it." />} />;
@@ -242,6 +260,12 @@ export default function Checkout({ id }: { id: number }) {
   const qs = quote ? (quoteStatus ?? "PENDING_DEPOSIT") : undefined;
   const waiting = inv.status === "Open" && (qs === "PENDING_DEPOSIT" || qs === "UNKNOWN");
   const quoteExpired = !!quote && Date.parse(quote.deadline) / 1000 <= now;
+  const back = ws === "paid" || ws === "returned" || ws === "expired" ? returnLink(RETURN_URL, inv.origins, id, ws) : undefined;
+  const backLink = back && (
+    <a href={back} target={EMBED ? "_top" : undefined} style={{ ...LINK, fontSize: 14, fontWeight: 600 }}>
+      Back to shop
+    </a>
+  );
   const deposit = quote && waiting && (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <DepositPanel quote={quote} now={now} inv={inv} />
@@ -257,9 +281,15 @@ export default function Checkout({ id }: { id: number }) {
       left={<InvoiceCard inv={inv} now={now} processing={inv.status !== "Open" || sent} />}
       right={
         processing ? (
-          <Processing inv={inv} quoteStatus={qs} details={deposit || undefined} />
+          <>
+            <Processing inv={inv} quoteStatus={qs} details={deposit || undefined} />
+            {backLink}
+          </>
         ) : blocked === "expired" ? (
-          <Message title="This invoice has expired" text="Ask the merchant for a new invoice." />
+          <>
+            <Message title="This invoice has expired" text="Ask the merchant for a new invoice." />
+            {backLink}
+          </>
         ) : (
           <>
             <NetworkList symbol={inv.symbol} assets={assets} picked={network} onPick={setNetwork} />
@@ -272,7 +302,15 @@ export default function Checkout({ id }: { id: number }) {
               <>
                 {network === "near" && <NamedWarning />}
                 <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 10 }}>
-                  {network === "near" && <NearPayButton inv={inv} onSent={() => setSent(true)} />}
+                  {network === "near" &&
+                    (EMBED ? (
+                      // Wallet-selector popups and redirects break inside a cross-origin frame; this page keeps polling.
+                      <Button variant="primary" icon="external-link" onClick={() => window.open(`/pay/${id}`, "_blank", "noopener")}>
+                        Open in new tab
+                      </Button>
+                    ) : (
+                      <NearPayButton inv={inv} onSent={() => setSent(true)} />
+                    ))}
                   <span style={{ fontSize: 12, lineHeight: "18px", color: "var(--text-3)", textAlign: "center" }}>{FOOTNOTE}</span>
                 </div>
               </>
