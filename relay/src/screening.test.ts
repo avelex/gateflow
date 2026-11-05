@@ -269,3 +269,15 @@ test("legacy_evidence_tx_gone_kept", async () => {
   await evidenceFor(d, 3, "Settled");
   assert.equal(d.near.txCalls.length, 1);
 });
+
+test("legacy_evidence_tx_error_kept", async () => {
+  const d = withTimes();
+  d.near.tx = async () => {
+    throw new Error("TIMEOUT_ERROR");
+  };
+  d.db.storeEvidence(3, { txHash: "4e9W", requestId: 2792, project: "p", wasmHash: HASH, wasmUrl: null, timeMs: 1410, costYocto: "1", outcome: "approved", jobId: 7 });
+  const s = await evidenceFor(d, 3, "Settled");
+  assert.equal(s?.outcome, "approved");
+  assert.equal(s?.closedAtSec, null);
+  assert.ok("closedAtSec" in JSON.parse(d.db.screening(3)!.evidence!));
+});

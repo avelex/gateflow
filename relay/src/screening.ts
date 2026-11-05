@@ -146,13 +146,15 @@ export async function evidenceFor(deps: Deps, payment: number, status: string): 
     s = saved;
     stored = true;
   } else {
-    const tx = await deps.near.tx(row.tx_hash, row.sender);
     if (saved) {
-      // Stored before step times existed: add them once, keeping the stored evidence even if the tx is gone.
+      // Stored before step times existed: add them once. The stored evidence stays even when the old tx is gone
+      // or the RPC fails on it (a non-archival node may time out), and the read is not retried.
+      const tx = await deps.near.tx(row.tx_hash, row.sender).catch(() => undefined);
       s = { ...saved, ...(tx ? await stepTimes(deps, tx, payment) : { screenedAtSec: null, closedAtSec: null }) };
       deps.db.storeEvidence(payment, s);
       stored = true;
     } else {
+      const tx = await deps.near.tx(row.tx_hash, row.sender);
       const { success, verdict, ...p } = parseEvidence(tx, deps.cfg.outlayerContract);
       // An unknown tx is not final yet: report it, store nothing.
       s = { txHash: row.tx_hash, ...p, outcome: !tx && status !== "Pending" ? "no_verdict" : outcome(status, { ...p, success, verdict }), jobId: null, screenedAtSec: null, closedAtSec: null };

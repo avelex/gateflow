@@ -43,7 +43,7 @@
 
 ## 2. Small console fixes
 
-- [ ] 2.1 Make the `InvoiceModal` overlay in `web/src/console/Invoices.tsx` scroll: `overflowY: "auto"` on the `position:absolute; inset:0` div.
+- [x] 2.1 Make the `InvoiceModal` overlay in `web/src/console/Invoices.tsx` scroll: `overflowY: "auto"` on the `position:absolute; inset:0` div.
   - Verify: run `npm run dev`, open an invoice in a 700 px tall window, expand Details, and scroll the modal to "Copy payment link".
 - [x] 2.2 In `systemPrompt` in `relay/src/chat.ts`:
   - Add the rule `- Write plain text only, without Markdown: no **, #, backticks or bullet markup.`
@@ -51,7 +51,7 @@
   - Remove `"BTC" means nBTC`, keeping the NEAR and dollars aliases.
   - Add `prompt_plain_text` to `chat.test.ts`: the prompt contains `plain text` and does not contain `nBTC`.
   - Verify: `cd relay && npm test`.
-- [ ] 2.3 Replace the static "Thinking…" in `web/src/console/Chat.tsx` with "Thinking" plus three dots. A `gf-think` keyframe in `web/src/screens.css` (opacity 0.2 to 1, staggered 0.2 s) animates the dots. Under `@media (prefers-reduced-motion: reduce)`, no animation runs and the dots stay visible.
+- [x] 2.3 Replace the static "Thinking…" in `web/src/console/Chat.tsx` with "Thinking" plus three dots. A `gf-think` keyframe in `web/src/screens.css` (opacity 0.2 to 1, staggered 0.2 s) animates the dots. Under `@media (prefers-reduced-motion: reduce)`, no animation runs and the dots stay visible.
   - Verify: send a chat message in `npm run dev` and see the dots animate. With reduced motion emulated in devtools, they stay still.
 
 ## 3. Display symbol
@@ -181,7 +181,7 @@
 
 ## 9. Pay from another chain, on the web
 
-- [ ] 9.1 In `web/src/checkout/CrossChainPay.tsx`:
+- [x] 9.1 In `web/src/checkout/CrossChainPay.tsx`:
   - Fetch `/checkout/assets?invoice=${inv.id}`.
   - Replace the `Select` with one button card per asset, with `chainIcon`, the chain name, the symbol and `aria-pressed`.
   - With no assets, say "This invoice can only be paid with a NEAR wallet." and hide the form and the quote button.
@@ -197,13 +197,23 @@
 
 ## 10. Integration check
 
-- [ ] 10.1 Run the relay and web locally against mainnet (read-only) with the merchant session from `mainnet-launch`. Check that:
+- [x] 10.1 Run the relay and web locally against mainnet (read-only) with the merchant session from `mainnet-launch`. Check that:
   - Invoices #0–#4 show payer `<0x…> on Base`, after the watcher's sender backfill for payments whose quotes are still in its window, or else the refund account. None shows `intents.near`.
   - Paid rows show `Paid …` times.
   - The checkout page of invoice 4 shows four step times.
   - The cross-chain picker of a new USDC invoice shows exactly three chain cards and the fee line after a quote.
 
   Record the observations in this task.
+
+  Observed on 2026-11-05. The relay ran on a copy of the mainnet DB without a signing key, and the browser was the local Playwright Chromium:
+  - **Payers:** after a one-off backfill of the copy from live 1Click status, invoices #2–#4 show `0x200f…7414 on Arbitrum`. The live Arbitrum lookup resolved `0x200f3eed8995472ad495ef8c1cfe74cc2eff7414`. No row shows `intents.near`.
+  - **Times:** #4 shows `Paid 2026-11-05 05:51`, and its card shows `paid 2026-11-05 05:51 UTC`. #2 and #3 show their expiry, because fastnear no longer serves their Nov 3 transactions, so their close time is null.
+  - **Checkout of #4:** Delivered 05:51:00, Screening 05:51:18 and Released 05:51:19 UTC. Deposit detected is not shown, because the quote was not made in this browser.
+  - **Modal:** the overlay has `overflowY: auto`, scrollHeight 1009 in a 700 px viewport, and "Copy payment link" scrolls into view.
+  - **Chain picker:** the cards for the USDC invoice #1 are Ethereum, Arbitrum and Base. Its expiry was moved forward in the browser only, and `/checkout/assets?invoice=1` was real.
+  - **Deposit panel:** with a stubbed quote it shows `0.010102` with a copy action and `0.000102 USDC of this covers the 1Click fee and slippage buffer.`
+  - **Chat:** the dots run `gf-think`, and the animation is `none` under reduced motion.
+  - **Bug found and fixed:** re-reading evidence stored before this change made `EXPERIMENTAL_tx_status` time out on old transactions, which turned `/console/payments` into a 502. The legacy re-read now keeps the stored evidence when the RPC fails (test `legacy_evidence_tx_error_kept`).
 
 ## Workflow follow-up
 

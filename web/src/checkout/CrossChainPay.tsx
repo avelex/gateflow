@@ -49,7 +49,7 @@ export function DepositPanel({ quote, now, inv }: { quote?: SavedQuote; now: num
         ) : (
           <>
             <span style={LABEL}>Deposit address</span>
-            <span style={{ fontSize: 12, lineHeight: "18px", color: "var(--text-3)" }}>Choose the token you pay with and your refund accounts to get an address.</span>
+            <span style={{ fontSize: 12, lineHeight: "18px", color: "var(--text-3)" }}>Choose the chain you pay from and your refund accounts to get an address.</span>
           </>
         )}
       </div>
