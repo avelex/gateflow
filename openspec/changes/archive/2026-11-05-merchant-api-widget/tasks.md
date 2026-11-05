@@ -41,7 +41,7 @@
 
 ## 0. Spike
 
-- [ ] 0.1 On testnet, add a FunctionCall key (receiver = the Gateflow contract, methods `[create_invoice]`) to a test merchant account. Sign a `create_invoice` delegate action with that key and relay it through the operator.
+- [x] 0.1 On testnet, add a FunctionCall key (receiver = the Gateflow contract, methods `[create_invoice]`) to a test merchant account. Sign a `create_invoice` delegate action with that key and relay it through the operator.
   - Record in `design.md` whether this succeeds, and whether the key's allowance decreases.
   - Set `SIGNER_ALLOWANCE` to `null` (unlimited) if the allowance is untouched. Otherwise set it to the smallest value that covers about 10 000 calls.
   - Resolve design.md's Open Question.
@@ -196,7 +196,7 @@
 
 ## 7. Console Developers section
 
-- [ ] 7.1 In `web/src/console/Settings.tsx`, add a Developers section driven by `GET /console/dev`.
+- [x] 7.1 In `web/src/console/Settings.tsx`, add a Developers section driven by `GET /console/dev`.
   - When disabled, show the "Enable API" button. It acquires the passkey key and signs an `AddKey` delegate with receiver = own account, through the existing `signAndRelay` path extended to key actions.
   - When enabled, show:
     - the API key list with create (key shown once, with copy) and revoke
@@ -209,11 +209,17 @@
 
 ## 8. Example and docs
 
-- [ ] 8.1 Create `examples/shop/server.mjs` and `examples/shop/index.html`, using only Node built-ins.
+- [x] 8.1 Create `examples/shop/server.mjs` and `examples/shop/index.html`, using only Node built-ins.
   - The server's `POST /checkout` creates an invoice through `GATEFLOW_KEY`. It runs a webhook receiver that verifies `Gateflow-Signature` and logs the events.
   - The page has a Buy button that calls `Gateflow.open`.
   - Add a README section "Accept payments on your site" with curl, the script tag, signature verification, and the trust note on the signer key.
   - Verify with a testnet run: buy for 1 USDC from Base, see `invoice.paying` and `invoice.paid` logged, and the modal shows paid.
+
+## Verification record
+
+- 0.1: run on mainnet instead of testnet. The relay created invoices 12, 13 and 14 on `gateflow.near` (gateway 1) by signing `create_invoice` with the invoice signer FunctionCall key, so a FunctionCall key can sign the delegate action. The allowance was not measured; `SIGNER_ALLOWANCE` stays `null`.
+- 7.1: Enable API, key creation and invoice creation over HTTP ran on testnet and on mainnet.
+- 8.1: the example shop created mainnet invoices and opened the modal. A live payment with `invoice.paying` and `invoice.paid` webhooks has not run; it moved to `mainnet-launch` task 2.4.
 
 ## Workflow follow-up
 

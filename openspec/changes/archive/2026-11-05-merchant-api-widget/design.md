@@ -83,6 +83,6 @@ The signature is `t=<s>,v1=HMAC(secret, "<t>.<body>")`, the Stripe-compatible fo
 3. No merchant is affected until they press Enable API.
 4. Rollback: remove the `/api/v1` routes. Merchants' signer keys stay harmless, and Disable API still works because the guard stays in place.
 
-## Open Questions
+## Resolved Questions
 
-- The `SIGNER_ALLOWANCE` value (a fixed small amount or none) depends on the spike in task 1. It changes only one constant in the guard and the console.
+- `SIGNER_ALLOWANCE` stays `null` (unlimited). Mainnet invoices 12 to 14 confirm that a FunctionCall key can sign a `create_invoice` delegate action, which the operator relays and pays for. Whether a delegate action spends the key's allowance was not measured; with `null` it cannot block creation.
