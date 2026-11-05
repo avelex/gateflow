@@ -83,7 +83,7 @@ function ChainRow({ asset, nested, selected, onPick }: { asset: Asset; nested: b
     >
       {nested && <span aria-hidden="true" style={{ width: 6, height: 6, flex: "none", borderRadius: "50%", background: "var(--ink-150)" }} />}
       {icon ? (
-        <img src={icon} alt="" style={{ width: 28, height: 28, flex: "none", display: "block" }} />
+        <img src={icon} alt="" style={{ width: 28, height: 28, flex: "none", display: "block", borderRadius: "50%" }} />
       ) : (
         <span aria-hidden="true" style={{ width: 28, height: 28, flex: "none", borderRadius: "50%", background: "var(--ink-150)", color: "var(--text-2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 600 }}>
           {chainName(asset.chain)[0]}

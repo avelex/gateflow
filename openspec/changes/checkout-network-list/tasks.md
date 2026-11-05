@@ -59,7 +59,7 @@
 
 ## 3. Base and Arbitrum icons (after the user supplies them)
 
-- [ ] 3.1 Copy the user's files to `web/src/assets/chain-base.png` and `web/src/assets/chain-arbitrum.png`. Import them in `web/src/assets.ts` and extend `CHAINS` to `{ eth: ethereum, base, arb: arbitrum, btc: bitcoin, zec: zcash }`.
+- [x] 3.1 Copy the user's files to `web/src/assets/chain-base.png` and `web/src/assets/chain-arbitrum.png`. Import them in `web/src/assets.ts` and extend `CHAINS` to `{ eth: ethereum, base, arb: arbitrum, btc: bitcoin, zec: zcash }`.
   - Verify:
     - `cd web && npm run build` passes.
     - In `npm run dev`, the Base and Arbitrum rows show the logos instead of letter circles.
