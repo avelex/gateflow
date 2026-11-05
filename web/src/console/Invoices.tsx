@@ -1,15 +1,15 @@
 // The export's "Invoices" screen. The detail view is the export's chat invoice card; the create form uses Dialog.
 import { type ReactNode, useEffect, useState } from "react";
 import { navigate } from "../App.tsx";
-import { Button, Dialog, Icon, Input, Radio, Select, Tabs } from "../ds.jsx";
-import { checkoutLink, InvoiceCard, LABEL, nowSec, StatusTag, utc } from "./cards.tsx";
+import { Button, Dialog, Hash, Icon, Input, Radio, Select, Tabs } from "../ds.jsx";
+import { checkoutLink, InvoiceCard, LABEL, NETWORK, nowSec, StatusTag, utc } from "./cards.tsx";
 import type { ScreenProps } from "./Layout.tsx";
-import { acquireKey, amountOf, ask, EXPIRIES, type Invoice, invoiceArgs, invoiceTab, type InvoiceTab, invoiceTime, payerLabel, signAndRelay, TGAS } from "./logic.ts";
+import { acquireKey, amountOf, ask, EXPIRIES, type Invoice, invoiceArgs, invoiceTab, type InvoiceTab, invoiceTime, payerAddress, payerLabel, signAndRelay, TGAS } from "./logic.ts";
 import { keyMode } from "../near/key.ts";
 import { message } from "./Onboarding.tsx";
 
 const TABS: ("All" | InvoiceTab)[] = ["All", "Open", "Paying", "Paid", "Returned", "Expired"];
-const GRID = "100px minmax(0,1.3fr) minmax(0,1fr) minmax(0,1fr) 150px 140px";
+const GRID = "100px minmax(0,1.3fr) minmax(0,1fr) 150px 140px";
 
 export default function Invoices({ data, refresh, toast }: ScreenProps) {
   const [tab, setTab] = useState<string>("All");
@@ -29,9 +29,25 @@ export default function Invoices({ data, refresh, toast }: ScreenProps) {
     const p = paymentOf(i);
     return p ? payerLabel(p) : "Not paid yet";
   };
+  // The status column says what the time is; a Paid or Returned invoice without a known close time shows none.
   const time = (i: Invoice) => {
     const t = invoiceTime(i, paymentOf(i));
-    return `${t.label} ${utc(t.sec)}`;
+    return t.label === "Expires" && (i.status === "Paid" || i.status === "Returned") ? "—" : utc(t.sec);
+  };
+  const payerCell = (i: Invoice) => {
+    const p = paymentOf(i);
+    if (!p) return <span style={{ color: "var(--text-3)" }}>Not paid yet</span>;
+    const { address, href } = payerAddress(p, NETWORK);
+    return (
+      <span onClick={(e) => e.stopPropagation()} style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "default" }}>
+        <Hash value={address} head={6} tail={4} />
+        {href && (
+          <a href={href} target="_blank" rel="noreferrer" aria-label="Open payer in explorer" title="Open in explorer" style={{ display: "flex", color: "var(--text-3)" }}>
+            <Icon name="external-link" size={14} />
+          </a>
+        )}
+      </span>
+    );
   };
   const selected = open && data.invoices.find((i) => i.id === open.id);
 
@@ -65,18 +81,16 @@ export default function Invoices({ data, refresh, toast }: ScreenProps) {
             <span>Invoice</span>
             <span>Payer</span>
             <span style={{ textAlign: "right" }}>Amount</span>
-            <span>Memo</span>
             <span>Time, UTC</span>
             <span>Status</span>
           </div>
           {rows.map((i) => (
             <div key={i.id} className="hv" onClick={() => setOpen({ id: i.id })} style={{ display: "grid", gridTemplateColumns: GRID, gap: 16, minWidth: 780, alignItems: "center", padding: "12px 20px", borderBottom: "1px solid var(--border-1)", cursor: "pointer", fontSize: 14 }}>
               <span style={{ fontFamily: "var(--font-mono)", fontSize: 13 }}>#{i.id}</span>
-              <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{payer(i)}</span>
+              <span style={{ minWidth: 0, overflow: "hidden" }}>{payerCell(i)}</span>
               <span style={{ textAlign: "right", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", fontWeight: 500 }}>
                 {amountOf(i)} <span style={{ color: "var(--text-3)", fontWeight: 400 }}>{i.tokenMeta.symbol}</span>
               </span>
-              <span style={{ color: "var(--text-2)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{i.memo ?? ""}</span>
               <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-2)" }}>{time(i)}</span>
               <StatusTag label={tabOf(i)} />
             </div>

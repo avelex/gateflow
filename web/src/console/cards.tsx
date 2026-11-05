@@ -15,7 +15,7 @@ const FOOT = { display: "flex", flexWrap: "wrap", gap: 8, padding: "12px 20px", 
 export const utc = (sec: number) => new Date(sec * 1000).toISOString().slice(0, 16).replace("T", " ");
 export const nowSec = () => Math.floor(Date.now() / 1000);
 export const checkoutLink = (id: number) => `${location.origin}/pay/${id}`;
-const NETWORK = import.meta.env.VITE_NEAR_NETWORK ?? "testnet";
+export const NETWORK = import.meta.env.VITE_NEAR_NETWORK ?? "testnet";
 
 /// The export's status tag, in its plain form; in-flight states use the export's "Checking" blue.
 export function StatusTag({ label }: { label: string }) {

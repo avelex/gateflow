@@ -128,6 +128,22 @@ export function payerLabel(p: Payment): string {
   return p.ref ? p.refund_to : p.payer;
 }
 
+const ADDRESS_EXPLORER: Record<string, string> = {
+  eth: "https://etherscan.io/address/",
+  base: "https://basescan.org/address/",
+  arb: "https://arbiscan.io/address/",
+  btc: "https://mempool.space/address/",
+  zec: "https://blockchair.com/zcash/address/",
+};
+
+/// The payer as one address with its explorer link: the first origin sender, else the account `payerLabel` names.
+export function payerAddress(p: Payment, network: string): { address: string; href?: string } {
+  const o = p.origin;
+  if (o?.senders.length) return { address: o.senders[0], href: ADDRESS_EXPLORER[o.chain] && ADDRESS_EXPLORER[o.chain] + o.senders[0] };
+  const account = p.ref ? p.refund_to : p.payer;
+  return { address: account, href: `https://${network === "testnet" ? "testnet." : ""}nearblocks.io/address/${account}` };
+}
+
 /// The time to show for an invoice: its close time once Paid or Returned and known, else its expiry.
 export function invoiceTime(inv: Invoice, payment?: Payment): { label: "Paid" | "Returned" | "Expires"; sec: number } {
   const closed = payment?.screening?.closedAtSec;

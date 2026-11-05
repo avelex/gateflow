@@ -200,3 +200,22 @@ test("payer_origin_btc_plus", () => {
 });
 
 test("payer_direct", () => expect(payerLabel(pay(1, "1", "Settled", new Date(), { payer: "alice.near" }))).toBe("alice.near"));
+
+import { payerAddress } from "./logic.ts";
+
+test("payer_address_origin", () => {
+  const p = (chain: string, s: string) => pay(1, "1", "Settled", new Date(), { ref: "r", payer: "intents.near", refund_to: "bob.near", origin: { chain, senders: [s, "x"] } });
+  expect(payerAddress(p("arb", "0x200fabc7414"), "mainnet")).toEqual({ address: "0x200fabc7414", href: "https://arbiscan.io/address/0x200fabc7414" });
+  expect(payerAddress(p("base", "0xb"), "mainnet").href).toBe("https://basescan.org/address/0xb");
+  expect(payerAddress(p("eth", "0xe"), "mainnet").href).toBe("https://etherscan.io/address/0xe");
+  expect(payerAddress(p("btc", "bc1q"), "mainnet").href).toBe("https://mempool.space/address/bc1q");
+  expect(payerAddress(p("zec", "t1"), "mainnet").href).toBe("https://blockchair.com/zcash/address/t1");
+  expect(payerAddress(p("sol", "So1"), "mainnet")).toEqual({ address: "So1", href: undefined });
+});
+
+test("payer_address_near", () => {
+  const ref = pay(1, "1", "Settled", new Date(), { ref: "r", payer: "intents.near", refund_to: "bob.near" });
+  expect(payerAddress(ref, "mainnet")).toEqual({ address: "bob.near", href: "https://nearblocks.io/address/bob.near" });
+  const direct = pay(1, "1", "Settled", new Date(), { ref: null, payer: "alice.testnet" });
+  expect(payerAddress(direct, "testnet")).toEqual({ address: "alice.testnet", href: "https://testnet.nearblocks.io/address/alice.testnet" });
+});
