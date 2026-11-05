@@ -156,7 +156,6 @@ export function Processing({ inv, quoteStatus, details }: { inv: CheckoutInvoice
   return <Timeline head={headline(inv, steps)} steps={steps.map((s) => ({ ...s, d: d(s) }))} details={details} />;
 }
 
-/// The export's "Pay with" tiles.
 /// "Pay by": both methods, the network's own one selected and the other disabled with its reason.
 function PayWith({ chain }: { chain: string }) {
   const tile = (m: Method, icon: string, title: string, sub: string) => {

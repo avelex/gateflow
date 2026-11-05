@@ -62,7 +62,7 @@
 
 ## 3. Spec follow-through
 
-- [ ] 3.1 Delete `PayWith`'s old "Pay with" usage and the `mode` state, and leave no unused export.
+- [x] 3.1 Delete `PayWith`'s old "Pay with" usage and the `mode` state, and leave no unused export.
   - Verify: `cd web && npm run build` passes with `tsc --noEmit`, and `git grep -n '"Pay with"' web/src` finds nothing.
 
 ## Workflow follow-up
