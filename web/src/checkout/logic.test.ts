@@ -227,3 +227,21 @@ test("chain_rows_single", () => {
 test("chain_rows_empty", () => {
   expect(rows([])).toEqual([]);
 });
+
+import { blockedReason, methodFor } from "./logic.ts";
+
+test("methods_near", () => {
+  expect(methodFor("near")).toBe("wallet");
+  expect(blockedReason("near", "qr")).toBe("NEAR pays from a wallet");
+  expect(blockedReason("near", "wallet")).toBeUndefined();
+});
+
+test("methods_evm", () => {
+  expect(methodFor("arb")).toBe("qr");
+  expect(blockedReason("arb", "wallet")).toBe("Wallet payment from Arbitrum is coming");
+  expect(blockedReason("arb", "qr")).toBeUndefined();
+});
+
+test("methods_near_only", () => {
+  expect(methodFor("btc")).toBe("qr");
+});

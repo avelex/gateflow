@@ -1,4 +1,5 @@
 // Pure checkout rules (tested in logic.test.ts).
+import { chainName } from "../assets.ts";
 import { formatAmount, isNearAccount } from "../format.ts";
 
 /// GET /checkout/invoice.
@@ -114,6 +115,17 @@ export function chainRows<T extends { chain: string }>(assets: T[]): { asset: T;
   const parentOf = (a: T) => (chains.has(PARENT_CHAIN[a.chain]) ? PARENT_CHAIN[a.chain] : undefined);
   const top = assets.filter((a) => !parentOf(a)).sort((a, b) => Number(b.chain === "eth") - Number(a.chain === "eth"));
   return top.flatMap((p) => [{ asset: p, nested: false }, ...assets.filter((a) => parentOf(a) === p.chain).map((asset) => ({ asset, nested: true }))]);
+}
+
+export type Method = "wallet" | "qr";
+
+/// The one way to pay from a network: NEAR pays from a wallet, every other chain through a deposit address.
+export const methodFor = (chain: string): Method => (chain === "near" ? "wallet" : "qr");
+
+/// Why `method` is unavailable from `chain`, or undefined when it is that network's method.
+export function blockedReason(chain: string, method: Method): string | undefined {
+  if (methodFor(chain) === method) return undefined;
+  return chain === "near" ? "NEAR pays from a wallet" : `Wallet payment from ${chainName(chain)} is coming`;
 }
 
 /// A 1Click quote this browser requested, kept so a reload resumes the deposit view and timeline.
