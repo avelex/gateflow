@@ -28,3 +28,36 @@ test("revoked_key_not_found", () => {
   assert.equal(db.merchantByKeyHash(h), undefined);
   assert.deepEqual(db.apiKeys("kaja@example.com"), []);
 });
+
+import { apiStatus, fromRaw, invoiceObject, toRaw } from "./api.ts";
+
+test("to_raw_usdc", () => {
+  assert.equal(toRaw("10.00", 6), 10_000_000n);
+  assert.equal(toRaw("10", 6), 10_000_000n);
+  assert.equal(toRaw("0.0001", 8), 10_000n);
+});
+
+test("to_raw_rejects", () => {
+  for (const bad of ["0", "0.000", "1.1234567", "abc", "-1", "1e3", "", " 1", "1."]) assert.throws(() => toRaw(bad, 6), bad);
+});
+
+test("from_raw_formats", () => {
+  assert.equal(fromRaw(10_000_000n, 6), "10.00");
+  assert.equal(fromRaw(1_234_567n, 6), "1.234567");
+  assert.equal(fromRaw(10_000n, 8), "0.0001");
+});
+
+test("api_status_expired", () => {
+  const inv = { status: "Open", expires_at_sec: 100 };
+  assert.equal(apiStatus(inv, 99_999), "open");
+  assert.equal(apiStatus(inv, 100_000), "expired");
+  assert.equal(apiStatus({ status: "Paying", expires_at_sec: 100 }, 200_000), "paying");
+  assert.equal(apiStatus({ status: "Returned", expires_at_sec: 100 }, 0), "returned");
+});
+
+test("invoice_object_shape", () => {
+  const inv = { gateway: 0, token: "usdc.testnet", amount: "10000000", expires_at_sec: 1_800, memo: "order_123", status: "Open", payment: null };
+  assert.deepEqual(invoiceObject(42, inv, { symbol: "USDC", decimals: 6 }, "https://gw.example/", 0), {
+    id: 42, url: "https://gw.example/pay/42", status: "open", amount: "10.00", currency: "USDC", order_id: "order_123", expires_at: "1970-01-01T00:30:00.000Z",
+  });
+});

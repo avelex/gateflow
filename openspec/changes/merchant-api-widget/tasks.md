@@ -93,7 +93,7 @@
 
 ## 3. Invoices API
 
-- [ ] 3.1 Add pure helpers in `api.ts`:
+- [x] 3.1 Add pure helpers in `api.ts`:
   - `toRaw(amount: string, decimals: number): bigint`, which throws on 0, a negative amount, more decimals than the token has, or a non-decimal string.
   - `fromRaw(raw: bigint, decimals): string`.
   - `apiStatus(inv: {status, expires_at...}, nowMs): "open" | "paying" | "paid" | "returned" | "expired"`.
