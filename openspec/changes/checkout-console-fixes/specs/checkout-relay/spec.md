@@ -1,7 +1,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: Quotable origin assets
-`GET /checkout/assets?invoice=<id>` SHALL return the 1Click assets on a screenable chain (the configured EVM chains, Bitcoin and Zcash) that have the same `coingeckoId` and symbol as the 1Click asset of the invoice's token, at most one per chain, with asset id, chain and symbol. It SHALL answer 400 without a valid invoice id and 404 for an unknown invoice.
+`GET /checkout/assets` SHALL return the 1Click assets on a screenable chain (the configured EVM chains, Bitcoin and Zcash) with asset id, chain and symbol. With `?invoice=<id>` it SHALL return only those with the same `coingeckoId` and symbol as the 1Click asset of the invoice's token, at most one per chain, and SHALL answer 400 for an invalid id and 404 for an unknown invoice.
 
 #### Scenario: Solana excluded
 - **WHEN** the page requests quotable assets for a BTC invoice
@@ -14,6 +14,10 @@
 #### Scenario: BTC invoice
 - **WHEN** the page requests quotable assets for an invoice in `nbtc.bridge.near` and 1Click lists native BTC, `BTC(OMNI)`, cbBTC and WBTC
 - **THEN** the list is exactly one Bitcoin BTC asset
+
+#### Scenario: Without an invoice
+- **WHEN** the console's Settings requests quotable assets without an invoice
+- **THEN** the list holds every asset on a screenable chain, of any token
 
 #### Scenario: Token not on 1Click
 - **WHEN** the invoice's token has no 1Click asset

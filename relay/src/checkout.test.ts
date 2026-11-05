@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { checkoutRoutes, destinationAsset, originChain, screenable } from "./checkout.ts";
+import { checkoutRoutes, destinationAsset, originChain, sameAssets, screenable } from "./checkout.ts";
 import { dispatch } from "./main.ts";
 import { fakeDeps, req, type TestDeps } from "./testing.ts";
 
@@ -404,4 +404,59 @@ test("checkout_times_open_null", async () => {
   withInvoice(deps);
   const res = await call(deps, "GET", "/checkout/invoice?id=7");
   assert.deepEqual((res.json as any).times, { depositSeenAtSec: null, openedAtSec: null, screenedAtSec: null, closedAtSec: null });
+});
+
+// 1Click lists more look-alikes on mainnet than the fixture holds.
+const MORE = [
+  ...TOKENS,
+  { assetId: "nep141:base-0x1c4a.omft.near", blockchain: "base", symbol: "sUSDC", decimals: 6, coingeckoId: "usd-coin" },
+  { assetId: "nep141:arb-0xaf88.omft.near", blockchain: "arb", symbol: "USDC", decimals: 6, coingeckoId: "usd-coin" },
+  { assetId: "nep141:eth-0xa0b8.omft.near", blockchain: "eth", symbol: "USDC", decimals: 6, coingeckoId: "usd-coin" },
+  { assetId: "nep141:eth-0xdac1.omft.near", blockchain: "eth", symbol: "USDT", decimals: 6, coingeckoId: "tether" },
+  { assetId: "1cs_v1:btc:native:coin", blockchain: "btc", symbol: "BTC(OMNI)", decimals: 8, coingeckoId: "bitcoin" },
+  { assetId: "nep141:base-0xcbb7.omft.near", blockchain: "base", symbol: "cbBTC", decimals: 8, coingeckoId: "coinbase-wrapped-btc" },
+  { assetId: "nep141:eth-0x2260.omft.near", blockchain: "eth", symbol: "WBTC", decimals: 8, coingeckoId: "wrapped-bitcoin" },
+];
+
+test("assets_usdc_same_asset", () => {
+  assert.deepEqual(sameAssets(MORE, USDC, EVM).map((a) => `${a.chain} ${a.symbol}`), ["base USDC", "arb USDC", "eth USDC"]);
+});
+
+test("assets_btc_native_only", () => {
+  assert.deepEqual(sameAssets(MORE, "nbtc.bridge.near", EVM).map((a) => a.assetId), ["nep141:btc.omft.near"]);
+});
+
+test("assets_unknown_token_empty", () => assert.deepEqual(sameAssets(MORE, "wrap.testnet", EVM), []));
+
+test("assets_for_invoice", async () => {
+  const deps = fakeDeps();
+  withInvoice(deps);
+  deps.oneclick.tokenList = MORE;
+  const res = await call(deps, "GET", "/checkout/assets?invoice=7");
+  assert.deepEqual((res.json as any[]).map((a) => a.chain), ["base", "arb", "eth"]);
+  assert.equal((await call(deps, "GET", "/checkout/assets?invoice=8")).status, 404);
+});
+
+test("assets_invalid_invoice_400", async () => {
+  const deps = fakeDeps();
+  deps.oneclick.tokenList = MORE;
+  assert.equal((await call(deps, "GET", "/checkout/assets?invoice=x")).status, 400);
+  assert.equal((await call(deps, "GET", "/checkout/assets?invoice=")).status, 400);
+});
+
+test("assets_without_invoice_lists_all", async () => {
+  const deps = fakeDeps();
+  deps.oneclick.tokenList = MORE;
+  const res = await call(deps, "GET", "/checkout/assets");
+  assert.ok((res.json as any[]).some((a) => a.symbol === "USDT"));
+  assert.ok(!(res.json as any[]).some((a) => a.chain === "sol"));
+});
+
+test("quote_other_asset_422", async () => {
+  const deps = fakeDeps();
+  quoting(deps);
+  deps.oneclick.tokenList = MORE;
+  const res = await call(deps, "POST", "/checkout/quote", { ...body, originAsset: "nep141:eth-0xdac1.omft.near" });
+  assert.deepEqual(res, { status: 422, json: { error: "originAsset is not this invoice's asset" }, headers: res.headers });
+  assert.deepEqual(deps.oneclick.quotes, []);
 });

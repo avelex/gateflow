@@ -165,17 +165,17 @@
 
 ## 8. Same-asset quotable assets
 
-- [ ] 8.1 Add `sameAssets(tokens, token, evmChains): Asset[]` in `relay/src/checkout.ts`.
+- [x] 8.1 Add `sameAssets(tokens, token, evmChains): Asset[]` in `relay/src/checkout.ts`.
   - It finds the 1Click asset of `token` through `destinationAsset`, then keeps the screenable assets with an equal `coingeckoId` and `symbol`, taking the first match per chain.
-  - `GET /checkout/assets` requires `?invoice=<id>`: 400 when the id is invalid, 404 when the invoice is unknown. It returns `sameAssets` for the invoice token.
-  - Update `assets_screenable_only` for the new parameter.
+  - `GET /checkout/assets?invoice=<id>` returns `sameAssets` for the invoice token: 400 when the id is invalid, 404 when the invoice is unknown. Without `invoice` it keeps returning every screenable asset, for the console's Settings.
   - Add, using a fixture extended with sUSDC on base, `BTC(OMNI)`, cbBTC and USDT on eth:
     - `assets_usdc_same_asset`: exactly base, arb and eth USDC
     - `assets_btc_native_only`
     - `assets_unknown_token_empty`
-    - `assets_requires_invoice`
+    - `assets_invalid_invoice_400`
+    - `assets_without_invoice_lists_all`
   - Verify: `cd relay && npm test`.
-- [ ] 8.2 `POST /checkout/quote` answers 422 "originAsset is not this invoice's asset" when `originAsset` is not in `sameAssets`, and makes no 1Click call.
+- [x] 8.2 `POST /checkout/quote` answers 422 "originAsset is not this invoice's asset" when `originAsset` is not in `sameAssets`, and makes no 1Click call.
   - Add `quote_other_asset_422`.
   - Verify: `cd relay && npm test`.
 

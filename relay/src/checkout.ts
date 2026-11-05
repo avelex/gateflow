@@ -111,13 +111,29 @@ const reportTx: Handler = async (req, deps) => {
   return ok({ payment: inv.payment });
 };
 
-const assets: Handler = async (_req, deps) => {
+export type Asset = { assetId: string; chain: string; symbol: string; decimals: number };
+
+const asAsset = (t: any): Asset => ({ assetId: t.assetId, chain: t.blockchain, symbol: t.symbol, decimals: t.decimals });
+
+/// Screenable origin assets that are the same asset as NEAR token `token`: equal 1Click `coingeckoId` and symbol,
+/// the first per chain in 1Click order. Empty when 1Click does not deliver `token`.
+export function sameAssets(tokens: any[], token: string, evmChains: string[]): Asset[] {
+  const dest = tokens.find((t) => t.assetId === destinationAsset(tokens, token));
+  if (!dest?.coingeckoId) return [];
+  const seen = new Set<string>();
+  return tokens
+    .filter((t) => screenable(t.blockchain, evmChains) && t.coingeckoId === dest.coingeckoId && t.symbol === dest.symbol)
+    .filter((t) => !seen.has(t.blockchain) && seen.add(t.blockchain))
+    .map(asAsset);
+}
+
+/// Without `invoice`, every screenable asset (the console's chain list); with it, only that invoice's asset.
+const assets: Handler = async (req, deps) => {
   const tokens = await deps.oneclick.tokens();
-  return ok(
-    tokens
-      .filter((t) => screenable(t.blockchain, deps.cfg.evmChains))
-      .map((t) => ({ assetId: t.assetId, chain: t.blockchain, symbol: t.symbol, decimals: t.decimals })),
-  );
+  if (!req.query.has("invoice")) return ok(tokens.filter((t) => screenable(t.blockchain, deps.cfg.evmChains)).map(asAsset));
+  const inv = await deps.near.view(deps.cfg.gateflow, "get_invoice", { invoice: invoiceId(req.query.get("invoice")) });
+  if (!inv) throw new HttpError(404, "invoice not found");
+  return ok(sameAssets(tokens, inv.token, deps.cfg.evmChains));
 };
 
 const quote: Handler = async (req, deps) => {
@@ -137,6 +153,7 @@ const quote: Handler = async (req, deps) => {
   if (!screenable(chain, deps.cfg.evmChains)) throw new HttpError(422, "this origin chain can't be screened");
   const destination = destinationAsset(tokens, inv.token);
   if (!destination) throw new HttpError(502, "gateway token not deliverable by 1Click");
+  if (!sameAssets(tokens, inv.token, deps.cfg.evmChains).some((a) => a.assetId === b.originAsset)) throw new HttpError(422, "originAsset is not this invoice's asset");
 
   const ref = randomBytes(16).toString("hex");
   const deadlineMs = Math.min(deps.now() + QUOTE_TTL_MS, expiresMs);
