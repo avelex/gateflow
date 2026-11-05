@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { dispatch } from "./main.ts";
-import { consoleRoutes, SESSION_COOKIE } from "./console.ts";
+import { consoleRoutes, SESSION_COOKIE, tokenMeta } from "./console.ts";
 import { fakeDeps, fakeNear, req, type TestDeps } from "./testing.ts";
 
 const call = (deps: TestDeps, method: string, path: string, body?: any, cookies?: Record<string, string>) =>
@@ -496,4 +496,12 @@ test("sync_continues_after_failure", async () => {
   assert.equal(await syncRegistrations(deps), 3);
   assert.equal(deps.near.sent.length, 4);
   assert.equal(deposits(deps).length, 3);
+});
+
+test("nbtc_shows_btc", async () => {
+  const deps = fakeDeps();
+  deps.near.viewTable["nbtc.bridge.near.ft_metadata"] = { symbol: "NBTC", decimals: 8 };
+  deps.near.viewTable["usdc.testnet.ft_metadata"] = { symbol: "USDC", decimals: 6 };
+  assert.deepEqual(await tokenMeta(deps, "nbtc.bridge.near"), { symbol: "BTC", decimals: 8 });
+  assert.equal((await tokenMeta(deps, "usdc.testnet")).symbol, "USDC");
 });

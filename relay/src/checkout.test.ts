@@ -375,3 +375,13 @@ test("outlayer_down_invoice_ok", async () => {
   assert.equal((res.json as any).screening.jobId, null);
   assert.equal((res.json as any).screening.outcome, "approved");
 });
+
+test("checkout_nbtc_symbol", async () => {
+  const deps = fakeDeps();
+  withInvoice(deps, { token: "nbtc.bridge.near", amount: "1000000" });
+  deps.near.viewTable["nbtc.bridge.near.ft_metadata"] = { symbol: "NBTC", decimals: 8 };
+  deps.near.viewTable["nbtc.bridge.near.storage_balance_of"] = () => ({ total: "1", available: "0" });
+  const res = await call(deps, "GET", "/checkout/invoice?id=7");
+  assert.equal(res.status, 200);
+  assert.equal((res.json as any).symbol, "BTC");
+});

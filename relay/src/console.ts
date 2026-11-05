@@ -269,13 +269,16 @@ export const needsTopUp = (fuel: bigint, deposit: bigint) => fuel < 2n * deposit
 export type TokenMeta = { symbol: string; decimals: number };
 const metaCache = new WeakMap<object, Map<string, Promise<TokenMeta>>>();
 
-/// `ft_metadata` symbol and decimals, cached for the life of the process.
+/// Symbols shown in place of a token's `ft_metadata` symbol.
+export const DISPLAY_SYMBOL: Record<string, string> = { "nbtc.bridge.near": "BTC" };
+
+/// `ft_metadata` symbol (or its display symbol) and decimals, cached for the life of the process.
 export function tokenMeta(deps: Deps, token: string): Promise<TokenMeta> {
   let cache = metaCache.get(deps.near);
   if (!cache) metaCache.set(deps.near, (cache = new Map()));
   let p = cache.get(token);
   if (!p) {
-    p = deps.near.view(token, "ft_metadata", {}).then((m: any) => ({ symbol: String(m.symbol), decimals: Number(m.decimals) }));
+    p = deps.near.view(token, "ft_metadata", {}).then((m: any) => ({ symbol: DISPLAY_SYMBOL[token] ?? String(m.symbol), decimals: Number(m.decimals) }));
     p.catch(() => cache.delete(token));
     cache.set(token, p);
   }

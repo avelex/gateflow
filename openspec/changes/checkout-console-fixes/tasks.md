@@ -56,7 +56,7 @@
 
 ## 3. Display symbol
 
-- [ ] 3.1 In `relay/src/console.ts`, add `export const DISPLAY_SYMBOL: Record<string, string> = { "nbtc.bridge.near": "BTC" }`. In `tokenMeta`, return `DISPLAY_SYMBOL[token] ?? m.symbol`.
+- [x] 3.1 In `relay/src/console.ts`, add `export const DISPLAY_SYMBOL: Record<string, string> = { "nbtc.bridge.near": "BTC" }`. In `tokenMeta`, return `DISPLAY_SYMBOL[token] ?? m.symbol`.
   - Add `nbtc_shows_btc` to `console.test.ts`: the fake `ft_metadata` of `nbtc.bridge.near` returns `NBTC`, and `tokenMeta` gives symbol `BTC`.
   - Add `checkout_nbtc_symbol` to `checkout.test.ts`: `GET /checkout/invoice` for an nBTC invoice has `symbol: "BTC"`.
   - Verify: `cd relay && npm test`.
