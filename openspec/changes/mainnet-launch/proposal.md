@@ -28,4 +28,4 @@ None. This change only verifies behavior that the current specs already define. 
 - **Operations:** a mainnet contract account, an operator (relay) account funded for storage, gas and fuel, and an OutLayer enclave registration with secrets.
 - **Repository:** `enclave/tests/fixtures/oneclick-status-success.json`, and transaction hashes in `GOAL.md`.
 - **Cost:** real funds for the test payments (1 USDC, 0.0001 nBTC, a small ZEC amount) and for 1Click fees.
-- **Out of scope:** BYOK screening keys (`byok-screening-keys`), the console assistant (`console-ai-chat`), and an Ethereum-wallet payer option.
+- **Out of scope:** BYOK screening keys (see the README roadmap), the console assistant (`console-ai-chat`), and an Ethereum-wallet payer option.

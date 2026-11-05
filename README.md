@@ -175,3 +175,7 @@ Relay modules, tests and the testnet dev deployment are in [`relay/README.md`](r
 - Still open for the payer: the Ethereum-wallet option.
 - `GOAL.md` is not yet in this repository.
 - Mainnet: the contract is deployed at `gateflow.near` (operator `ops.gateflow.near`, relay `relay.gateflow.near`, merchant accounts under `merchant.gateflow.near`). One 0.01 USDC invoice paid through 1Click from an EVM chain is `Settled`. BTC and ZEC payments are not yet run. Tracked in [`openspec/changes/mainnet-launch/tasks.md`](openspec/changes/mainnet-launch/tasks.md).
+
+## Roadmap
+
+- **Bring your own screening keys (BYOK).** A merchant seals their own compliance provider key (first Chainalysis Sanctions) to the OutLayer enclave from the console, so Gateflow, the operator and the relay never see it. Screening then checks every address against that provider as well as the built-in GoPlus and OFAC checks, and a failed lookup fails closed. Deferred past the hackathon: it needs a per-gateway secrets profile on the contract, and `gateflow.near` has no access keys or upgrade path, so it means a new contract deployment and a move of merchants to it. Before shipping, the fuel credit on a failed OutLayer execution must change, or a merchant could drain the contract balance with a bogus profile.
