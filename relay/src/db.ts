@@ -125,7 +125,10 @@ export function openDb(path: string) {
   const newQuote = q("INSERT INTO quotes (ref, invoice, deposit_address, deadline_ms, origin_chain) VALUES (?, ?, ?, ?, ?)");
   const quoteByDeposit = q("SELECT * FROM quotes WHERE deposit_address = ?");
   const quoteByRef = q("SELECT * FROM quotes WHERE ref = ?");
-  const open = q("SELECT * FROM quotes WHERE screened = 0 AND status NOT IN ('REFUNDED', 'FAILED') AND deadline_ms + 3600000 >= ?");
+  // Screened quotes stay open until their origin senders are known.
+  const open = q(`SELECT * FROM quotes WHERE (screened = 0 OR (origin_senders IS NULL AND origin_chain IS NOT NULL))
+    AND status NOT IN ('REFUNDED', 'FAILED') AND deadline_ms + 3600000 >= ?`);
+  const setSenders = q("UPDATE quotes SET origin_senders = ? WHERE ref = ?");
   const setStatus = q("UPDATE quotes SET status = ? WHERE ref = ?");
   const setScreened = q("UPDATE quotes SET screened = 1 WHERE ref = ?");
   const setDepositSeen = q("UPDATE quotes SET deposit_seen_ms = ? WHERE ref = ? AND deposit_seen_ms IS NULL");
@@ -168,6 +171,8 @@ export function openDb(path: string) {
       if (change.status && change.nowMs !== undefined && !NOT_ARRIVED.has(change.status)) setDepositSeen.run(change.nowMs, ref);
       if (change.screened) setScreened.run(ref);
     },
+    /// The deposit's origin senders; an empty list means the tx names none (a shielded deposit).
+    setOriginSenders: (ref: string, senders: string[]) => void setSenders.run(JSON.stringify(senders), ref),
     /// The first recorded screening tx of a payment wins.
     recordScreening: (payment: number, txHash: string, sender: string) => void newScreening.run(payment, txHash, sender),
     screening(payment: number) {

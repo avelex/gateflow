@@ -137,7 +137,7 @@
   - In `main.ts`, implement it with `fetch` and a 5 s timeout, using the helpers from 6.1.
   - In `testing.ts`, add a fake with a settable map and a failure switch.
   - Verify: `cd relay && npm test` and `cd relay && node --check src/main.ts`.
-- [ ] 6.3 Make the watcher resolve senders.
+- [x] 6.3 Make the watcher resolve senders.
   - On `SUCCESS`, `tick` first tries `deps.origin.senders(q.origin_chain, status.swapDetails.originChainTxHashes[0].hash)` and stores the JSON array through a new `db.setOriginSenders(ref, senders)`. It then runs the existing screening path. A throw is logged and does not block screening.
   - `openQuotes` also returns quotes with `screened = 1 AND origin_senders IS NULL AND origin_chain IS NOT NULL`, inside the same window.
   - `tick` calls `submitScreening` only when `screened = 0`.
