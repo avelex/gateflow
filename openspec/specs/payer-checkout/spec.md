@@ -28,7 +28,7 @@ For an invoice that is Paid, Returned, or Open past its expiry, the page SHALL s
 The page SHALL offer paying from a NEAR wallet through wallet-selector by calling `ft_transfer_call` on the invoice token to the Gateflow contract with the invoice amount and `msg` `{"invoice": <id>}`. Before payment it SHALL warn that current screening refunds payments sent from named NEAR accounts such as `alice.near`, and that paying from another chain avoids this.
 
 #### Scenario: Named account warned
-- **WHEN** a payer chooses the NEAR wallet option
+- **WHEN** a payer picks NEAR
 - **THEN** the page shows the named-account warning, pointing to paying from another chain, before the wallet opens
 
 #### Scenario: Direct payment sent
@@ -40,7 +40,7 @@ The page SHALL offer paying from a NEAR wallet through wallet-selector by callin
 - **THEN** the `ft_transfer_call` carries `msg` exactly `{"invoice":7}`, with no gateway field
 
 ### Requirement: Pay from another chain
-The page SHALL let the payer pick an origin chain from the relay's same-asset quotable assets for the invoice. The chains SHALL be shown as a list with one row per chain, each with its chain icon and name. Ethereum L2s SHALL be nested under Ethereum, and the selected row SHALL be marked with a check. The payer SHALL enter a refund address on that chain (used if the swap fails) and a NEAR account (used if screening returns the payment), and request a quote. The page SHALL then show the exact amount to send with a copy action, the deposit address with a QR code and copy action, an optional memo, and the quote deadline as a countdown.
+After the payer picks a network other than NEAR, the page SHALL let them enter a refund address on that chain (used if the swap fails) and a NEAR account (used if screening returns the payment), and request a quote for the invoice's asset on that chain. The page SHALL then show the exact amount to send with a copy action, the deposit address with a QR code and copy action, an optional memo, and the quote deadline as a countdown.
 
 #### Scenario: Bitcoin for an nBTC invoice
 - **WHEN** the payer picks Bitcoin, enters a `bc1q…` refund address and a NEAR account, and requests a quote for an invoice of 0.01 `nbtc.bridge.near`, shown as 0.01 BTC
@@ -51,20 +51,20 @@ The page SHALL let the payer pick an origin chain from the relay's same-asset qu
 - **THEN** the page asks for the missing field and requests no quote
 
 #### Scenario: Chains of a USDC invoice
-- **WHEN** the payer opens the cross-chain option of a 1 USDC invoice and the relay returns USDC on Base, Arbitrum and Ethereum
-- **THEN** the page lists Ethereum first, with Base and Arbitrum indented beneath it, each row labeled with the chain name only, and no other token
+- **WHEN** the payer opens a 1 USDC invoice and the relay returns USDC on Base, Arbitrum and Ethereum
+- **THEN** the network list shows NEAR, then Ethereum with Base and Arbitrum indented beneath it, each row labeled with the network name only, and no other token
 
 #### Scenario: L2s without Ethereum
 - **WHEN** the relay returns the invoice's asset on Base and Arbitrum but not on Ethereum
-- **THEN** the page lists Base and Arbitrum as top-level rows and shows no Ethereum row
+- **THEN** the list shows NEAR, Base and Arbitrum as top-level rows and no Ethereum row
 
 #### Scenario: Chains outside Ethereum
 - **WHEN** the relay returns the invoice's asset on Ethereum, Base and Bitcoin
-- **THEN** the page lists Ethereum, then Base indented beneath it, then Bitcoin at the top level
+- **THEN** the list shows NEAR, Ethereum, Base indented beneath Ethereum, then Bitcoin at the top level
 
 #### Scenario: Selected chain marked
 - **WHEN** the payer picks Base
-- **THEN** the Base row shows a check, is reported as pressed to assistive technology, and no other row shows a check
+- **THEN** the Base row shows a check, is reported as pressed to assistive technology, no other row shows a check, and the refund field is labeled "Refund address on Base"
 
 #### Scenario: Amount copied
 - **WHEN** the quote asks for 1.010225 USDC and the payer uses the amount's copy action
@@ -72,7 +72,7 @@ The page SHALL let the payer pick an origin chain from the relay's same-asset qu
 
 #### Scenario: No chain available
 - **WHEN** the relay returns no quotable asset for the invoice
-- **THEN** the page says the invoice can only be paid with a NEAR wallet and offers no quote request
+- **THEN** the network list shows NEAR alone and the page offers no quote request
 
 ### Requirement: Status timeline
 After payment starts, the page SHALL show four steps and advance them from backend status: Deposit detected (cross-chain only), Delivered to contract (payment opened), Screening in enclave, then Released to merchant or Returned to you. Each completed step whose time the relay reports SHALL show that time in UTC. The page SHALL say the payer may close it and that the payment continues.
@@ -126,3 +126,29 @@ With a quote shown, the page SHALL state how much of the amount to send exceeds 
 #### Scenario: USDC from Base
 - **WHEN** a 1 USDC invoice is quoted from Base with `amountIn` 1.010225 USDC
 - **THEN** the page says 0.010225 USDC of it covers the 1Click fee and slippage buffer
+
+### Requirement: Choose the network first
+For an Open invoice, the payment column SHALL first ask "Pay <symbol> from" with a list of networks: NEAR on top, then the relay's same-asset quotable origin chains, with Ethereum L2s nested under Ethereum and a check on the selected row. Until a network is picked, the page SHALL show no payment method, form or pay button.
+
+#### Scenario: Nothing picked yet
+- **WHEN** a payer opens an Open 0.01 USDC invoice
+- **THEN** the column shows "Pay USDC from" and the network list, and no method tiles, form or pay button
+
+#### Scenario: Asset list fails to load
+- **WHEN** the relay's asset list request fails
+- **THEN** the list shows NEAR alone
+
+### Requirement: Payment methods per network
+After a network is picked, the page SHALL show two method tiles, Browser wallet and Address or QR. It SHALL enable and select the one method that network supports and show the other as disabled with its reason. NEAR SHALL support Browser wallet only. Every other network SHALL support Address or QR only.
+
+#### Scenario: NEAR picked
+- **WHEN** the payer picks NEAR
+- **THEN** Browser wallet is selected, and Address or QR is disabled with the reason that NEAR pays from a wallet
+
+#### Scenario: Arbitrum picked
+- **WHEN** the payer picks Arbitrum
+- **THEN** Address or QR is selected, and Browser wallet is disabled with the reason that wallet payment from Arbitrum is not available yet
+
+#### Scenario: Switching network
+- **WHEN** the payer picks Arbitrum, then NEAR
+- **THEN** the Address or QR form disappears and the NEAR wallet option shows
