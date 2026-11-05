@@ -71,3 +71,20 @@ test("watcher_isolates_failures", async () => {
   assert.equal(deps.db.quoteByRef(REF2)?.screened, 1);
   assert.equal(deps.db.quoteByRef(REF)?.screened, 0);
 });
+
+test("watcher_records_deposit_seen", async () => {
+  const deps = fakeDeps();
+  let now = 1000;
+  deps.now = () => now;
+  quote(deps);
+  deps.oneclick.statuses.dep1 = { status: "PENDING_DEPOSIT" };
+  await tick(deps);
+  assert.equal(deps.db.quoteByRef(REF)?.deposit_seen_ms, null);
+  now = 16000;
+  deps.oneclick.statuses.dep1 = { status: "PROCESSING" };
+  await tick(deps);
+  now = 31000;
+  deps.oneclick.statuses.dep1 = { status: "SUCCESS" };
+  await tick(deps);
+  assert.equal(deps.db.quoteByRef(REF)?.deposit_seen_ms, 16000);
+});

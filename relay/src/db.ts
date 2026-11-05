@@ -20,6 +20,11 @@ export type Quote = {
   deadline_ms: number;
   status: string;
   screened: number;
+  /// When the watcher first saw the deposit (ms); null until then.
+  deposit_seen_ms: number | null;
+  /// The origin chain of the quoted asset, and the JSON array of addresses that sent the deposit.
+  origin_chain: string | null;
+  origin_senders: string | null;
 };
 
 export type Card = { type: "invoice"; invoiceId: number } | { type: "status"; invoiceId: number } | { type: "confirm"; actionId: number };
@@ -36,6 +41,8 @@ export type Message = {
 export type ActionKind = "create_invoice" | "set_policy" | "retry";
 export type ActionStatus = "pending" | "done" | "dismissed" | "failed";
 export type ChatAction = { id: number; thread_id: number; email: string; kind: ActionKind; params: any; summary: string; status: ActionStatus; result: any };
+
+const NOT_ARRIVED = new Set(["PENDING_DEPOSIT", "UNKNOWN"]);
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS merchants (
@@ -98,6 +105,10 @@ const toMerchant = (row: any): Merchant | undefined =>
 export function openDb(path: string) {
   const db = new DatabaseSync(path);
   db.exec(SCHEMA);
+  // Columns added after the first deployment; old databases gain them here.
+  const have = new Set((db.prepare("PRAGMA table_info(quotes)").all() as any[]).map((c) => c.name));
+  for (const [name, type] of [["deposit_seen_ms", "INTEGER"], ["origin_chain", "TEXT"], ["origin_senders", "TEXT"]])
+    if (!have.has(name)) db.exec(`ALTER TABLE quotes ADD COLUMN ${name} ${type}`);
   const q = (sql: string) => db.prepare(sql);
   const byEmail = q("SELECT * FROM merchants WHERE email = ?");
   const byAccount = q("SELECT * FROM merchants WHERE account_id = ?");
@@ -111,12 +122,13 @@ export function openDb(path: string) {
   const newSession = q("INSERT INTO sessions (token, email, created_at) VALUES (?, ?, ?)");
   const session = q("SELECT email FROM sessions WHERE token = ?");
   const dropSession = q("DELETE FROM sessions WHERE token = ?");
-  const newQuote = q("INSERT INTO quotes (ref, invoice, deposit_address, deadline_ms) VALUES (?, ?, ?, ?)");
+  const newQuote = q("INSERT INTO quotes (ref, invoice, deposit_address, deadline_ms, origin_chain) VALUES (?, ?, ?, ?, ?)");
   const quoteByDeposit = q("SELECT * FROM quotes WHERE deposit_address = ?");
   const quoteByRef = q("SELECT * FROM quotes WHERE ref = ?");
   const open = q("SELECT * FROM quotes WHERE screened = 0 AND status NOT IN ('REFUNDED', 'FAILED') AND deadline_ms + 3600000 >= ?");
   const setStatus = q("UPDATE quotes SET status = ? WHERE ref = ?");
   const setScreened = q("UPDATE quotes SET screened = 1 WHERE ref = ?");
+  const setDepositSeen = q("UPDATE quotes SET deposit_seen_ms = ? WHERE ref = ? AND deposit_seen_ms IS NULL");
   const newScreening = q("INSERT OR IGNORE INTO screenings (payment, tx_hash, sender) VALUES (?, ?, ?)");
   const screeningOf = q("SELECT tx_hash, sender, evidence FROM screenings WHERE payment = ?");
   const setEvidence = q("UPDATE screenings SET evidence = ? WHERE payment = ?");
@@ -145,13 +157,15 @@ export function openDb(path: string) {
     createSession: (token: string, email: string, now: number) => void newSession.run(token, email, now),
     sessionEmail: (token: string) => (session.get(token) as any)?.email as string | undefined,
     deleteSession: (token: string) => void dropSession.run(token),
-    insertQuote: (x: { ref: string; invoice: number; deposit_address: string; deadline_ms: number }) =>
-      void newQuote.run(x.ref, x.invoice, x.deposit_address, x.deadline_ms),
+    insertQuote: (x: { ref: string; invoice: number; deposit_address: string; deadline_ms: number; origin_chain?: string }) =>
+      void newQuote.run(x.ref, x.invoice, x.deposit_address, x.deadline_ms, x.origin_chain ?? null),
     quoteByDeposit: (addr: string) => quoteByDeposit.get(addr) as Quote | undefined,
     quoteByRef: (ref: string) => quoteByRef.get(ref) as Quote | undefined,
     openQuotes: (nowMs: number) => open.all(nowMs) as Quote[],
-    markQuote(ref: string, change: { status?: string; screened?: boolean }) {
+    /// A status other than PENDING_DEPOSIT or UNKNOWN, with `nowMs`, records the first time the deposit was seen.
+    markQuote(ref: string, change: { status?: string; screened?: boolean; nowMs?: number }) {
       if (change.status) setStatus.run(change.status, ref);
+      if (change.status && change.nowMs !== undefined && !NOT_ARRIVED.has(change.status)) setDepositSeen.run(change.nowMs, ref);
       if (change.screened) setScreened.run(ref);
     },
     /// The first recorded screening tx of a payment wins.

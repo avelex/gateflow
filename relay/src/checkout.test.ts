@@ -141,6 +141,7 @@ test("quote_records_row", async () => {
   assert.equal(sent.destinationAsset, `nep141:${USDC}`);
   assert.equal(sent.customRecipientMsg, `{"invoice":7,"ref":"${j.ref}","refund_to":"bob.near"}`);
   assert.equal(deps.db.quoteByDeposit(DEP)?.ref, j.ref);
+  assert.equal(deps.db.quoteByDeposit(DEP)?.origin_chain, "base");
 });
 
 test("quote_bad_refund_on_near_400", async () => {

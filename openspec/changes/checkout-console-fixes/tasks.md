@@ -63,7 +63,7 @@
 
 ## 4. Step times in the relay
 
-- [ ] 4.1 Migrate the DB in `relay/src/db.ts`. After the `CREATE TABLE` statements, add each missing `quotes` column, as found by `PRAGMA table_info(quotes)`, with `ALTER TABLE quotes ADD COLUMN`:
+- [x] 4.1 Migrate the DB in `relay/src/db.ts`. After the `CREATE TABLE` statements, add each missing `quotes` column, as found by `PRAGMA table_info(quotes)`, with `ALTER TABLE quotes ADD COLUMN`:
   - `deposit_seen_ms INTEGER`
   - `origin_chain TEXT`
   - `origin_senders TEXT`
@@ -71,7 +71,7 @@
   Then extend `Quote` with `deposit_seen_ms: number | null; origin_chain: string | null; origin_senders: string | null`, and make `insertQuote` take an optional `origin_chain`.
   - Add `quotes_columns_added` to `relay/src/console.test.ts` (or a new `db.test.ts`): open a DB file that has the old `quotes` schema and one row, and check that all three columns exist and the row's new columns are null.
   - Verify: `cd relay && npm test`.
-- [ ] 4.2 Record the deposit time and the origin chain.
+- [x] 4.2 Record the deposit time and the origin chain.
   - `markQuote(ref, {status, nowMs})` sets `deposit_seen_ms = nowMs` only while the column is null and `status` is not `PENDING_DEPOSIT` or `UNKNOWN`.
   - `watcher.ts` passes `deps.now()`.
   - The `quote` handler in `checkout.ts` stores `origin_chain: originChain(tokens, b.originAsset)`.

@@ -8,7 +8,7 @@ export async function tick(deps: Deps): Promise<void> {
   for (const q of deps.db.openQuotes(deps.now())) {
     try {
       const status = String((await deps.oneclick.status(q.deposit_address))?.status ?? "UNKNOWN");
-      if (status !== q.status) deps.db.markQuote(q.ref, { status });
+      if (status !== q.status) deps.db.markQuote(q.ref, { status, nowMs: deps.now() });
       if (status !== "SUCCESS") continue;
       const found = await deps.near.view(deps.cfg.gateflow, "get_payment_by_ref", { reference: q.ref });
       if (!found) continue; // delivery not on NEAR yet; next tick

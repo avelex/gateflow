@@ -125,7 +125,8 @@ const quote: Handler = async (req, deps) => {
   if (inv.status !== "Open" || expiresMs <= deps.now()) throw new HttpError(409, "invoice is not payable");
 
   const tokens = await deps.oneclick.tokens();
-  if (!screenable(originChain(tokens, b.originAsset), deps.cfg.evmChains)) throw new HttpError(422, "this origin chain can't be screened");
+  const chain = originChain(tokens, b.originAsset);
+  if (!screenable(chain, deps.cfg.evmChains)) throw new HttpError(422, "this origin chain can't be screened");
   const destination = destinationAsset(tokens, inv.token);
   if (!destination) throw new HttpError(502, "gateway token not deliverable by 1Click");
 
@@ -147,7 +148,7 @@ const quote: Handler = async (req, deps) => {
   const q = reply?.quote;
   if (!q?.depositAddress) throw new HttpError(502, "1Click returned no deposit address");
   const deadline = q.deadline ?? new Date(deadlineMs).toISOString();
-  deps.db.insertQuote({ ref, invoice: id, deposit_address: q.depositAddress, deadline_ms: Date.parse(deadline) || deadlineMs });
+  deps.db.insertQuote({ ref, invoice: id, deposit_address: q.depositAddress, deadline_ms: Date.parse(deadline) || deadlineMs, origin_chain: chain });
   return ok({ ref, depositAddress: q.depositAddress, depositMemo: q.depositMemo ?? null, amountIn: q.amountIn, amountInFormatted: q.amountInFormatted ?? null, deadline });
 };
 
