@@ -1,6 +1,7 @@
 // Pure console rules (tested in logic.test.ts) and the delegate round trip.
 import { api } from "../api.ts";
 import { attestationUrl, explorerTx, OUTLAYER_EXECUTIONS, type Screening } from "../checkout/logic.ts";
+import { chainName } from "../assets.ts";
 import { formatAmount, parseAmount } from "../format.ts";
 import { type DelegateParams, type MerchantKey, signDelegate } from "../near/delegate.ts";
 import { assertOwner, getPasskeyKey, loadStoredKey } from "../near/key.ts";
@@ -74,6 +75,8 @@ export type Payment = {
   status: string;
   tokenMeta: TokenMeta;
   screening: Screening | null;
+  /// Who sent a cross-chain deposit on its origin chain; null when unknown or for a direct payment.
+  origin: { chain: string; senders: string[] } | null;
 };
 
 export const amountOf = (x: { amount: string; tokenMeta: TokenMeta }) => formatAmount(BigInt(x.amount), x.tokenMeta.decimals);
@@ -115,8 +118,15 @@ export function searchMatches(q: string, invoices: Invoice[], payments: Payment[
   ];
 }
 
-/// The payer to show: the NEAR refund account for 1Click deliveries (sent by intents.near), else the sender.
-export const payerLabel = (p: Payment) => (p.ref ? p.refund_to : p.payer);
+const short = (a: string) => (a.length > 12 ? `${a.slice(0, 6)}…${a.slice(-4)}` : a);
+
+/// The payer to show: the origin sender of a cross-chain deposit, else the NEAR refund account of a 1Click delivery
+/// (sent by intents.near), else the sender.
+export function payerLabel(p: Payment): string {
+  const o = p.origin;
+  if (o?.senders.length) return `${short(o.senders[0])} on ${chainName(o.chain)}${o.senders.length > 1 ? ` +${o.senders.length - 1}` : ""}`;
+  return p.ref ? p.refund_to : p.payer;
+}
 
 /// The time to show for an invoice: its close time once Paid or Returned and known, else its expiry.
 export function invoiceTime(inv: Invoice, payment?: Payment): { label: "Paid" | "Returned" | "Expires"; sec: number } {

@@ -1,7 +1,7 @@
 // The export's "Settings" overlay. "Blockchains & Tokens" keeps its layout; "Gateway" replaces "Compliance BYOK" in that panel's layout.
 import { type ReactNode, useEffect, useState } from "react";
 import { api } from "../api.ts";
-import { chainIcon } from "../assets.ts";
+import { CHAIN_NAMES, chainIcon, chainName } from "../assets.ts";
 import { Badge, Button, Checkbox, Hash, Icon, IconButton } from "../ds.jsx";
 import { keyMode } from "../near/key.ts";
 import type { ScreenProps } from "./Layout.tsx";
@@ -11,7 +11,6 @@ import { message } from "./Onboarding.tsx";
 const SECTION = { fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--text-3)" } as const;
 const INTRO = { margin: 0, fontSize: 14, lineHeight: "22px", color: "var(--text-2)", maxWidth: 600, textWrap: "pretty" } as const;
 const BOX = { border: "1px solid var(--border-1)", borderRadius: "var(--radius-2)" } as const;
-const CHAIN_NAMES: Record<string, string> = { near: "NEAR", eth: "Ethereum", base: "Base", arb: "Arbitrum", btc: "Bitcoin", zec: "Zcash" };
 
 /// A row in the BYOK panel's "Decision signing key" style.
 function KeyRow({ icon, title, badge, sub, action }: { icon: string; title: string; badge?: ReactNode; sub: ReactNode; action?: ReactNode }) {
@@ -125,8 +124,8 @@ function Chains({ data, refresh }: ScreenProps) {
         </div>
         {origins.map((c) => (
           <div key={c} style={{ display: "flex", alignItems: "center", gap: 16, padding: "12px 20px", borderTop: "1px solid var(--border-1)" }}>
-            <span role="img" aria-label={CHAIN_NAMES[c] ?? c} style={{ width: 24, height: 24, flex: "none", backgroundImage: chainIcon(c) ? `url(${chainIcon(c)})` : undefined, backgroundSize: "contain", backgroundRepeat: "no-repeat", backgroundPosition: "center" }} />
-            <span style={{ flex: 1, fontSize: 14, fontWeight: 500 }}>{CHAIN_NAMES[c] ?? c}</span>
+            <span role="img" aria-label={chainName(c)} style={{ width: 24, height: 24, flex: "none", backgroundImage: chainIcon(c) ? `url(${chainIcon(c)})` : undefined, backgroundSize: "contain", backgroundRepeat: "no-repeat", backgroundPosition: "center" }} />
+            <span style={{ flex: 1, fontSize: 14, fontWeight: 500 }}>{chainName(c)}</span>
             <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-3)" }}>{c === "near" ? "NEAR wallet" : "via NEAR Intents"}</span>
           </div>
         ))}

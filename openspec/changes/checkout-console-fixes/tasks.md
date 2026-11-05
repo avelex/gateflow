@@ -154,7 +154,7 @@
 
 ## 7. Origin payer in the web
 
-- [ ] 7.1 Move `CHAIN_NAMES` and `chainName()` into `web/src/assets.ts`, next to `chainIcon`. Import them in `CrossChainPay.tsx` and `Settings.tsx`.
+- [x] 7.1 Move `CHAIN_NAMES` and `chainName()` into `web/src/assets.ts`, next to `chainIcon`. Import them in `CrossChainPay.tsx` and `Settings.tsx`.
   - Add `Payment.origin` to `web/src/console/logic.ts`.
   - `payerLabel` returns `${short(senders[0])} on ${chainName(chain)}`, plus ` +N` when there is more than one sender. `short` keeps 6 head and 4 tail characters with `…`. Without an origin it falls back as in 1.1.
   - Add to `logic.test.ts`:

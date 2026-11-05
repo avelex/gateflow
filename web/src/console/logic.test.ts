@@ -17,7 +17,7 @@ const NBTC = { symbol: "nBTC", decimals: 8 };
 const at = (d: Date) => Math.floor(d.getTime() / 1000);
 const pay = (id: number, amount: string, status: string, opened: Date, extra: Partial<Payment> = {}): Payment => ({
   id, gateway: 0, invoice: id, payer: "alice.near", refund_to: "alice.near", token: "usdc.near", amount, ref: null, deposit_address: null,
-  opened_at_sec: at(opened), max_risk: 50, status, tokenMeta: USDC, screening: null, ...extra,
+  opened_at_sec: at(opened), max_risk: 50, status, tokenMeta: USDC, screening: null, origin: null, ...extra,
 });
 const inv = (id: number, amount: string, meta = USDC, extra: Partial<Invoice> = {}): Invoice => ({
   id, gateway: 0, token: "t", amount, expires_at_sec: 0, memo: null, status: "Open", payment: null, tokenMeta: meta, ...extra,
@@ -188,3 +188,15 @@ test("closed_at_unknown_falls_back", () => {
   expect(invoiceTime(inv(4, "1", USDC, { status: "Paid", payment: 4, expires_at_sec: 5 }), p)).toEqual({ label: "Expires", sec: 5 });
   expect(invoiceTime(inv(4, "1", USDC, { status: "Open", expires_at_sec: 5 }))).toEqual({ label: "Expires", sec: 5 });
 });
+
+test("payer_origin_base", () => {
+  const p = pay(1, "1", "Settled", new Date(), { ref: "r", payer: "intents.near", refund_to: "bob.near", origin: { chain: "base", senders: ["0x12ab34ef56cd"] } });
+  expect(payerLabel(p)).toBe("0x12ab…56cd on Base");
+});
+
+test("payer_origin_btc_plus", () => {
+  const p = pay(1, "1", "Settled", new Date(), { ref: "r", payer: "intents.near", origin: { chain: "btc", senders: ["bc1qaaaaaaaaaaaa", "bc1qb", "bc1qc"] } });
+  expect(payerLabel(p)).toMatch(/^bc1qaa…aaaa on Bitcoin \+2$/);
+});
+
+test("payer_direct", () => expect(payerLabel(pay(1, "1", "Settled", new Date(), { payer: "alice.near" }))).toBe("alice.near"));

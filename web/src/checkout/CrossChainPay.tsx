@@ -3,17 +3,15 @@
 import QRCode from "qrcode";
 import { type ReactNode, useEffect, useState } from "react";
 import { api } from "../api.ts";
-import { chainIcon } from "../assets.ts";
+import { chainIcon, chainName } from "../assets.ts";
 import { Button, Hash, Icon, Input, Select } from "../ds.jsx";
 import { formatAmount, timeLeft } from "../format.ts";
 import { FOOTNOTE } from "./footnote.ts";
 import { type CheckoutInvoice, quoteFormError, type SavedQuote, saveQuote } from "./logic.ts";
 
 type Asset = { assetId: string; chain: string; symbol: string; decimals: number };
-const CHAIN_NAMES: Record<string, string> = { eth: "Ethereum", base: "Base", arb: "Arbitrum", btc: "Bitcoin", zec: "Zcash" };
 const LABEL = { fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--text-3)" } as const;
 const PANEL = { display: "flex", gap: 16, alignItems: "center", padding: "14px 16px", border: "1px solid var(--border-1)", borderRadius: "var(--radius-2)", background: "var(--ink-50)" } as const;
-const chainName = (c: string) => CHAIN_NAMES[c] ?? c;
 
 /// The export's QR panel: a placeholder before the quote, the deposit after.
 export function DepositPanel({ quote, now }: { quote?: SavedQuote; now: number }) {

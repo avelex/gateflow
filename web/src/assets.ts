@@ -10,3 +10,6 @@ const TOKENS: Record<string, string> = { USDC: usdc, nBTC: bitcoin, BTC: bitcoin
 
 export const chainIcon = (chain: string): string | undefined => CHAINS[chain];
 export const tokenIcon = (symbol: string): string | undefined => TOKENS[symbol];
+
+export const CHAIN_NAMES: Record<string, string> = { near: "NEAR", eth: "Ethereum", base: "Base", arb: "Arbitrum", btc: "Bitcoin", zec: "Zcash" };
+export const chainName = (chain: string): string => CHAIN_NAMES[chain] ?? chain;
