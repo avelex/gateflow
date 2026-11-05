@@ -44,7 +44,7 @@ The Invoices screen SHALL let the merchant create an invoice from token, amount,
 - **THEN** no invoice is created and the form keeps its values
 
 ### Requirement: Invoice list
-The Invoices screen SHALL list the gateway's invoices newest first with id, payer, amount and token, memo, a time and status, and SHALL filter by All, Open, Paying, Paid, Returned and Expired, where Expired means Open past its expiry. The time SHALL be the close time for a Paid or Returned invoice whose close time is known, and the expiry otherwise, labeled so the two cannot be confused.
+The Invoices screen SHALL list the gateway's invoices newest first with id, payer, amount and token, a time and status, and SHALL filter by All, Open, Paying, Paid, Returned and Expired, where Expired means Open past its expiry. The payer SHALL be one shortened address with a copy action and, when its chain is known, an explorer link. The time SHALL carry no label: the close time for a Paid or Returned invoice, the expiry for any other, and a dash for a Paid or Returned invoice whose close time is unknown.
 
 #### Scenario: Expired filter
 - **WHEN** an Open invoice's expiry has passed
@@ -52,11 +52,27 @@ The Invoices screen SHALL list the gateway's invoices newest first with id, paye
 
 #### Scenario: Paid invoice time
 - **WHEN** invoice 4 was paid and its payment closed at 2026-11-05 05:50 UTC
-- **THEN** its row shows "Paid 2026-11-05 05:50" and not its expiry
+- **THEN** its row shows "2026-11-05 05:50" and not its expiry
 
 #### Scenario: Close time unknown
 - **WHEN** a Paid invoice's payment has no close time
-- **THEN** its row shows the expiry, labeled as the expiry
+- **THEN** its row shows "—" as the time
+
+#### Scenario: Cross-chain payer
+- **WHEN** invoice 6 was paid from `0x200f…7414` on Arbitrum
+- **THEN** its row shows `0x200f…7414` with a copy action and a link to the address on Arbiscan, without the chain name
+
+#### Scenario: NEAR payer
+- **WHEN** an invoice was paid directly by `alice.near`
+- **THEN** its row shows `alice.near` linked to the account on NearBlocks
+
+#### Scenario: Copy without opening
+- **WHEN** Kaja uses the payer's copy action or explorer link in a row
+- **THEN** the invoice modal does not open
+
+#### Scenario: No memo column
+- **WHEN** Kaja views the Invoices screen
+- **THEN** the list has no memo column
 
 ### Requirement: Screening view
 The Screening screen SHALL list the gateway's payments in tabs Pending, Refunded and Failed (`SettleFailed` or `RefundFailed`) with amount, token, invoice, payer and age, show counts per tab, and offer Retry on Failed payments.
@@ -91,11 +107,11 @@ Search (shortcut Cmd/Ctrl+K) SHALL find the merchant's invoices, payments and ch
 - **THEN** a new thread opens with her query as the first message
 
 ### Requirement: No chain vocabulary by default
-The console SHALL present amounts in token units with the relay's display symbols and SHALL NOT show gas, yoctoNEAR, nonces or transaction hashes except in an expandable details section.
+The console SHALL present amounts in token units with the relay's display symbols and SHALL NOT show gas, yoctoNEAR or nonces, and SHALL show transaction hashes only in the invoice modal's Passport tab.
 
 #### Scenario: Invoice details
 - **WHEN** Kaja opens an invoice in `nbtc.bridge.near`
-- **THEN** amounts show as `0.01 BTC`, and transaction hashes appear only after expanding Details
+- **THEN** amounts show as `0.01 BTC`, and transaction hashes appear only on the Passport tab
 
 ### Requirement: Ask about invoices
 The Invoices screen SHALL offer an input "Ask about invoices" that sends its text to the assistant in a new thread and opens the chat view.
@@ -142,31 +158,31 @@ The backend SHALL return, for the session's gateway, each allowlisted token with
 - **THEN** the USDC entry carries the raw balance `40000000` with 6 decimals and symbol USDC
 
 ### Requirement: Invoice screening details
-The invoice's expandable Details section SHALL show a Screening block once the invoice has a payment: the flow (direct or cross-chain), the risk limit the payment was screened against, the deposit address for a cross-chain payment, the OutLayer project, and, when evidence exists, the outcome, request id, wasm hash, run time, cost in NEAR, and links to the NEAR explorer transaction and to OutLayer executions.
+The invoice modal's Passport tab SHALL show an Invoice group (memo when set, token contract, payment id) and, once the invoice has a payment, a Screening group: the flow (direct or cross-chain), the risk limit the payment was screened against, the deposit address for a cross-chain payment, the OutLayer project, and, when evidence exists, the outcome, the attestation (the request id, linked to its attestation or to OutLayer executions) and the NEAR explorer transaction. It SHALL NOT show the wasm hash, run time or cost.
 
 #### Scenario: Settled direct payment
-- **WHEN** Kaja expands Details on a Paid invoice whose payment was screened as request 2792 by wasm `11a4ef…` in 1410 ms
-- **THEN** the Screening block shows flow Direct, the risk limit, project `ops.gateflow.near/gateflow`, outcome Approved, request 2792, wasm `11a4ef…`, 1.4 s, the cost, and both links
+- **WHEN** Kaja opens the Passport tab of a Paid invoice whose payment was screened as request 2792
+- **THEN** the Screening group shows flow Direct, the risk limit, project `ops.gateflow.near/gateflow`, outcome Approved, attestation 2792 and the transaction link, and no wasm hash, run time or cost
 
 #### Scenario: Cross-chain payment
-- **WHEN** Kaja expands Details on an invoice whose payment has a 1Click `ref`
-- **THEN** the Screening block shows flow Cross-chain and the deposit address
+- **WHEN** Kaja opens the Passport tab of an invoice whose payment has a 1Click `ref`
+- **THEN** the Screening group shows flow Cross-chain and the deposit address
 
-#### Scenario: Request linked to its attestation
+#### Scenario: Attestation linked
 - **WHEN** the payment's evidence has `jobId` 1255332 and request id 2796
-- **THEN** the request field shows 2796 and links to `https://app.outlayer.ai/attestation/1255332?network=mainnet` instead of OutLayer executions
+- **THEN** the Attestation field shows 2796 and links to `https://app.outlayer.ai/attestation/1255332?network=mainnet` instead of OutLayer executions
 
 #### Scenario: Returned without a verdict
-- **WHEN** Kaja expands Details on a Returned invoice whose screening outcome is `no_verdict`
-- **THEN** the Screening block says no verdict arrived within 15 minutes and shows no wasm hash as the screening code
+- **WHEN** Kaja opens the Passport tab of a Returned invoice whose screening outcome is `no_verdict`
+- **THEN** the Screening group says no verdict arrived within 15 minutes and shows no attestation
 
 #### Scenario: Evidence unavailable
 - **WHEN** the invoice's payment has no recorded screening transaction
-- **THEN** the Screening block shows flow, risk limit and project, and says the screening record is unavailable
+- **THEN** the Screening group shows flow, risk limit and project, and says the screening record is unavailable
 
-#### Scenario: Collapsed by default
-- **WHEN** Kaja opens an invoice without expanding Details
-- **THEN** no wasm hash, request id or cost is visible
+#### Scenario: Timeline by default
+- **WHEN** Kaja opens an invoice
+- **THEN** the Timeline tab is selected and no request id or hash is visible
 
 ### Requirement: Payments carry screening evidence
 The console's payments data SHALL include each payment's screening evidence, or null when none is recorded, and, for a cross-chain payment whose origin sender is known, the origin chain and sender addresses.
@@ -201,16 +217,28 @@ The console SHALL name a payment's payer as follows:
 - **WHEN** a payment has no `ref` and sender `alice.near`
 - **THEN** the payer shows as `alice.near`
 
-### Requirement: Invoice card close time
-The invoice card SHALL show "paid <time> UTC" for a Paid invoice and "returned <time> UTC" for a Returned invoice when the close time is known, in place of its expiry.
+### Requirement: Invoice modal timeline
+The invoice modal SHALL show the invoice id and status, Copy payment link, Open checkout and Close in its header, then the amount and the payer (shortened address with copy and explorer link, or "Not paid yet"), then Timeline and Passport tabs. The Timeline tab SHALL list what happened to the payment with UTC times where known: the deposit (cross-chain only), held in the contract, the screening outcome with an Attestation link when OutLayer's job id is known, and Released to you or Returned to payer with a transaction link. An unpaid invoice SHALL show one step: waiting for payment (or expired unpaid) with the expiry.
 
-#### Scenario: Paid card
-- **WHEN** Kaja opens invoice 4, which closed at 2026-11-05 05:50 UTC
-- **THEN** the card says "paid 2026-11-05 05:50 UTC" and shows no expiry
+#### Scenario: Paid cross-chain invoice
+- **WHEN** Kaja opens invoice 6, paid from Arbitrum and closed at 2026-11-05 08:09 UTC
+- **THEN** the Timeline shows Deposit detected on Arbitrum, Held in your contract, Screened: approved with an Attestation link, and Released to you at 2026-11-05 08:09
+
+#### Scenario: Screening in progress
+- **WHEN** an invoice's payment is Pending
+- **THEN** the screening and release steps show as not done, and the release step has no transaction link
+
+#### Scenario: Returned invoice
+- **WHEN** an invoice's payment was Refunded after a rejected screening
+- **THEN** the last two steps are Screened: rejected and Returned to payer
+
+#### Scenario: Unpaid invoice
+- **WHEN** Kaja opens an Open invoice that expires at 2030-01-06 03:20 UTC
+- **THEN** the payer reads "Not paid yet" and the Timeline shows Waiting for payment with 2030-01-06 03:20
 
 ### Requirement: Invoice modal scrolls
 The invoice modal SHALL scroll when its content is taller than the window, and SHALL keep the page behind it fixed.
 
-#### Scenario: Details expanded
-- **WHEN** Kaja expands Details on an invoice in a 700 px tall window
-- **THEN** she can scroll the modal to its Copy payment link button
+#### Scenario: Passport tab open
+- **WHEN** Kaja opens the Passport tab of an invoice in a 700 px tall window
+- **THEN** she can scroll the modal to the Screening group's last row
