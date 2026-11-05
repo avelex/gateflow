@@ -2,6 +2,7 @@
 import { submitScreening } from "./checkout.ts";
 import type { Quote } from "./db.ts";
 import type { Deps } from "./types.ts";
+import { deliver, watchApiInvoices } from "./webhooks.ts";
 
 export const WATCH_INTERVAL_MS = 15_000;
 
@@ -32,6 +33,8 @@ export async function tick(deps: Deps): Promise<void> {
       console.error(`watcher: quote ${q.ref}:`, (e as Error).message);
     }
   }
+  await watchApiInvoices(deps);
+  await deliver(deps);
 }
 
 export function startWatcher(deps: Deps): NodeJS.Timeout {

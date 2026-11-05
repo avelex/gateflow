@@ -194,6 +194,8 @@ export function openDb(path: string) {
     WHERE d.done = 0 AND d.next_at_ms <= ? AND d.id = (SELECT MIN(id) FROM webhook_deliveries WHERE invoice = d.invoice AND done = 0)
     ORDER BY d.id`);
   const finishDelivery = q("UPDATE webhook_deliveries SET done = ?, attempts = ?, next_at_ms = ? WHERE id = ?");
+  const liveApi = q("SELECT * FROM api_invoices WHERE status IN ('open', 'paying') ORDER BY invoice");
+  const setApiStatus = q("UPDATE api_invoices SET status = ? WHERE invoice = ?");
   const keyOwner = q("SELECT email FROM api_keys WHERE hash = ? AND revoked_at IS NULL");
 
   return {
@@ -274,6 +276,9 @@ export function openDb(path: string) {
       devInit.run(gateway);
       setOrigins.run(JSON.stringify(origins), gateway);
     },
+    /// API invoices whose last seen status is open or paying.
+    liveApiInvoices: () => liveApi.all().map((r) => ({ ...r }) as ApiInvoice),
+    setApiStatus: (invoice: number, status: string) => void setApiStatus.run(status, invoice),
     queueDelivery: (invoice: number, event: string, body: string, nowMs: number) => void newDelivery.run(invoice, event, body, nowMs),
     dueDeliveries: (nowMs: number) => due.all(nowMs).map((r) => ({ ...r }) as Delivery),
     /// `next_at_ms` null closes the delivery: delivered (`ok`) or given up.

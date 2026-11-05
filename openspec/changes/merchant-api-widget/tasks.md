@@ -154,7 +154,7 @@
   - `deliver_retry_then_ok`
   - `webhook_refuses_private`
   - `webhook_refuses_resolved_private`
-- [ ] 4.3 In `watcher.ts` `tick`, call `get_invoice` for each non-final `api_invoices` row. On a status change, or on passing expiry while Open, update the row and queue the events (both `paying` and `paid` when a tick skips straight to paid), then call `deliver`.
+- [x] 4.3 In `watcher.ts` `tick`, call `get_invoice` for each non-final `api_invoices` row. On a status change, or on passing expiry while Open, update the row and queue the events (both `paying` and `paid` when a tick skips straight to paid), then call `deliver`.
 
   Tests:
   - `watch_queues_paying_paid`

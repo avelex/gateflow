@@ -2,6 +2,8 @@
 import { createHmac } from "node:crypto";
 import { lookup } from "node:dns/promises";
 import { BlockList, isIP } from "node:net";
+import { type ApiStatus, type ChainInvoice, invoiceObject } from "./api.ts";
+import { tokenMeta } from "./console.ts";
 import type { Deps } from "./types.ts";
 
 export const RETRY_DELAYS_SEC = [60, 300, 1800, 7200, 43200];
@@ -63,5 +65,33 @@ export async function deliver(deps: Deps, io: WebhookIo = realIo): Promise<void>
     }
     const attempts = d.attempts + 1;
     deps.db.updateDelivery(d.id, attempts, ok ? null : (retryAt(attempts, deps.now()) ?? null), ok);
+  }
+}
+
+/// Events a move from `from` to `to` emits; a tick that skips Paying still reports it first.
+export function eventsFor(from: ApiStatus, to: ApiStatus): string[] {
+  if (from === to) return [];
+  const out: string[] = [];
+  if (from === "open" && (to === "paid" || to === "returned")) out.push("invoice.paying");
+  out.push(`invoice.${to}`);
+  return out;
+}
+
+/// Reads every live API invoice from the chain and queues one webhook per transition for gateways with a URL.
+export async function watchApiInvoices(deps: Deps): Promise<void> {
+  for (const row of deps.db.liveApiInvoices()) {
+    try {
+      const inv: ChainInvoice | null = await deps.near.view(deps.cfg.gateflow, "get_invoice", { invoice: row.invoice });
+      if (!inv) continue;
+      const obj = invoiceObject(row.invoice, inv, await tokenMeta(deps, inv.token), deps.cfg.publicUrl, deps.now());
+      const events = eventsFor(row.status as ApiStatus, obj.status);
+      if (events.length === 0) continue;
+      deps.db.setApiStatus(row.invoice, obj.status);
+      if (!deps.db.gatewayDev(row.gateway).webhook_url) continue;
+      const createdAt = new Date(deps.now()).toISOString();
+      for (const event of events) deps.db.queueDelivery(row.invoice, event, JSON.stringify({ event, created_at: createdAt, data: obj }), deps.now());
+    } catch (e) {
+      console.error(`watcher: api invoice ${row.invoice}:`, (e as Error).message);
+    }
   }
 }

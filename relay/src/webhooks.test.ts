@@ -99,3 +99,66 @@ test("webhook_refuses_resolved_private", async () => {
   await deliver(deps, io);
   assert.equal(calls.length, 0);
 });
+
+import { eventsFor, watchApiInvoices } from "./webhooks.ts";
+
+function watched(webhook = true) {
+  const deps = fakeDeps({ publicUrl: "https://gw.example" });
+  const chain: Record<number, any> = { 7: { gateway: 0, token: "usdc.testnet", amount: "10000000", expires_at_sec: Math.floor(deps.now() / 1000) + 600, memo: "o1", status: "Open", payment: null } };
+  deps.near.viewTable["gateflow.testnet.get_invoice"] = ({ invoice }: any) => chain[invoice] ?? null;
+  deps.near.viewTable["usdc.testnet.ft_metadata"] = { symbol: "USDC", decimals: 6 };
+  deps.db.insertApiInvoice({ invoice: 7, gateway: 0, order_id: "o1", expires_at_ms: (chain[7].expires_at_sec) * 1000 });
+  if (webhook) deps.db.setWebhook(0, "https://shop.example/hook", "whsec_test");
+  return { deps, chain };
+}
+
+/// Every queued delivery's event and parsed body, oldest first; marks them delivered.
+function allDeliveries(deps: ReturnType<typeof fakeDeps>) {
+  const out: any[] = [];
+  for (let d = deps.db.dueDeliveries(Number.MAX_SAFE_INTEGER)[0]; d; d = deps.db.dueDeliveries(Number.MAX_SAFE_INTEGER)[0]) {
+    out.push({ event: d.event, body: JSON.parse(d.body) });
+    deps.db.updateDelivery(d.id, 1, null, true);
+  }
+  return out;
+}
+
+test("events_for_transitions", () => {
+  assert.deepEqual(eventsFor("open", "open"), []);
+  assert.deepEqual(eventsFor("open", "paying"), ["invoice.paying"]);
+  assert.deepEqual(eventsFor("open", "paid"), ["invoice.paying", "invoice.paid"]);
+  assert.deepEqual(eventsFor("paying", "returned"), ["invoice.returned"]);
+  assert.deepEqual(eventsFor("open", "expired"), ["invoice.expired"]);
+});
+
+test("watch_queues_paying_paid", async () => {
+  const { deps, chain } = watched();
+  await watchApiInvoices(deps);
+  assert.deepEqual(allDeliveries(deps), []);
+  chain[7].status = "Paying";
+  await watchApiInvoices(deps);
+  chain[7].status = "Paid";
+  await watchApiInvoices(deps);
+  await watchApiInvoices(deps);
+  const got = allDeliveries(deps);
+  assert.deepEqual(got.map((g) => g.event), ["invoice.paying", "invoice.paid"]);
+  assert.deepEqual(Object.keys(got[1].body).sort(), ["created_at", "data", "event"]);
+  assert.equal(got[1].body.data.order_id, "o1");
+  assert.equal(got[1].body.data.status, "paid");
+  assert.deepEqual(deps.db.liveApiInvoices(), []);
+});
+
+test("watch_expired_once", async () => {
+  const { deps } = watched();
+  deps.clock.ms += 600_000;
+  await watchApiInvoices(deps);
+  await watchApiInvoices(deps);
+  assert.deepEqual(allDeliveries(deps).map((g) => g.event), ["invoice.expired"]);
+});
+
+test("watch_no_webhook_url_no_queue", async () => {
+  const { deps, chain } = watched(false);
+  chain[7].status = "Paid";
+  await watchApiInvoices(deps);
+  assert.deepEqual(allDeliveries(deps), []);
+  assert.deepEqual(deps.db.liveApiInvoices(), []);
+});
