@@ -44,7 +44,7 @@
 
 ## 2. Chain list in the checkout
 
-- [ ] 2.1 In `web/src/checkout/CrossChainPay.tsx`, replace `ChainCard` with `ChainRow({ asset, nested, selected, onPick })`, rendered from `chainRows(assets)`. Apply design decision 4:
+- [x] 2.1 In `web/src/checkout/CrossChainPay.tsx`, replace `ChainCard` with `ChainRow({ asset, nested, selected, onPick })`, rendered from `chainRows(assets)`. Apply design decision 4:
   - **Group:** the `role="group"` container becomes a flex column with no gap. It keeps its `aria-label` and the "Pay <symbol> from" label above it.
   - **Row base:** `<button aria-pressed className="hv">` with no border, `--radius-2` corners, and padding `10px 12px`.
   - **Row content:** a 28 px icon (or the existing letter circle), the chain name at 14 px / 600, and an `Icon name="check"` pushed to the right edge when the row is selected.

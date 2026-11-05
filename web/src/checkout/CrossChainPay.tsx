@@ -7,7 +7,7 @@ import { chainIcon, chainName } from "../assets.ts";
 import { Button, Hash, Icon, Input } from "../ds.jsx";
 import { formatAmount, timeLeft } from "../format.ts";
 import { FOOTNOTE } from "./footnote.ts";
-import { type CheckoutInvoice, feeLine, quoteFormError, type SavedQuote, saveQuote } from "./logic.ts";
+import { chainRows, type CheckoutInvoice, feeLine, quoteFormError, type SavedQuote, saveQuote } from "./logic.ts";
 
 type Asset = { assetId: string; chain: string; symbol: string; decimals: number };
 const LABEL = { fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--text-3)" } as const;
@@ -57,8 +57,9 @@ export function DepositPanel({ quote, now, inv }: { quote?: SavedQuote; now: num
   );
 }
 
-/// One chain the payer can send the invoice's asset from: icon (or initial), chain name and symbol.
-function ChainCard({ asset, selected, onPick }: { asset: Asset; selected: boolean; onPick(): void }) {
+/// One chain the payer can send the invoice's asset from: icon (or initial) and chain name, a check when selected.
+/// A nested row is an L2 listed under its parent chain.
+function ChainRow({ asset, nested, selected, onPick }: { asset: Asset; nested: boolean; selected: boolean; onPick(): void }) {
   const icon = chainIcon(asset.chain);
   return (
     <button
@@ -70,16 +71,17 @@ function ChainCard({ asset, selected, onPick }: { asset: Asset; selected: boolea
         display: "flex",
         alignItems: "center",
         gap: 10,
-        padding: "10px 12px",
+        padding: nested ? "10px 12px 10px 24px" : "10px 12px",
         textAlign: "left",
         cursor: "pointer",
         font: "inherit",
         color: "var(--text-1)",
-        background: selected ? "var(--surface-selected)" : "var(--surface-card)",
-        border: `${selected ? 2 : 1}px solid ${selected ? "var(--ee-blue)" : "var(--border-2)"}`,
+        background: selected ? "var(--surface-selected)" : "transparent",
+        border: "none",
         borderRadius: "var(--radius-2)",
       }}
     >
+      {nested && <span aria-hidden="true" style={{ width: 6, height: 6, flex: "none", borderRadius: "50%", background: "var(--ink-150)" }} />}
       {icon ? (
         <img src={icon} alt="" style={{ width: 28, height: 28, flex: "none", display: "block" }} />
       ) : (
@@ -87,10 +89,8 @@ function ChainCard({ asset, selected, onPick }: { asset: Asset; selected: boolea
           {chainName(asset.chain)[0]}
         </span>
       )}
-      <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
-        <span style={{ fontSize: 14, fontWeight: 600 }}>{chainName(asset.chain)}</span>
-        <span style={{ fontSize: 12, color: "var(--text-3)" }}>{asset.symbol}</span>
-      </span>
+      <span style={{ fontSize: 14, fontWeight: 600 }}>{chainName(asset.chain)}</span>
+      {selected && <span style={{ marginLeft: "auto", display: "flex", color: "var(--text-1)" }}><Icon name="check" size={18} /></span>}
     </button>
   );
 }
@@ -143,9 +143,9 @@ export default function CrossChainPay({ inv, onQuote, children }: { inv: Checkou
         {assets && assets.length > 0 && (
           <div role="group" aria-label={`Pay ${inv.symbol} from`} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <span style={LABEL}>Pay {inv.symbol} from</span>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(140px,1fr))", gap: 8 }}>
-              {assets.map((a) => (
-                <ChainCard key={a.assetId} asset={a} selected={a.assetId === originAsset} onPick={() => setOriginAsset(a.assetId)} />
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              {chainRows(assets).map(({ asset: a, nested }) => (
+                <ChainRow key={a.assetId} asset={a} nested={nested} selected={a.assetId === originAsset} onPick={() => setOriginAsset(a.assetId)} />
               ))}
             </div>
           </div>
