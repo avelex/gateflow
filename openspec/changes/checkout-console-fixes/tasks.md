@@ -45,7 +45,7 @@
 
 - [ ] 2.1 Make the `InvoiceModal` overlay in `web/src/console/Invoices.tsx` scroll: `overflowY: "auto"` on the `position:absolute; inset:0` div.
   - Verify: run `npm run dev`, open an invoice in a 700 px tall window, expand Details, and scroll the modal to "Copy payment link".
-- [ ] 2.2 In `systemPrompt` in `relay/src/chat.ts`:
+- [x] 2.2 In `systemPrompt` in `relay/src/chat.ts`:
   - Add the rule `- Write plain text only, without Markdown: no **, #, backticks or bullet markup.`
   - Change the amount example to `0.01 BTC`.
   - Remove `"BTC" means nBTC`, keeping the NEAR and dollars aliases.

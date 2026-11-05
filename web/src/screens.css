@@ -2,3 +2,10 @@
 .hv:hover { background: var(--surface-hover) !important; }
 .hv-text:hover { background: var(--surface-hover) !important; color: var(--text-1) !important; }
 .hv-ink:hover { background: var(--ink-150) !important; }
+
+/* Chat "Thinking" dots: a staggered pulse, still under reduced motion. */
+@keyframes gf-think { 0%, 80%, 100% { opacity: 0.2; } 40% { opacity: 1; } }
+.gf-think span { animation: gf-think 1.2s infinite var(--ease-standard, ease-in-out); }
+.gf-think span:nth-child(2) { animation-delay: 0.2s; }
+.gf-think span:nth-child(3) { animation-delay: 0.4s; }
+@media (prefers-reduced-motion: reduce) { .gf-think span { animation: none; } }

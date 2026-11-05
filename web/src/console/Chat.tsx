@@ -121,7 +121,14 @@ export default function Chat({ thread, data, refresh, toast }: ScreenProps & { t
           {thinking && (
             <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
               <Avatar />
-              <span style={{ fontSize: 13, color: "var(--blue-600)" }}>Thinking…</span>
+              <span role="status" style={{ fontSize: 13, color: "var(--blue-600)" }}>
+                Thinking
+                <span className="gf-think" aria-hidden="true">
+                  <span>.</span>
+                  <span>.</span>
+                  <span>.</span>
+                </span>
+              </span>
             </div>
           )}
           {error && <div style={{ fontSize: 13, color: "var(--red-700)" }}>{error}</div>}

@@ -111,7 +111,7 @@ function InvoiceModal({ children, onClose }: { children: ReactNode; onClose(): v
     return () => removeEventListener("keydown", esc);
   }, [onClose]);
   return (
-    <div onClick={onClose} style={{ position: "absolute", inset: 0, zIndex: 50, background: "rgba(10,12,16,.48)", display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "96px 32px 32px" }}>
+    <div onClick={onClose} style={{ position: "absolute", inset: 0, zIndex: 50, overflowY: "auto", background: "rgba(10,12,16,.48)", display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "96px 32px 32px" }}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: 620, maxWidth: "100%" }}>
         {children}
       </div>

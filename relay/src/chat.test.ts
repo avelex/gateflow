@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { openDb } from "./db.ts";
-import { llmClient } from "./chat.ts";
+import { llmClient, systemPrompt } from "./chat.ts";
 import { loadConfig } from "./types.ts";
 
 // ---------- storage and model client ----------
@@ -556,4 +556,10 @@ test("complete_has_timeout", async () => {
   } finally {
     globalThis.fetch = realFetch;
   }
+});
+
+test("prompt_plain_text", () => {
+  const p = systemPrompt([{ symbol: "BTC", decimals: 8, token: "nbtc.bridge.near" }], new Date(0));
+  assert.match(p, /plain text/);
+  assert.doesNotMatch(p, /nBTC/);
 });
