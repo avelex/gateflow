@@ -94,6 +94,8 @@ export type Action =
   | { createAccount: true }
   | { transfer: bigint }
   | { addFullAccessKey: Uint8Array }
+  | { addFunctionCallKey: { publicKey: Uint8Array; allowance: bigint | null; receiver: string; methods: string[] } }
+  | { deleteKey: Uint8Array }
   | { functionCall: { method: string; args: object; gas: bigint; deposit: bigint } }
   | { signedDelegate: Uint8Array };
 
@@ -104,6 +106,14 @@ export function writeAction(w: Writer, a: Action): void {
     w.u8(2).string(f.method).bytes(new TextEncoder().encode(JSON.stringify(f.args))).u64(f.gas).u128(f.deposit);
   } else if ("transfer" in a) w.u8(3).u128(a.transfer);
   else if ("addFullAccessKey" in a) w.u8(5).publicKey(a.addFullAccessKey).u64(0n).u8(1);
+  else if ("addFunctionCallKey" in a) {
+    const k = a.addFunctionCallKey;
+    w.u8(5).publicKey(k.publicKey).u64(0n).u8(0);
+    if (k.allowance === null) w.u8(0);
+    else w.u8(1).u128(k.allowance);
+    w.string(k.receiver).u32(k.methods.length);
+    for (const m of k.methods) w.string(m);
+  } else if ("deleteKey" in a) w.u8(6).publicKey(a.deleteKey);
   else w.u8(8).raw(a.signedDelegate);
 }
 

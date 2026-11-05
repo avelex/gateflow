@@ -3,7 +3,11 @@ import { type Action, base58encode, sha256, signer, writeAction, Writer } from "
 
 export type DecodedAction =
   | { kind: "functionCall"; method: string; args: Uint8Array; gas: bigint; deposit: bigint }
+  | { kind: "addKey"; publicKey: string; permission: KeyPermission }
+  | { kind: "deleteKey"; publicKey: string }
   | { kind: "other"; tag: number };
+
+export type KeyPermission = { fullAccess: true } | { allowance: bigint | null; receiver: string; methods: string[] };
 
 export type DelegateAction = {
   senderId: string;
@@ -18,6 +22,9 @@ export type DelegateAction = {
 
 export const ALLOWED_METHODS = ["create_gateway", "create_invoice", "set_policy"];
 export const MAX_GAS = 100n * 10n ** 12n;
+/// Allowance of the invoice signer key. ponytail: unlimited until the testnet spike (task 0.1) shows delegate actions spend it.
+export const SIGNER_ALLOWANCE: bigint | null = null;
+export const SIGNER_METHODS = ["create_invoice"];
 
 class Reader {
   b: Uint8Array;
@@ -84,19 +91,17 @@ function readAction(r: Reader): DecodedAction {
       break;
     case 5: {
       // AddKey
-      r.publicKey();
+      const publicKey = r.publicKey();
       r.uint(8);
-      if (r.u8() === 0) {
-        if (r.u8() === 1) r.uint(16);
-        r.string();
-        const n = r.u32();
-        for (let i = 0; i < n; i++) r.string();
-      }
-      break;
+      if (r.u8() !== 0) return { kind: "addKey", publicKey, permission: { fullAccess: true } };
+      const allowance = r.u8() === 1 ? r.uint(16) : null;
+      const receiver = r.string();
+      const methods: string[] = [];
+      for (let i = r.u32(); i > 0; i--) methods.push(r.string());
+      return { kind: "addKey", publicKey, permission: { allowance, receiver, methods } };
     }
-    case 6: // DeleteKey
-      r.publicKey();
-      break;
+    case 6:
+      return { kind: "deleteKey", publicKey: r.publicKey() };
     case 7: // DeleteAccount
       r.string();
       break;
@@ -133,8 +138,10 @@ function payoutOf(args: Uint8Array): unknown {
   }
 }
 
-export function refusal(d: DelegateAction, sessionAccount: string, gateflow: string): string | undefined {
+/// Why the relay won't sponsor `d`, or undefined. On the merchant's own account only the invoice signer key may be added or deleted.
+export function refusal(d: DelegateAction, sessionAccount: string, gateflow: string, signerPub?: string): string | undefined {
   if (d.senderId !== sessionAccount) return "sender is not your account";
+  if (d.receiverId === sessionAccount) return keyRefusal(d, gateflow, signerPub);
   if (d.receiverId !== gateflow) return "receiver is not the Gateflow contract";
   if (d.actions.length === 0) return "no actions";
   for (const a of d.actions) {
@@ -145,6 +152,18 @@ export function refusal(d: DelegateAction, sessionAccount: string, gateflow: str
     if (a.method === "create_gateway" && payoutOf(a.args) !== d.senderId) return "gateway must pay out to your account";
   }
   return undefined;
+}
+
+function keyRefusal(d: DelegateAction, gateflow: string, signerPub?: string): string | undefined {
+  if (!signerPub) return "the API is not available on this relay";
+  if (d.actions.length !== 1) return "only one key action is sponsored";
+  const a = d.actions[0];
+  if (a.kind === "deleteKey") return a.publicKey === signerPub ? undefined : "only the invoice signer key can be deleted";
+  if (a.kind !== "addKey") return "only the invoice signer key can be added";
+  if (a.publicKey !== signerPub) return "only the invoice signer key can be added";
+  const p = a.permission;
+  const exact = !("fullAccess" in p) && p.allowance === SIGNER_ALLOWANCE && p.receiver === gateflow && p.methods.length === 1 && p.methods[0] === SIGNER_METHODS[0];
+  return exact ? undefined : "the invoice signer key must call only create_invoice on Gateflow";
 }
 
 /// `u32le(2^30 + 366) || borsh(DelegateAction)`, the NEP-366 signing input before sha256.

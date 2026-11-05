@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { SESSION_COOKIE } from "./console.ts";
 import { developerRoutes } from "./developers.ts";
 import { dispatch } from "./main.ts";
+import { secretFromSeed, signer } from "./near.ts";
 import { fakeDeps, req, type TestDeps } from "./testing.ts";
 
 /// A finished merchant with gateway `gateway` and a session cookie.
@@ -41,4 +42,18 @@ test("api_keys_other_merchant", async () => {
   assert.equal((await call(deps, "DELETE", "/console/api-keys?id=%25", undefined, kaja.cookies)).status, 404);
   assert.equal((await call(deps, "DELETE", `/console/api-keys?id=${id}`, undefined, kaja.cookies)).status, 200);
   assert.deepEqual((await call(deps, "GET", "/console/api-keys", undefined, kaja.cookies)).json, []);
+});
+
+test("dev_enabled_after_add_key", async () => {
+  const secret = secretFromSeed(new Uint8Array(32).fill(9));
+  const deps = fakeDeps({ invoiceSigner: secret });
+  const { account, cookies } = merchant(deps);
+  const pub = signer(secret).publicKeyString;
+  const before = (await call(deps, "GET", "/console/dev", undefined, cookies)).json as any;
+  assert.deepEqual(before, { available: true, enabled: false, signerPublicKey: pub, allowance: null, receiver: "gateflow.testnet", methods: ["create_invoice"] });
+  deps.near.keys[`${account}/${pub}`] = 0n;
+  assert.equal(((await call(deps, "GET", "/console/dev", undefined, cookies)).json as any).enabled, true);
+  const none = fakeDeps();
+  const m2 = merchant(none);
+  assert.equal(((await call(none, "GET", "/console/dev", undefined, m2.cookies)).json as any).available, false);
 });

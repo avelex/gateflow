@@ -4,7 +4,7 @@ import { originOf } from "./origin.ts";
 import { isDeepStrictEqual } from "node:util";
 import type { ChatAction, Db, Merchant } from "./db.ts";
 import { decodeSignedDelegate, refusal } from "./delegate.ts";
-import { base58decode, publicKeyBytes } from "./near.ts";
+import { base58decode, publicKeyBytes, signer } from "./near.ts";
 import { evidenceFor } from "./screening.ts";
 import { type Deps, type Handler, HttpError, ok, type Req } from "./types.ts";
 
@@ -30,6 +30,9 @@ export function requireSession(req: Req, deps: Deps): string {
 }
 
 /// The session's merchant with a provisioned account, or 401 / 409.
+/// Public key of the relay's invoice signer, or undefined when the API is not configured.
+export const signerPublicKey = (deps: Deps) => (deps.cfg.invoiceSigner ? signer(deps.cfg.invoiceSigner).publicKeyString : undefined);
+
 export function requireMerchant(req: Req, deps: Deps): Merchant & { account_id: string; public_key: string } {
   const m = deps.db.merchantByEmail(requireSession(req, deps));
   if (!m?.account_id || !m.public_key) throw new HttpError(409, "finish onboarding first");
@@ -239,13 +242,13 @@ const relay: Handler = async (req, deps) => {
   } catch {
     throw new HttpError(400, "not a signed delegate action");
   }
-  const reason = refusal(d, m.account_id, deps.cfg.gateflow);
+  const reason = refusal(d, m.account_id, deps.cfg.gateflow, signerPublicKey(deps));
   if (reason) throw new HttpError(403, reason);
   const createsGateway = d.actions.some((a) => a.kind === "functionCall" && a.method === "create_gateway");
   if (createsGateway && m.gateway_id !== null) throw new HttpError(409, "you already have a gateway");
   const action = req.body?.actionId === undefined ? undefined : bindAction(deps, d, req.body.actionId, m.email);
 
-  const r = await submitClaimed(deps, action, () => deps.near.send(d.senderId, [{ signedDelegate: d.raw }], deps.cfg.gateflow));
+  const r = await submitClaimed(deps, action, () => deps.near.send(d.senderId, [{ signedDelegate: d.raw }], d.receiverId));
   if (action && r.error) finishAction(deps.db, action, "failed", { error: r.error }, deps.now());
   else if (action) {
     const outcome =

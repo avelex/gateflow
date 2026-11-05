@@ -72,7 +72,7 @@
 
 ## 2. Signer key guard
 
-- [ ] 2.1 In `relay/src/delegate.ts`, make `readAction` return `{kind: "addKey", publicKey, permission}` and `{kind: "deleteKey", publicKey}`. `publicKey` is in `ed25519:<base58>` form, and `permission` is `{fullAccess: true}` or `{allowance, receiver, methods}`.
+- [x] 2.1 In `relay/src/delegate.ts`, make `readAction` return `{kind: "addKey", publicKey, permission}` and `{kind: "deleteKey", publicKey}`. `publicKey` is in `ed25519:<base58>` form, and `permission` is `{fullAccess: true}` or `{allowance, receiver, methods}`.
 
   Extend `refusal(d, sessionAccount, gateflow, signerPub?)`. When `d.receiverId === sessionAccount`, allow exactly one action:
   - `addKey(signerPub, {allowance: SIGNER_ALLOWANCE, receiver: gateflow, methods: ["create_invoice"]})`, or
@@ -87,7 +87,7 @@
   - `guard_refuses_extra_method`
   - `guard_refuses_other_key_delete`
   - `guard_refuses_two_actions`
-- [ ] 2.2 In `POST /console/relay`, pass `signerPub` and use executor = sender for key actions.
+- [x] 2.2 In `POST /console/relay`, pass `signerPub` and use executor = sender for key actions.
   - Add `GET /console/dev`, returning `{enabled, signerPublicKey, allowance, webhookUrl, origins}`. `enabled` comes from `near.accessKey(account, signerPub)`.
   - Test `dev_enabled_after_add_key` uses the fake Near from `testing.ts`.
 

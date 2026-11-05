@@ -518,3 +518,16 @@ test("payments_carry_origin", async () => {
   assert.deepEqual(rows.find((p) => p.id === 1).origin, { chain: "base", senders: ["0x12ab"] });
   assert.equal(rows.find((p) => p.id === 0).origin, null);
 });
+
+test("relay_signer_key_add_executes_on_account", async () => {
+  const signerSecret = secretFromSeed(new Uint8Array(32).fill(9));
+  const deps = fakeDeps({ invoiceSigner: signerSecret });
+  const { cookies, key } = await onboarded(deps);
+  const add: Action = { addFunctionCallKey: { publicKey: signer(signerSecret).publicKey, allowance: null, receiver: "gateflow.testnet", methods: ["create_invoice"] } };
+  const sd = signDelegate({ senderId: key.accountId, receiverId: key.accountId, actions: [add], nonce: 2n, maxBlockHeight: 1120n, publicKey: signer(key.secret).publicKey }, key.secret);
+  const res = await call(deps, "POST", "/console/relay", { signedDelegate: sd }, cookies);
+  assert.equal(res.status, 200);
+  assert.equal(deps.near.sent.at(-1)!.executor, key.accountId);
+  const full = signDelegate({ senderId: key.accountId, receiverId: key.accountId, actions: [{ addFullAccessKey: signer(signerSecret).publicKey }], nonce: 3n, maxBlockHeight: 1120n, publicKey: signer(key.secret).publicKey }, key.secret);
+  assert.equal((await call(deps, "POST", "/console/relay", { signedDelegate: full }, cookies)).status, 403);
+});
