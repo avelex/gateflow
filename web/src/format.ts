@@ -22,6 +22,9 @@ const NEAR_ACCOUNT = /^(([a-z\d]+[-_])*[a-z\d]+\.)*([a-z\d]+[-_])*[a-z\d]+$/;
 
 export const isNearAccount = (s: string): boolean => s.length >= 2 && s.length <= 64 && NEAR_ACCOUNT.test(s);
 
+/// A time of day in UTC: "05:50:41 UTC".
+export const utcTime = (sec: number): string => `${new Date(sec * 1000).toISOString().slice(11, 19)} UTC`;
+
 /// Countdown text: "1h 05m", "4m 09s", "45s", "0s".
 export function timeLeft(sec: number): string {
   const s = Math.max(0, Math.floor(sec));

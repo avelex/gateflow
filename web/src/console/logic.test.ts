@@ -172,3 +172,19 @@ test("flow_direct_without_ref", () => {
   expect(flow(null)).toBe("Direct");
   expect(flow("r1")).toBe("Cross-chain");
 });
+
+import { invoiceTime } from "./logic.ts";
+
+const evidence = (closedAtSec: number | null) => ({ txHash: "h", requestId: 1, project: "p", wasmHash: "w", wasmUrl: null, timeMs: 1, costYocto: "1", outcome: "approved" as const, jobId: null, screenedAtSec: null, closedAtSec });
+
+test("closed_at_paid", () => {
+  const p = pay(4, "1", "Settled", new Date(), { screening: evidence(1793857841) });
+  expect(invoiceTime(inv(4, "1", USDC, { status: "Paid", payment: 4, expires_at_sec: 5 }), p)).toEqual({ label: "Paid", sec: 1793857841 });
+  expect(invoiceTime(inv(4, "1", USDC, { status: "Returned", payment: 4, expires_at_sec: 5 }), p)).toEqual({ label: "Returned", sec: 1793857841 });
+});
+
+test("closed_at_unknown_falls_back", () => {
+  const p = pay(4, "1", "Settled", new Date(), { screening: evidence(null) });
+  expect(invoiceTime(inv(4, "1", USDC, { status: "Paid", payment: 4, expires_at_sec: 5 }), p)).toEqual({ label: "Expires", sec: 5 });
+  expect(invoiceTime(inv(4, "1", USDC, { status: "Open", expires_at_sec: 5 }))).toEqual({ label: "Expires", sec: 5 });
+});

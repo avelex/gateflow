@@ -170,3 +170,21 @@ test("detail_failed_no_attestation", () => {
   const d = screeningDetail({ ...EVIDENCE, outcome: "failed", jobId: 1255332 }, true, "mainnet")!;
   expect(d.links.map((l) => l.label)).toEqual(["Transaction"]);
 });
+
+test("timeline_times_paid", () => {
+  const times = { depositSeenAtSec: 1793857780, openedAtSec: 1793857812, screenedAtSec: 1793857840, closedAtSec: 1793857841 };
+  const t = timeline(inv({ status: "Paid", payment: { id: 1, status: "Settled", refundTo: "bob.near" }, times }), "SUCCESS");
+  expect(t.map((s) => s.atSec)).toEqual([1793857780, 1793857812, 1793857840, 1793857841]);
+});
+
+test("timeline_time_missing", () => {
+  const times = { depositSeenAtSec: null, openedAtSec: 1793857812, screenedAtSec: null, closedAtSec: null };
+  const t = timeline(inv({ status: "Paid", payment: { id: 1, status: "Settled", refundTo: "bob.near" }, times }));
+  expect(t.map((s) => s.atSec)).toEqual([1793857812, undefined, undefined]);
+});
+
+test("timeline_no_time_on_current_step", () => {
+  const times = { depositSeenAtSec: null, openedAtSec: 1793857812, screenedAtSec: 1793857840, closedAtSec: null };
+  const t = timeline(inv({ status: "Paying", payment: { id: 1, status: "Pending", refundTo: "bob.near" }, times }));
+  expect(t.find((s) => s.label === "Screening in enclave")?.atSec).toBeUndefined();
+});

@@ -3,7 +3,7 @@ import { Fragment, type ReactNode, useEffect, useState } from "react";
 import { api } from "../api.ts";
 import { Button, FlowSteps, Icon } from "../ds.jsx";
 import { keyMode } from "../near/key.ts";
-import { acquireKey, amountOf, type Card, cardModel, type ChatAction, type Invoice, invoiceTab, type Payment, payerLabel, screeningFields, signAndRelay, TGAS } from "./logic.ts";
+import { acquireKey, amountOf, type Card, cardModel, type ChatAction, type Invoice, invoiceTab, invoiceTime, type Payment, payerLabel, screeningFields, signAndRelay, TGAS } from "./logic.ts";
 import type { ConsoleData } from "./Layout.tsx";
 import { message } from "./Onboarding.tsx";
 
@@ -51,7 +51,9 @@ export function InvoiceCard({ inv, tab, payer, payment, project, txHash, onCopy 
           <div style={{ fontSize: 36, lineHeight: "42px", fontWeight: 600, letterSpacing: "-0.02em", fontVariantNumeric: "tabular-nums" }}>
             {amountOf(inv)} <span style={{ fontSize: 17, fontWeight: 500, color: "var(--text-3)", letterSpacing: 0 }}>{inv.tokenMeta.symbol}</span>
           </div>
-          <div style={{ fontSize: 13, color: "var(--text-2)" }}>expires {utc(inv.expires_at_sec)} UTC</div>
+          <div style={{ fontSize: 13, color: "var(--text-2)" }}>
+            {invoiceTime(inv, payment).label.toLowerCase()} {utc(invoiceTime(inv, payment).sec)} UTC
+          </div>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: "16px 24px" }}>
           {field("Checkout link", checkoutLink(inv.id), true)}

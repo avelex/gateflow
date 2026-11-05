@@ -4,7 +4,7 @@ import { navigate } from "../App.tsx";
 import { Button, Dialog, Icon, Input, Radio, Select, Tabs } from "../ds.jsx";
 import { checkoutLink, InvoiceCard, LABEL, nowSec, StatusTag, utc } from "./cards.tsx";
 import type { ScreenProps } from "./Layout.tsx";
-import { acquireKey, amountOf, ask, EXPIRIES, type Invoice, invoiceArgs, invoiceTab, type InvoiceTab, payerLabel, signAndRelay, TGAS } from "./logic.ts";
+import { acquireKey, amountOf, ask, EXPIRIES, type Invoice, invoiceArgs, invoiceTab, type InvoiceTab, invoiceTime, payerLabel, signAndRelay, TGAS } from "./logic.ts";
 import { keyMode } from "../near/key.ts";
 import { message } from "./Onboarding.tsx";
 
@@ -24,9 +24,14 @@ export default function Invoices({ data, refresh, toast }: ScreenProps) {
   const now = nowSec();
   const tabOf = (i: Invoice) => invoiceTab(i, now);
   const rows = data.invoices.filter((i) => tab === "All" || tabOf(i) === tab);
+  const paymentOf = (i: Invoice) => (i.payment === null ? undefined : data.payments.find((x) => x.id === i.payment));
   const payer = (i: Invoice) => {
-    const p = i.payment === null ? undefined : data.payments.find((x) => x.id === i.payment);
+    const p = paymentOf(i);
     return p ? payerLabel(p) : "Not paid yet";
+  };
+  const time = (i: Invoice) => {
+    const t = invoiceTime(i, paymentOf(i));
+    return `${t.label} ${utc(t.sec)}`;
   };
   const selected = open && data.invoices.find((i) => i.id === open.id);
 
@@ -61,7 +66,7 @@ export default function Invoices({ data, refresh, toast }: ScreenProps) {
             <span>Payer</span>
             <span style={{ textAlign: "right" }}>Amount</span>
             <span>Memo</span>
-            <span>Expires, UTC</span>
+            <span>Time, UTC</span>
             <span>Status</span>
           </div>
           {rows.map((i) => (
@@ -72,7 +77,7 @@ export default function Invoices({ data, refresh, toast }: ScreenProps) {
                 {amountOf(i)} <span style={{ color: "var(--text-3)", fontWeight: 400 }}>{i.tokenMeta.symbol}</span>
               </span>
               <span style={{ color: "var(--text-2)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{i.memo ?? ""}</span>
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-2)" }}>{utc(i.expires_at_sec)}</span>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-2)" }}>{time(i)}</span>
               <StatusTag label={tabOf(i)} />
             </div>
           ))}
@@ -86,7 +91,7 @@ export default function Invoices({ data, refresh, toast }: ScreenProps) {
             inv={selected}
             tab={tabOf(selected)}
             payer={payer(selected)}
-            payment={selected.payment === null ? undefined : data.payments.find((x) => x.id === selected.payment)}
+            payment={paymentOf(selected)}
             project={data.gateway.outlayerProject}
             txHash={open?.txHash}
             onCopy={() => (navigator.clipboard?.writeText(checkoutLink(selected.id)), toast("Payment link copied", checkoutLink(selected.id)))}

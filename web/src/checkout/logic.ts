@@ -40,7 +40,8 @@ export type Screening = {
 /// UTC seconds of each processing step; null when unknown (checkout-relay: Checkout invoice details).
 export type StepTimes = { depositSeenAtSec: number | null; openedAtSec: number | null; screenedAtSec: number | null; closedAtSec: number | null };
 
-export type Step = { label: string; state: "done" | "current" | "todo"; detail?: string };
+/// `atSec`: when a done step happened (UTC seconds), when the relay knows.
+export type Step = { label: string; state: "done" | "current" | "todo"; detail?: string; atSec?: number };
 
 /// Why the page offers no payment options, or undefined when it should (Paying shows the timeline instead).
 export function unpayable(inv: CheckoutInvoice, nowSec: number): "paid" | "returned" | "expired" | undefined {
@@ -68,6 +69,18 @@ export function timeline(inv: CheckoutInvoice, quoteStatus?: string): Step[] {
   steps.push({ label: "Screening in enclave", state: decided ? "done" : delivered ? "current" : "todo" });
   if (inv.status === "Returned") steps.push({ label: "Returned to you", state: "done", detail: inv.payment?.refundTo });
   else steps.push({ label: "Released to merchant", state: inv.status === "Paid" ? "done" : "todo" });
+  const t = inv.times;
+  const at: Record<string, number | null | undefined> = {
+    "Deposit detected": t?.depositSeenAtSec,
+    "Delivered to contract": t?.openedAtSec,
+    "Screening in enclave": t?.screenedAtSec,
+    "Released to merchant": t?.closedAtSec,
+    "Returned to you": t?.closedAtSec,
+  };
+  for (const s of steps) {
+    const sec = at[s.label];
+    if (s.state === "done" && typeof sec === "number") s.atSec = sec;
+  }
   return steps;
 }
 

@@ -100,7 +100,7 @@
 
 ## 5. Step times in the web
 
-- [ ] 5.1 `timeline()` in `web/src/checkout/logic.ts` attaches `atSec?: number` to each done step:
+- [x] 5.1 `timeline()` in `web/src/checkout/logic.ts` attaches `atSec?: number` to each done step:
   - Deposit detected: `depositSeenAtSec`.
   - Delivered: `openedAtSec`.
   - Screening: `screenedAtSec`.
@@ -110,7 +110,7 @@
   - Add to `logic.test.ts`: `timeline_times_paid`, which checks the four steps' `atSec` against the spec scenario, and `timeline_time_missing`, where a null time gives no `atSec`.
   - Add to `format.test.ts`: `utcTime(1793857841) === "05:50:41 UTC"`.
   - Verify: `cd web && npm test`.
-- [ ] 5.2 Show the close time in the console.
+- [x] 5.2 Show the close time in the console.
   - Add `closedAt(inv, payments): number | undefined` in `web/src/console/logic.ts`. It returns `screening.closedAtSec` for a Paid or Returned invoice.
   - `InvoiceCard` shows `paid {utc} UTC` or `returned {utc} UTC` in place of `expires …` when the value is set.
   - The Invoices list column becomes "Time, UTC", with cells `Paid 2026-11-05 05:50`, `Returned …` or `Expires …`.

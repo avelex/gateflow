@@ -32,3 +32,7 @@ test("time_left_format", () => {
   expect(timeLeft(0)).toBe("0s");
   expect(timeLeft(-5)).toBe("0s");
 });
+
+import { utcTime } from "./format.ts";
+
+test("utc_time", () => expect(utcTime(1793857841)).toBe("05:50:41 UTC"));

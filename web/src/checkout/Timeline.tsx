@@ -1,5 +1,6 @@
 // The export's processing state: badge, title, text, then the timeline rows.
 import type { ReactNode } from "react";
+import { utcTime } from "../format.ts";
 import type { Step } from "./logic.ts";
 
 export type Headline = { badge: string; tone: "live" | "done" | "plain"; title: string; text: ReactNode };
@@ -30,7 +31,7 @@ export default function Timeline({ head, steps, details }: { head: Headline; ste
                 <span style={{ fontSize: 14, fontWeight: 600, color: done || now ? "var(--text-1)" : "var(--text-3)" }}>{r.label}</span>
                 {(r.d ?? r.detail) && <span style={{ fontSize: 13, lineHeight: "19px", color: "var(--text-2)" }}>{r.d ?? r.detail}</span>}
               </div>
-              <span />
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, lineHeight: "20px", color: "var(--text-3)", whiteSpace: "nowrap" }}>{r.atSec !== undefined ? utcTime(r.atSec) : ""}</span>
             </div>
           );
         })}

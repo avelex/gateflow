@@ -118,6 +118,13 @@ export function searchMatches(q: string, invoices: Invoice[], payments: Payment[
 /// The payer to show: the NEAR refund account for 1Click deliveries (sent by intents.near), else the sender.
 export const payerLabel = (p: Payment) => (p.ref ? p.refund_to : p.payer);
 
+/// The time to show for an invoice: its close time once Paid or Returned and known, else its expiry.
+export function invoiceTime(inv: Invoice, payment?: Payment): { label: "Paid" | "Returned" | "Expires"; sec: number } {
+  const closed = payment?.screening?.closedAtSec;
+  if ((inv.status === "Paid" || inv.status === "Returned") && typeof closed === "number") return { label: inv.status, sec: closed };
+  return { label: "Expires", sec: inv.expires_at_sec };
+}
+
 export type InvoiceTab = "Open" | "Paying" | "Paid" | "Returned" | "Expired";
 
 /// The invoice's tab: Expired is an Open invoice at or past its expiry.
