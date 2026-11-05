@@ -245,3 +245,33 @@ test("methods_evm", () => {
 test("methods_near_only", () => {
   expect(methodFor("btc")).toBe("qr");
 });
+
+import { allowedParent, returnLink, widgetStatus } from "./logic.ts";
+
+test("widget_status", () => {
+  expect(widgetStatus({ status: "Open", expiresAtSec: 100 }, 99)).toBe("open");
+  expect(widgetStatus({ status: "Open", expiresAtSec: 100 }, 100)).toBe("expired");
+  expect(widgetStatus({ status: "Paying", expiresAtSec: 100 }, 200)).toBe("paying");
+  expect(widgetStatus({ status: "Paid", expiresAtSec: 100 }, 0)).toBe("paid");
+});
+
+test("allowed_parent", () => {
+  const origins = ["https://shop.example"];
+  expect(allowedParent(origins, "https://shop.example")).toBe(true);
+  expect(allowedParent(origins, "https://evil.example")).toBe(false);
+  expect(allowedParent(origins, "https://shop.example.evil.example")).toBe(false);
+  expect(allowedParent(origins, null)).toBe(false);
+  expect(allowedParent([], "https://shop.example")).toBe(false);
+  expect(allowedParent(undefined, "https://shop.example")).toBe(false);
+});
+
+test("return_link_adds_params", () => {
+  expect(returnLink("https://shop.example/done?cart=1", ["https://shop.example"], 42, "paid")).toBe("https://shop.example/done?cart=1&invoice=42&status=paid");
+});
+
+test("return_link_refuses_unlisted", () => {
+  expect(returnLink("https://evil.example/", ["https://shop.example"], 42, "paid")).toBeUndefined();
+  expect(returnLink("javascript:alert(1)", ["https://shop.example"], 42, "paid")).toBeUndefined();
+  expect(returnLink("not a url", ["https://shop.example"], 42, "paid")).toBeUndefined();
+  expect(returnLink(null, ["https://shop.example"], 42, "paid")).toBeUndefined();
+});

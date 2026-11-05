@@ -7,6 +7,8 @@ export type CheckoutInvoice = {
   id: number;
   gateway: number;
   merchant: string | null;
+  /// Origins the merchant allows to embed this checkout or be returned to (checkout-widget).
+  origins?: string[];
   contract: string;
   token: string;
   symbol: string;
@@ -226,4 +228,30 @@ export function screeningDetail(s: Screening | null | undefined, decided: boolea
   if (s.outcome === "pending") return facts.length ? { text: `Running in OutLayer · ${facts.join(" · ")}`, links: [tx(s), run(s)] } : undefined;
   const links = [tx(s), run(s), ...(s.wasmUrl ? [{ label: "Code", href: s.wasmUrl }] : [])];
   return { text: [TEE, ...facts].join(" · "), links };
+}
+
+export type WidgetStatus = "open" | "paying" | "paid" | "returned" | "expired";
+
+/// The checkout-widget status of an invoice at `nowSec`.
+export function widgetStatus(inv: Pick<CheckoutInvoice, "status" | "expiresAtSec">, nowSec: number): WidgetStatus {
+  if (inv.status === "Open") return inv.expiresAtSec <= nowSec ? "expired" : "open";
+  return inv.status.toLowerCase() as WidgetStatus;
+}
+
+/// Whether `parent` is exactly one of the merchant's allowed origins.
+export const allowedParent = (origins: string[] | undefined, parent: string | null): parent is string => !!parent && (origins ?? []).includes(parent);
+
+/// The "Back to shop" link: `url` with `invoice` and `status` added, only when its origin is allowed.
+export function returnLink(url: string | null, origins: string[] | undefined, id: number, status: WidgetStatus): string | undefined {
+  if (!url) return undefined;
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    return undefined;
+  }
+  if (!allowedParent(origins, u.origin)) return undefined;
+  u.searchParams.set("invoice", String(id));
+  u.searchParams.set("status", status);
+  return u.toString();
 }

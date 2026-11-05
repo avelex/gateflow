@@ -73,6 +73,7 @@ const invoice: Handler = async (req, deps) => {
     id,
     gateway: inv.gateway,
     merchant: deps.db.merchantByGateway(inv.gateway)?.name ?? null,
+    origins: deps.db.gatewayDev(inv.gateway).origins,
     contract: deps.cfg.gateflow,
     token: inv.token,
     symbol: meta.symbol,

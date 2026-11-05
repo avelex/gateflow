@@ -460,3 +460,11 @@ test("quote_other_asset_422", async () => {
   assert.deepEqual(res, { status: 422, json: { error: "originAsset is not this invoice's asset" }, headers: res.headers });
   assert.deepEqual(deps.oneclick.quotes, []);
 });
+
+test("checkout_invoice_origins", async () => {
+  const deps = fakeDeps();
+  withInvoice(deps);
+  assert.deepEqual(((await call(deps, "GET", "/checkout/invoice?id=7")).json as any).origins, []);
+  deps.db.setOrigins(0, ["https://shop.example"]);
+  assert.deepEqual(((await call(deps, "GET", "/checkout/invoice?id=7")).json as any).origins, ["https://shop.example"]);
+});

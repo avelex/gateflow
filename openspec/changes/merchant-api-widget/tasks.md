@@ -163,7 +163,7 @@
 
 ## 5. Checkout embed
 
-- [ ] 5.1 Make `GET /checkout/invoice` also return `origins: string[]` for the invoice's gateway.
+- [x] 5.1 Make `GET /checkout/invoice` also return `origins: string[]` for the invoice's gateway.
 
   In `web/src/checkout/logic.ts`, add:
   - `allowedParent(origins, parent): boolean` (exact origin match)
