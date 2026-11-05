@@ -144,6 +144,34 @@ export function payerAddress(p: Payment, network: string): { address: string; hr
   return { address: account, href: `https://${network === "testnet" ? "testnet." : ""}nearblocks.io/address/${account}` };
 }
 
+export type InvoiceStep = { title: string; detail?: string; atSec?: number; link?: { label: string; href: string }; done: boolean };
+
+const VERDICT = { pending: "Screening in enclave", approved: "Screened: approved", rejected: "Screened: rejected", failed: "Screening returned no verdict", no_verdict: "Screening returned no verdict" } as const;
+
+/// The invoice modal's Timeline tab: what happened to the invoice's payment, with UTC seconds where known.
+export function invoiceSteps(inv: Invoice, p: Payment | undefined, network: string, nowSec: number): InvoiceStep[] {
+  if (!p) return [{ title: inv.expires_at_sec <= nowSec ? "Expired unpaid" : "Waiting for payment", detail: "The payment link expires", atSec: inv.expires_at_sec, done: false }];
+  const s = p.screening;
+  const closed = p.status !== "Pending";
+  const returned = p.status === "Refunded" || p.status === "RefundFailed";
+  return [
+    ...(p.ref ? [{ title: p.origin ? `Deposit detected on ${chainName(p.origin.chain)}` : "Deposit detected", detail: "Swapped through 1Click", done: true }] : []),
+    { title: "Held in your contract", detail: `Payment #${p.id} opened`, atSec: p.opened_at_sec, done: true },
+    {
+      title: VERDICT[s?.outcome ?? "pending"],
+      atSec: s?.screenedAtSec ?? undefined,
+      link: s?.jobId ? { label: "Attestation", href: attestationUrl(s.jobId, network) } : undefined,
+      done: closed,
+    },
+    {
+      title: p.status === "SettleFailed" ? "Release failed, funds held" : p.status === "RefundFailed" ? "Return failed, funds held" : returned ? "Returned to payer" : "Released to you",
+      atSec: s?.closedAtSec ?? undefined,
+      link: s && closed ? { label: "Transaction", href: explorerTx(s.txHash, network) } : undefined,
+      done: p.status === "Settled" || p.status === "Refunded",
+    },
+  ];
+}
+
 /// The time to show for an invoice: its close time once Paid or Returned and known, else its expiry.
 export function invoiceTime(inv: Invoice, payment?: Payment): { label: "Paid" | "Returned" | "Expires"; sec: number } {
   const closed = payment?.screening?.closedAtSec;
@@ -253,10 +281,7 @@ export function screeningFields(p: Payment, project: string, network: string): F
   return [
     ...f,
     { label: "Outcome", value: OUTCOME[s.outcome] },
-    ...(s.requestId !== null ? [{ label: "Request", value: String(s.requestId), href: s.jobId ? attestationUrl(s.jobId, network) : OUTLAYER_EXECUTIONS }] : []),
-    ...(s.wasmHash ? [{ label: "Wasm", value: s.wasmHash, ...(s.wasmUrl ? { href: s.wasmUrl } : {}) }] : []),
-    ...(s.timeMs !== null ? [{ label: "Run time", value: `${(s.timeMs / 1000).toFixed(1)} s` }] : []),
-    ...(s.costYocto ? [{ label: "Cost", value: `${formatAmount(BigInt(s.costYocto), 24)} NEAR` }] : []),
+    ...(s.requestId !== null ? [{ label: "Attestation", value: String(s.requestId), href: s.jobId ? attestationUrl(s.jobId, network) : OUTLAYER_EXECUTIONS }] : []),
     tx,
   ];
 }

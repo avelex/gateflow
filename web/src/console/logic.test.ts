@@ -134,14 +134,17 @@ const byLabel = (f: ReturnType<typeof screeningFields>) => Object.fromEntries(f.
 
 test("fields_direct_approved", () => {
   const f = byLabel(screeningFields(pay(3, "1", "Settled", new Date(), { screening: EV }), PROJECT, "mainnet"));
-  expect(f).toMatchObject({ Flow: "Direct", "Risk limit": "50", Project: PROJECT, Outcome: "Approved", Request: "2792", Wasm: "11a4efa612d4c52e", "Run time": "1.4 s", Cost: "0.001141 NEAR", Transaction: "4e9W" });
+  expect(f).toMatchObject({ Flow: "Direct", "Risk limit": "50", Project: PROJECT, Outcome: "Approved", Attestation: "2792", Transaction: "4e9W" });
+  expect(Object.keys(f)).not.toContain("Wasm");
+  expect(Object.keys(f)).not.toContain("Run time");
+  expect(Object.keys(f)).not.toContain("Cost");
 });
 
 test("fields_no_verdict", () => {
   const f = byLabel(screeningFields(pay(3, "1", "Refunded", new Date(), { screening: { ...EV, outcome: "no_verdict" } }), PROJECT, "mainnet"));
   expect(f.Wasm).toBeUndefined();
   expect(f.Outcome).toBe("No verdict within 15 minutes");
-  expect(f.Request).toBeUndefined();
+  expect(f.Attestation).toBeUndefined();
 });
 
 test("fields_unavailable", () => {
@@ -158,9 +161,9 @@ test("fields_cross_chain", () => {
 
 test("fields_request_attestation", () => {
   const f = screeningFields(pay(3, "1", "Settled", new Date(), { screening: { ...EV, requestId: 2796, jobId: 1255332 } }), PROJECT, "mainnet");
-  expect(f.find((x) => x.label === "Request")).toEqual({ label: "Request", value: "2796", href: "https://app.outlayer.ai/attestation/1255332?network=mainnet" });
+  expect(f.find((x) => x.label === "Attestation")).toEqual({ label: "Attestation", value: "2796", href: "https://app.outlayer.ai/attestation/1255332?network=mainnet" });
   const plain = screeningFields(pay(3, "1", "Settled", new Date(), { screening: EV }), PROJECT, "mainnet");
-  expect(plain.find((x) => x.label === "Request")?.href).toBe("https://app.outlayer.ai/executions");
+  expect(plain.find((x) => x.label === "Attestation")?.href).toBe("https://app.outlayer.ai/executions");
 });
 
 test("payer_ref_without_origin", () => {
@@ -218,4 +221,39 @@ test("payer_address_near", () => {
   expect(payerAddress(ref, "mainnet")).toEqual({ address: "bob.near", href: "https://nearblocks.io/address/bob.near" });
   const direct = pay(1, "1", "Settled", new Date(), { ref: null, payer: "alice.testnet" });
   expect(payerAddress(direct, "testnet")).toEqual({ address: "alice.testnet", href: "https://testnet.nearblocks.io/address/alice.testnet" });
+});
+
+import { invoiceSteps } from "./logic.ts";
+
+test("invoice_steps_unpaid", () => {
+  const open = inv(6, "1", USDC, { status: "Open", expires_at_sec: 500 });
+  expect(invoiceSteps(open, undefined, "mainnet", 100)).toEqual([{ title: "Waiting for payment", detail: "The payment link expires", atSec: 500, done: false }]);
+  expect(invoiceSteps(open, undefined, "mainnet", 500)[0].title).toBe("Expired unpaid");
+});
+
+test("invoice_steps_cross_chain_settled", () => {
+  const p = pay(5, "1", "Settled", new Date(1_000_000), {
+    ref: "r", origin: { chain: "arb", senders: ["0x200f"] },
+    screening: { ...evidence(1793867361), requestId: 2796, timeMs: 1400, jobId: 9, screenedAtSec: 1793867360 },
+  });
+  const s = invoiceSteps(inv(6, "1", USDC, { status: "Paid", payment: 5 }), p, "mainnet", 0);
+  expect(s.map((x) => x.title)).toEqual(["Deposit detected on Arbitrum", "Held in your contract", "Screened: approved", "Released to you"]);
+  expect(s.every((x) => x.done)).toBe(true);
+  expect(s[1]).toMatchObject({ detail: "Payment #5 opened", atSec: p.opened_at_sec });
+  expect(s[2].detail).toBeUndefined();
+  expect(s[2]).toMatchObject({ atSec: 1793867360, link: { label: "Attestation", href: "https://app.outlayer.ai/attestation/9?network=mainnet" } });
+  expect(s[3]).toMatchObject({ atSec: 1793867361, link: { label: "Transaction", href: "https://nearblocks.io/txns/h" } });
+});
+
+test("invoice_steps_direct_pending", () => {
+  const p = pay(5, "1", "Pending", new Date(1_000_000), { ref: null, screening: null });
+  const s = invoiceSteps(inv(6, "1", USDC, { status: "Paying", payment: 5 }), p, "testnet", 0);
+  expect(s.map((x) => `${x.title}:${x.done}`)).toEqual(["Held in your contract:true", "Screening in enclave:false", "Released to you:false"]);
+  expect(s[2].link).toBeUndefined();
+});
+
+test("invoice_steps_returned", () => {
+  const p = pay(5, "1", "Refunded", new Date(1_000_000), { ref: null, screening: { ...evidence(7), outcome: "rejected" } });
+  const s = invoiceSteps(inv(6, "1", USDC, { status: "Returned", payment: 5 }), p, "mainnet", 0);
+  expect(s.slice(-2).map((x) => x.title)).toEqual(["Screened: rejected", "Returned to payer"]);
 });

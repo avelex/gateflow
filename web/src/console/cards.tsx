@@ -1,9 +1,11 @@
 // The export's chat cards (design/Gateflow Console.html, Chat): invoice, status and confirm.
 import { Fragment, type ReactNode, useEffect, useState } from "react";
 import { api } from "../api.ts";
-import { Button, FlowSteps, Icon } from "../ds.jsx";
+import { Badge, Button, FlowSteps, Hash, Icon, IconButton, Tabs } from "../ds.jsx";
+import { chainName } from "../assets.ts";
+import { explorerTx } from "../checkout/logic.ts";
 import { keyMode } from "../near/key.ts";
-import { acquireKey, amountOf, type Card, cardModel, type ChatAction, type Invoice, invoiceTab, invoiceTime, type Payment, payerLabel, screeningFields, signAndRelay, TGAS } from "./logic.ts";
+import { acquireKey, amountOf, type Card, cardModel, type ChatAction, type Invoice, invoiceSteps, invoiceTab, type Payment, payerAddress, payerLabel, screeningFields, signAndRelay, TGAS } from "./logic.ts";
 import type { ConsoleData } from "./Layout.tsx";
 import { message } from "./Onboarding.tsx";
 
@@ -27,79 +29,135 @@ export function StatusTag({ label }: { label: string }) {
   );
 }
 
-const field = (label: string, value: ReactNode, mono = false) => (
-  <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
-    <span style={LABEL}>{label}</span>
-    <span style={mono ? { fontFamily: "var(--font-mono)", fontSize: 13, wordBreak: "break-all" } : { fontSize: 14 }}>{value}</span>
+const TONE: Record<string, "success" | "accent" | "warning" | "neutral"> = { Paid: "success", Paying: "accent", Returned: "warning" };
+const SECTION = { ...LABEL, marginBottom: 4 } as const;
+const short = (v: string) => (v.length > 16 ? `${v.slice(0, 6)}…${v.slice(-4)}` : v);
+const MONO = /^(Transaction|Deposit address|Attestation|Token contract)$/;
+
+/// One Passport row: label, then the value as a link, a copyable hash, or text.
+const passportRow = (f: { label: string; value: string; href?: string }) => (
+  <div key={f.label} style={{ display: "grid", gridTemplateColumns: "136px minmax(0,1fr)", alignItems: "center", gap: 16, minHeight: 36, borderBottom: "1px solid var(--ink-100)" }}>
+    <span style={{ fontSize: 13, color: "var(--text-3)" }}>{f.label}</span>
+    {f.href ? (
+      <a href={f.href} target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--text-link)", textDecoration: "none", fontSize: MONO.test(f.label) ? 13 : 14, fontFamily: MONO.test(f.label) ? "var(--font-mono)" : undefined }}>
+        {MONO.test(f.label) ? short(f.value) : f.value}
+        <Icon name="external-link" size={13} />
+      </a>
+    ) : MONO.test(f.label) ? (
+      <Hash value={f.value} />
+    ) : (
+      <span style={{ fontSize: 14 }}>{f.value}</span>
+    )}
   </div>
 );
 
-/// The export's chat invoice card: amount, checkout link, and Copy payment link / Open checkout.
-export function InvoiceCard({ inv, tab, payer, payment, project, txHash, onCopy }: { inv: Invoice; tab: string; payer: string; payment?: Payment; project: string; txHash?: string; onCopy(): void }) {
+/// The invoice modal (design option B): header actions, amount and payer, then Timeline and Passport tabs.
+export function InvoiceCard({ inv, tab, payment, project, txHash, onCopy, onClose }: { inv: Invoice; tab: string; payment?: Payment; project: string; txHash?: string; onCopy(): void; onClose?(): void }) {
+  const [view, setView] = useState("Timeline");
+  const steps = invoiceSteps(inv, payment, NETWORK, nowSec());
+  const payer = payment && payerAddress(payment, NETWORK);
   return (
     <div style={BOX}>
-      <div style={HEAD}>
+      <div style={{ ...HEAD, padding: "12px 12px 12px 24px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <Icon name="file-text" size={16} />
           <span style={{ fontSize: 15, fontWeight: 600 }}>Invoice</span>
           <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-3)" }}>#{inv.id}</span>
+          <Badge tone={TONE[tab] ?? "neutral"} dot>
+            {tab}
+          </Badge>
         </div>
-        <StatusTag label={tab} />
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <Button variant="primary" size="sm" icon="copy" onClick={onCopy}>
+            Copy payment link
+          </Button>
+          <IconButton icon="external-link" label="Open checkout" size="sm" onClick={() => window.open(checkoutLink(inv.id), "_blank")} />
+          {onClose && (
+            <>
+              <span aria-hidden="true" style={{ width: 1, height: 20, margin: "0 4px", background: "var(--border-1)" }} />
+              <IconButton icon="x" label="Close" size="sm" onClick={onClose} />
+            </>
+          )}
+        </div>
       </div>
-      <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 20 }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <div style={{ fontSize: 36, lineHeight: "42px", fontWeight: 600, letterSpacing: "-0.02em", fontVariantNumeric: "tabular-nums" }}>
-            {amountOf(inv)} <span style={{ fontSize: 17, fontWeight: 500, color: "var(--text-3)", letterSpacing: 0 }}>{inv.tokenMeta.symbol}</span>
-          </div>
-          <div style={{ fontSize: 13, color: "var(--text-2)" }}>
-            {invoiceTime(inv, payment).label.toLowerCase()} {utc(invoiceTime(inv, payment).sec)} UTC
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: "20px 24px 0" }}>
+        <div style={{ fontSize: 36, lineHeight: "42px", fontWeight: 600, letterSpacing: "-0.02em", fontVariantNumeric: "tabular-nums" }}>
+          {amountOf(inv)} <span style={{ fontSize: 17, fontWeight: 500, color: "var(--text-3)", letterSpacing: 0 }}>{inv.tokenMeta.symbol}</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, minHeight: 28, fontSize: 14, color: "var(--text-2)" }}>
+          {payer ? (
+            <>
+              <span>from</span>
+              <Hash value={payer.address} />
+              {payment?.origin && <span>on {chainName(payment.origin.chain)}</span>}
+              {payer.href && (
+                <a href={payer.href} target="_blank" rel="noreferrer" aria-label="Open payer in explorer" style={{ display: "flex", color: "var(--text-3)" }}>
+                  <Icon name="external-link" size={14} />
+                </a>
+              )}
+            </>
+          ) : (
+            <span style={{ color: "var(--text-3)" }}>Not paid yet</span>
+          )}
+        </div>
+      </div>
+      <div style={{ padding: "12px 24px 0" }}>
+        <Tabs tabs={["Timeline", "Passport"]} value={view} onChange={setView} />
+      </div>
+      {view === "Timeline" ? (
+        <div style={{ padding: "18px 24px 24px", display: "flex", flexDirection: "column" }}>
+          <span style={{ ...LABEL, marginBottom: 14 }}>Times in UTC</span>
+          <div style={{ display: "grid", gridTemplateColumns: "20px minmax(0,1fr) auto", columnGap: 14 }}>
+            {steps.map((st, i) => {
+              const last = i === steps.length - 1;
+              return (
+                <Fragment key={st.title}>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                    {last && st.done ? (
+                      <span aria-hidden="true" style={{ width: 18, height: 18, borderRadius: "50%", background: "var(--green-600)", color: "var(--text-inverse)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <Icon name="check" size={12} strokeWidth={3} />
+                      </span>
+                    ) : (
+                      <span aria-hidden="true" style={{ width: 10, height: 10, marginTop: 5, borderRadius: "50%", boxSizing: "border-box", background: st.done ? "var(--green-600)" : "var(--surface-card)", border: st.done ? "none" : "2px solid var(--border-2)" }} />
+                    )}
+                    {!last && <span aria-hidden="true" style={{ flex: 1, width: 2, background: "var(--border-2)" }} />}
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 2, paddingBottom: last ? 0 : 18 }}>
+                    <span style={{ fontSize: 14, fontWeight: last ? 600 : 500, color: st.done ? "var(--text-1)" : "var(--text-3)" }}>{st.title}</span>
+                    {(st.detail || st.link) && (
+                      <span style={{ fontSize: 13, color: "var(--text-3)" }}>
+                        {st.detail}
+                        {st.detail && st.link && " · "}
+                        {st.link && (
+                          <a href={st.link.href} target="_blank" rel="noreferrer" style={{ color: "var(--text-link)", textDecoration: "none" }}>
+                            {st.link.label}
+                          </a>
+                        )}
+                      </span>
+                    )}
+                  </div>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-2)", paddingTop: 2, whiteSpace: "nowrap" }}>{st.atSec ? utc(st.atSec) : ""}</span>
+                </Fragment>
+              );
+            })}
           </div>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: "16px 24px" }}>
-          {field("Checkout link", checkoutLink(inv.id), true)}
-          {field("Memo", inv.memo ?? "—")}
-          {field("Payer", payer)}
-          {field("Status", tab)}
-        </div>
-        <details style={{ fontSize: 13, color: "var(--text-2)" }}>
-          <summary style={{ cursor: "pointer", ...LABEL }}>Details</summary>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: "12px 24px", marginTop: 12 }}>
-            {field("Token contract", inv.token, true)}
-            {field("Payment", inv.payment === null ? "—" : `#${inv.payment}`, true)}
-            {txHash && field("Transaction", txHash, true)}
+      ) : (
+        <div style={{ padding: "16px 24px 24px", display: "flex", flexDirection: "column", gap: 18 }}>
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            <span style={SECTION}>Invoice</span>
+            {inv.memo && passportRow({ label: "Memo", value: inv.memo })}
+            {passportRow({ label: "Token contract", value: inv.token })}
+            {passportRow({ label: "Payment", value: inv.payment === null ? "—" : `#${inv.payment}` })}
+            {txHash && passportRow({ label: "Transaction", value: txHash, href: explorerTx(txHash, NETWORK) })}
           </div>
           {payment && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 16 }}>
-              <span style={LABEL}>Screening</span>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: "12px 24px" }}>
-                {screeningFields(payment, project, NETWORK).map((f) => (
-                  <Fragment key={f.label}>
-                  {field(
-                    f.label,
-                    f.href ? (
-                      <a href={f.href} target="_blank" rel="noreferrer" style={{ color: "var(--blue-600)", textDecoration: "none" }}>
-                        {f.value}
-                      </a>
-                    ) : (
-                      f.value
-                    ),
-                    /^(Wasm|Transaction|Deposit address|Project|Request)$/.test(f.label),
-                  )}
-                  </Fragment>
-                ))}
-              </div>
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              <span style={SECTION}>Screening</span>
+              {screeningFields(payment, project, NETWORK).map(passportRow)}
             </div>
           )}
-        </details>
-      </div>
-      <div style={FOOT}>
-        <Button variant="primary" size="sm" icon="copy" onClick={onCopy}>
-          Copy payment link
-        </Button>
-        <Button variant="secondary" size="sm" icon="external-link" onClick={() => window.open(checkoutLink(inv.id), "_blank")}>
-          Open checkout
-        </Button>
-      </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -199,7 +257,7 @@ export function ChatCard({ card, data, onAsk, onChanged, toast }: { card: Card; 
   const follow = `What is the status of invoice #${inv.id}?`;
   return (
     <>
-      <InvoiceCard inv={inv} tab={invoiceTab(inv, nowSec())} payer={p ? payerLabel(p) : "Not paid yet"} payment={p} project={data.gateway.outlayerProject} onCopy={() => (navigator.clipboard?.writeText(checkoutLink(inv.id)), toast("Payment link copied", checkoutLink(inv.id)))} />
+      <InvoiceCard inv={inv} tab={invoiceTab(inv, nowSec())} payment={p} project={data.gateway.outlayerProject} onCopy={() => (navigator.clipboard?.writeText(checkoutLink(inv.id)), toast("Payment link copied", checkoutLink(inv.id)))} />
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
         <div className="hv" onClick={() => onAsk(follow)} style={{ display: "flex", alignItems: "center", gap: 6, height: 28, padding: "0 10px", border: "1px solid var(--border-2)", borderRadius: "var(--radius-2)", background: "var(--surface-card)", fontSize: 13, color: "var(--text-2)", cursor: "pointer" }}>
           <Icon name="corner-down-right" size={13} />

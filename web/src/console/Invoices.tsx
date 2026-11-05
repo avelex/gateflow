@@ -4,7 +4,7 @@ import { navigate } from "../App.tsx";
 import { Button, Dialog, Hash, Icon, Input, Radio, Select, Tabs } from "../ds.jsx";
 import { checkoutLink, InvoiceCard, LABEL, NETWORK, nowSec, StatusTag, utc } from "./cards.tsx";
 import type { ScreenProps } from "./Layout.tsx";
-import { acquireKey, amountOf, ask, EXPIRIES, type Invoice, invoiceArgs, invoiceTab, type InvoiceTab, invoiceTime, payerAddress, payerLabel, signAndRelay, TGAS } from "./logic.ts";
+import { acquireKey, amountOf, ask, EXPIRIES, type Invoice, invoiceArgs, invoiceTab, type InvoiceTab, invoiceTime, payerAddress, signAndRelay, TGAS } from "./logic.ts";
 import { keyMode } from "../near/key.ts";
 import { message } from "./Onboarding.tsx";
 
@@ -25,10 +25,6 @@ export default function Invoices({ data, refresh, toast }: ScreenProps) {
   const tabOf = (i: Invoice) => invoiceTab(i, now);
   const rows = data.invoices.filter((i) => tab === "All" || tabOf(i) === tab);
   const paymentOf = (i: Invoice) => (i.payment === null ? undefined : data.payments.find((x) => x.id === i.payment));
-  const payer = (i: Invoice) => {
-    const p = paymentOf(i);
-    return p ? payerLabel(p) : "Not paid yet";
-  };
   // The status column says what the time is; a Paid or Returned invoice without a known close time shows none.
   const time = (i: Invoice) => {
     const t = invoiceTime(i, paymentOf(i));
@@ -50,6 +46,7 @@ export default function Invoices({ data, refresh, toast }: ScreenProps) {
     );
   };
   const selected = open && data.invoices.find((i) => i.id === open.id);
+  const close = () => (setOpen(undefined), history.replaceState(null, "", location.pathname));
 
   return (
     <div data-screen-label="Invoices" style={{ flex: 1, overflow: "auto", padding: 32 }}>
@@ -100,11 +97,11 @@ export default function Invoices({ data, refresh, toast }: ScreenProps) {
       </div>
 
       {selected && (
-        <InvoiceModal onClose={() => (setOpen(undefined), history.replaceState(null, "", location.pathname))}>
+        <InvoiceModal onClose={close}>
           <InvoiceCard
             inv={selected}
             tab={tabOf(selected)}
-            payer={payer(selected)}
+            onClose={close}
             payment={paymentOf(selected)}
             project={data.gateway.outlayerProject}
             txHash={open?.txHash}
