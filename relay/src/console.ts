@@ -1,5 +1,6 @@
 // /console/* API: demo sessions, provisioning, sponsored delegate actions, console data, fuel and retry.
 import { randomBytes, randomInt } from "node:crypto";
+import { originOf } from "./origin.ts";
 import { isDeepStrictEqual } from "node:util";
 import type { ChatAction, Db, Merchant } from "./db.ts";
 import { decodeSignedDelegate, refusal } from "./delegate.ts";
@@ -336,7 +337,11 @@ const payments: Handler = async (req, deps) => {
   const m = requireGateway(req, deps);
   const g = await readGateway(deps, m.gateway_id);
   const rows = await withMeta(deps, await newestFirst(deps, "get_payments", m.gateway_id, g.payments));
-  return ok(await Promise.all(rows.map(async (p) => ({ ...p, screening: await evidenceFor(deps, p.id, p.status) }))));
+  return ok(
+    await Promise.all(
+      rows.map(async (p) => ({ ...p, screening: await evidenceFor(deps, p.id, p.status), origin: p.ref ? originOf(deps.db.quoteByRef(p.ref)) : null })),
+    ),
+  );
 };
 
 const tokens: Handler = async (req, deps) => {

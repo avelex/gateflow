@@ -505,3 +505,16 @@ test("nbtc_shows_btc", async () => {
   assert.deepEqual(await tokenMeta(deps, "nbtc.bridge.near"), { symbol: "BTC", decimals: 8 });
   assert.equal((await tokenMeta(deps, "usdc.testnet")).symbol, "USDC");
 });
+
+test("payments_carry_origin", async () => {
+  const deps = fakeDeps();
+  const cookies = await withGateway(deps, { payments: 2 });
+  const REF = "ab".repeat(16);
+  deps.near.viewTable["gateflow.testnet.get_payments"] = ({ from_index, limit }: any) =>
+    Array.from({ length: limit }, (_, i) => [from_index + i, { token: "wrap.testnet", amount: "1", status: "Settled", ref: from_index + i === 1 ? REF : null }]);
+  deps.db.insertQuote({ ref: REF, invoice: 1, deposit_address: "dep", deadline_ms: 0, origin_chain: "base" });
+  deps.db.setOriginSenders(REF, ["0x12ab"]);
+  const rows = (await call(deps, "GET", "/console/payments", undefined, cookies)).json as any[];
+  assert.deepEqual(rows.find((p) => p.id === 1).origin, { chain: "base", senders: ["0x12ab"] });
+  assert.equal(rows.find((p) => p.id === 0).origin, null);
+});

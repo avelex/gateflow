@@ -563,3 +563,12 @@ test("prompt_plain_text", () => {
   assert.match(p, /plain text/);
   assert.doesNotMatch(p, /nBTC/);
 });
+
+test("chat_payer_origin", async () => {
+  const deps = fakeDeps();
+  chain(deps);
+  deps.db.insertQuote({ ref: "r1", invoice: 0, deposit_address: "d", deadline_ms: 0, origin_chain: "arb" });
+  deps.db.setOriginSenders("r1", ["0x200f", "0x3000"]);
+  const p: any = await run(deps, "get_payment", { id: 1 });
+  assert.equal(p.payer, "0x200f on Arbitrum +1");
+});

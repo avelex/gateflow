@@ -1,5 +1,6 @@
 // The console assistant: model client, tools and the bounded tool loop (design decisions 2 to 9).
 import { finishAction, newestFirst, submitClaimed, readGateway, requireAction, requireGateway, requireSession, retryablePayment, sendRetry, tokenMeta, type TokenMeta, withMeta } from "./console.ts";
+import { originOf, payerOf } from "./origin.ts";
 import type { Card, Merchant, Message } from "./db.ts";
 import { type ChatMessage, type Completion, type Config, type Deps, type Handler, HttpError, type Llm, ok, type ToolDef } from "./types.ts";
 
@@ -71,13 +72,13 @@ const invoiceView = (inv: any, nowSec: number) => ({
   payment: inv.payment ?? null,
 });
 
-const paymentView = (p: any) => ({
+const paymentView = (deps: Deps) => (p: any) => ({
   id: p.id,
   invoice: p.invoice,
   amount: decimal(p),
   symbol: p.tokenMeta.symbol,
   status: paymentStatus(p),
-  payer: p.ref ? p.refund_to : p.payer,
+  payer: payerOf(p, p.ref ? originOf(deps.db.quoteByRef(p.ref)) : null),
   opened_at: iso(p.opened_at_sec),
 });
 
@@ -140,7 +141,7 @@ export function readTools(deps: Deps): Record<string, Tool> {
         const status = args?.status;
         if (status !== undefined && !PAYMENT_STATUS.includes(status)) return { error: `status must be one of ${PAYMENT_STATUS.join(", ")}` };
         return (await allOf(deps, "payments", m))
-          .map(paymentView)
+          .map(paymentView(deps))
           .filter((p) => !status || p.status === status)
           .slice(0, LIST_LIMIT);
       },
@@ -152,7 +153,7 @@ export function readTools(deps: Deps): Record<string, Tool> {
       group: "payments",
       async run(args, m) {
         const p = await oneOf(deps, "payment", args?.id, m);
-        return p ? paymentView(p) : NOT_FOUND;
+        return p ? paymentView(deps)(p) : NOT_FOUND;
       },
     },
     settled_totals: {

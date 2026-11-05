@@ -147,7 +147,7 @@
     - `watcher_retries_sender_after_screened`
     - `watcher_drops_resolved_screened_quote`
   - Verify: `cd relay && npm test`.
-- [ ] 6.4 Each `GET /console/payments` row gains `origin: {chain, senders} | null`, from `quoteByRef(p.ref)` when both columns are set. `chat.ts` computes the payer by the console rule: `senders[0]` with `" on " + chainName`, then `refund_to` when the payment has a `ref`, then `payer`.
+- [x] 6.4 Each `GET /console/payments` row gains `origin: {chain, senders} | null`, from `quoteByRef(p.ref)` when both columns are set. `chat.ts` computes the payer by the console rule: `senders[0]` with `" on " + chainName`, then `refund_to` when the payment has a `ref`, then `payer`.
   - Add `payments_carry_origin` to `console.test.ts`.
   - Add `chat_payer_origin` to `chat.test.ts`.
   - Verify: `cd relay && npm test`.
