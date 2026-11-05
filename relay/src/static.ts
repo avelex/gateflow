@@ -31,7 +31,7 @@ const file = (p: string): Res => ({
 
 /// A file under `dir`, `index.html` for any other non-API path, or `undefined` (the caller answers 404 JSON).
 export function serveStatic(dir: string, pathname: string): Res | undefined {
-  if (/^\/(console|checkout)(\/|$)/.test(pathname)) return undefined;
+  if (/^\/(console|checkout|api)(\/|$)/.test(pathname)) return undefined;
   const root = normalize(dir);
   let decoded: string;
   try {

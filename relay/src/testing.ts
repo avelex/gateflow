@@ -1,4 +1,5 @@
 // Test doubles: an in-memory DB, a recording fake NEAR client and a scripted 1Click client.
+import { SESSION_COOKIE } from "./console.ts";
 import { openDb } from "./db.ts";
 import type { Action, Near, TxResult } from "./near.ts";
 import { type ChatMessage, type Completion, type Config, type Deps, type Llm, loadConfig, type OneClick, type OriginApi, type OutLayerApi, type Req, type ToolDef } from "./types.ts";
@@ -168,3 +169,12 @@ export const req = (method: string, path: string, body?: any, cookies: Record<st
   const url = new URL(path, "http://x");
   return { method, path: url.pathname, query: url.searchParams, body, cookies, headers };
 };
+
+/// A finished merchant with gateway `gateway` and a session cookie.
+export function merchant(deps: TestDeps, email = "kaja@example.com", gateway = 0) {
+  const account = `${email.split("@")[0]}.op.testnet`;
+  deps.db.upsertMerchant({ email, name: "Kaja Coffee", account_id: account, public_key: "ed25519:passkey", gateway_id: gateway, step: "done", tokens_off: [] });
+  const token = `t-${email}`;
+  deps.db.createSession(token, email, deps.now());
+  return { account, cookies: { [SESSION_COOKIE]: token } };
+}

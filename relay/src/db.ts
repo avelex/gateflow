@@ -102,7 +102,15 @@ CREATE TABLE IF NOT EXISTS api_keys (
   last4 TEXT NOT NULL,
   created_at INTEGER NOT NULL,
   revoked_at INTEGER
-);`;
+);
+CREATE TABLE IF NOT EXISTS api_invoices (
+  invoice INTEGER PRIMARY KEY,
+  gateway INTEGER NOT NULL,
+  order_id TEXT,
+  status TEXT NOT NULL DEFAULT 'open',
+  expires_at_ms INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS api_invoices_order ON api_invoices (gateway, order_id);`;
 
 const toMessage = (row: any): Message => ({ ...row, trace: JSON.parse(row.trace), cards: JSON.parse(row.cards) });
 const toAction = (row: any): ChatAction | undefined => row && { ...row, params: JSON.parse(row.params), result: row.result === null ? null : JSON.parse(row.result) };
@@ -158,6 +166,9 @@ export function openDb(path: string) {
   const newKey = q("INSERT INTO api_keys (hash, email, label, last4, created_at) VALUES (?, ?, ?, ?, ?)");
   const keysOf = q("SELECT hash, label, last4, created_at FROM api_keys WHERE email = ? AND revoked_at IS NULL ORDER BY created_at");
   const revokeKey = q("UPDATE api_keys SET revoked_at = ? WHERE email = ? AND hash LIKE ? || '%' AND revoked_at IS NULL");
+  const newApiInvoice = q("INSERT INTO api_invoices (invoice, gateway, order_id, expires_at_ms) VALUES (?, ?, ?, ?)");
+  const apiByOrder = q("SELECT * FROM api_invoices WHERE gateway = ? AND order_id = ? ORDER BY invoice DESC");
+  const apiById = q("SELECT * FROM api_invoices WHERE invoice = ?");
   const keyOwner = q("SELECT email FROM api_keys WHERE hash = ? AND revoked_at IS NULL");
 
   return {
@@ -217,6 +228,14 @@ export function openDb(path: string) {
     apiKeys: (email: string) => keysOf.all(email).map((r) => ({ ...r }) as { hash: string; label: string; last4: string; created_at: number }),
     /// Revokes the merchant's live key whose hash starts with `hashPrefix`; false when none matched.
     revokeApiKey: (email: string, hashPrefix: string, now: number) => Number(revokeKey.run(now, email, hashPrefix).changes) > 0,
+    insertApiInvoice: (x: { invoice: number; gateway: number; order_id: string | null; expires_at_ms: number }) =>
+      void newApiInvoice.run(x.invoice, x.gateway, x.order_id, x.expires_at_ms),
+    /// API invoices of a gateway for one order id, newest first.
+    apiInvoicesByOrder: (gateway: number, orderId: string) => apiByOrder.all(gateway, orderId).map((r) => ({ ...r }) as ApiInvoice),
+    apiInvoice: (id: number) => {
+      const r = apiById.get(id);
+      return r && ({ ...r } as ApiInvoice);
+    },
     merchantByKeyHash(hash: string) {
       const row = keyOwner.get(hash) as { email: string } | undefined;
       return row && toMerchant(byEmail.get(row.email));
@@ -225,3 +244,4 @@ export function openDb(path: string) {
 }
 
 export type Db = ReturnType<typeof openDb>;
+export type ApiInvoice = { invoice: number; gateway: number; order_id: string | null; status: string; expires_at_ms: number };

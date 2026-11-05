@@ -1,19 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { SESSION_COOKIE } from "./console.ts";
 import { developerRoutes } from "./developers.ts";
 import { dispatch } from "./main.ts";
 import { secretFromSeed, signer } from "./near.ts";
-import { fakeDeps, req, type TestDeps } from "./testing.ts";
-
-/// A finished merchant with gateway `gateway` and a session cookie.
-export function merchant(deps: TestDeps, email = "kaja@example.com", gateway = 0) {
-  const account = `${email.split("@")[0]}.op.testnet`;
-  deps.db.upsertMerchant({ email, name: "Kaja Coffee", account_id: account, public_key: "ed25519:passkey", gateway_id: gateway, step: "done", tokens_off: [] });
-  const token = `t-${email}`;
-  deps.db.createSession(token, email, deps.now());
-  return { account, cookies: { [SESSION_COOKIE]: token } };
-}
+import { fakeDeps, merchant, req, type TestDeps } from "./testing.ts";
 
 const call = (deps: TestDeps, method: string, path: string, body?: any, cookies?: Record<string, string>) =>
   dispatch(developerRoutes, req(method, path, body, cookies), deps);

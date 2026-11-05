@@ -103,7 +103,7 @@
   - `to_raw_usdc`: `toRaw("10.00", 6) === 10_000_000n`.
   - `to_raw_rejects` covers `"0"`, `"1.1234567"` at 6 decimals, and `"abc"`.
   - `api_status_expired`.
-- [ ] 3.2 Add the `apiRoutes` table with `POST /api/v1/invoices` and `GET /api/v1/invoices/:id`. Exclude `/api` from `serveStatic`.
+- [x] 3.2 Add the `apiRoutes` table with `POST /api/v1/invoices` and `GET /api/v1/invoices/:id`. Exclude `/api` from `serveStatic`.
 
   Authentication uses the Bearer key through `merchantByKeyHash`, answering 401 otherwise.
 

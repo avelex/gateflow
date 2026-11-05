@@ -82,7 +82,7 @@ function validPublicKey(pk: unknown): pk is string {
 const locks = new Map<string, Promise<unknown>>();
 
 /// Runs `fn` after every earlier call for the same key has finished.
-function withLock<T>(key: string, fn: () => Promise<T>): Promise<T> {
+export function withLock<T>(key: string, fn: () => Promise<T>): Promise<T> {
   const prev = locks.get(key) ?? Promise.resolve();
   const next = prev.then(fn, fn);
   const tail = next.catch(() => {});
