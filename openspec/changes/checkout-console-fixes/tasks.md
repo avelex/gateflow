@@ -119,7 +119,7 @@
 
 ## 6. Origin sender in the relay
 
-- [ ] 6.1 Create `relay/src/origin.ts` with pure helpers ported from `enclave/src/origin.rs`:
+- [x] 6.1 Create `relay/src/origin.ts` with pure helpers ported from `enclave/src/origin.rs`:
   - `originRequest(chain, hash): { url: string; init?: RequestInit } | undefined`: an EVM `eth_getTransactionByHash` POST for base, eth and arb, an Esplora GET for btc, a Blockchair GET for zec, and undefined otherwise.
   - `parseSenders(chain, hash, body: any): string[] | undefined`:
     - EVM: `result.from`, lowercased.
@@ -133,7 +133,7 @@
     - `zec_shielded_none`
     - `unknown_chain_none`
   - Verify: `cd relay && npm test`.
-- [ ] 6.2 Add an `origin` port to `Deps` in `types.ts`: `{ senders(chain: string, hash: string): Promise<string[] | undefined> }`.
+- [x] 6.2 Add an `origin` port to `Deps` in `types.ts`: `{ senders(chain: string, hash: string): Promise<string[] | undefined> }`.
   - In `main.ts`, implement it with `fetch` and a 5 s timeout, using the helpers from 6.1.
   - In `testing.ts`, add a fake with a settable map and a failure switch.
   - Verify: `cd relay && npm test` and `cd relay && node --check src/main.ts`.

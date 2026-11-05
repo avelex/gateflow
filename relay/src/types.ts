@@ -48,8 +48,14 @@ export interface Llm {
   complete(messages: ChatMessage[], tools: ToolDef[]): Promise<Completion>;
 }
 
+/// Reads who sent a deposit on its origin chain.
+export interface OriginApi {
+  /// The addresses that sent origin tx `hash` on `chain`; undefined when the tx says none. Throws when the read fails.
+  senders(chain: string, hash: string): Promise<string[] | undefined>;
+}
+
 /// `creator` signs merchant account creation as `cfg.merchantParent`; `near` signs everything else.
-export type Deps = { cfg: Config; db: Db; near: Near; creator?: Near; oneclick: OneClick; outlayer: OutLayerApi; llm?: Llm; now(): number };
+export type Deps = { cfg: Config; db: Db; near: Near; creator?: Near; oneclick: OneClick; outlayer: OutLayerApi; origin: OriginApi; llm?: Llm; now(): number };
 
 export type Req = {
   method: string;

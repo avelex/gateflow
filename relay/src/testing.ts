@@ -1,7 +1,7 @@
 // Test doubles: an in-memory DB, a recording fake NEAR client and a scripted 1Click client.
 import { openDb } from "./db.ts";
 import type { Action, Near, TxResult } from "./near.ts";
-import { type ChatMessage, type Completion, type Config, type Deps, type Llm, loadConfig, type OneClick, type OutLayerApi, type Req, type ToolDef } from "./types.ts";
+import { type ChatMessage, type Completion, type Config, type Deps, type Llm, loadConfig, type OneClick, type OriginApi, type OutLayerApi, type Req, type ToolDef } from "./types.ts";
 
 export const cfg = (over: Partial<Config> = {}): Config => ({
   ...loadConfig({ GATEFLOW_CONTRACT: "gateflow.testnet", RELAY_ACCOUNT_ID: "op.testnet", WEB_DIST: "/nonexistent" }),
@@ -117,6 +117,26 @@ export function fakeOutLayer(): FakeOutLayer {
   return o;
 }
 
+export type FakeOrigin = OriginApi & {
+  /// `chain:hash` -> senders.
+  table: Record<string, string[]>;
+  fail?: Error;
+  calls: string[];
+};
+
+export function fakeOrigin(): FakeOrigin {
+  const o: FakeOrigin = {
+    table: {},
+    calls: [],
+    async senders(chain, hash) {
+      o.calls.push(`${chain}:${hash}`);
+      if (o.fail) throw o.fail;
+      return o.table[`${chain}:${hash}`];
+    },
+  };
+  return o;
+}
+
 export type FakeLlm = Llm & {
   /// Replies in order; an Error is thrown. When empty, the fake answers "ok".
   replies: (Completion | Error)[];
@@ -137,11 +157,11 @@ export function fakeLlm(): FakeLlm {
   return l;
 }
 
-export type TestDeps = Deps & { near: FakeNear; oneclick: FakeOneClick; outlayer: FakeOutLayer; llm: FakeLlm; clock: { ms: number } };
+export type TestDeps = Deps & { near: FakeNear; oneclick: FakeOneClick; outlayer: FakeOutLayer; origin: FakeOrigin; llm: FakeLlm; clock: { ms: number } };
 
 export function fakeDeps(over: Partial<Config> = {}): TestDeps {
   const clock = { ms: Date.UTC(2026, 10, 2, 12) };
-  return { cfg: cfg(over), db: openDb(":memory:"), near: fakeNear(), oneclick: fakeOneClick(), outlayer: fakeOutLayer(), llm: fakeLlm(), now: () => clock.ms, clock };
+  return { cfg: cfg(over), db: openDb(":memory:"), near: fakeNear(), oneclick: fakeOneClick(), outlayer: fakeOutLayer(), origin: fakeOrigin(), llm: fakeLlm(), now: () => clock.ms, clock };
 }
 
 export const req = (method: string, path: string, body?: any, cookies: Record<string, string> = {}): Req => {

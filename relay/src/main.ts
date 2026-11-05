@@ -5,9 +5,10 @@ import { checkoutRoutes } from "./checkout.ts";
 import { consoleRoutes, syncRegistrations } from "./console.ts";
 import { openDb } from "./db.ts";
 import { rpcNear } from "./near.ts";
+import { originRequest, parseSenders } from "./origin.ts";
 import { serveStatic } from "./static.ts";
 import { startWatcher } from "./watcher.ts";
-import { type Deps, type Handler, HttpError, loadConfig, type OneClick, type OutLayerApi, type Req, type Res } from "./types.ts";
+import { type Deps, type Handler, HttpError, loadConfig, type OneClick, type OriginApi, type OutLayerApi, type Req, type Res } from "./types.ts";
 
 const CORS = { "access-control-allow-origin": "*", "access-control-allow-headers": "content-type", "access-control-allow-methods": "GET, POST, OPTIONS" };
 const MAX_BODY = 64 * 1024;
@@ -76,6 +77,18 @@ export function outlayerApi(baseUrl: string): OutLayerApi {
   };
 }
 
+export function originApi(): OriginApi {
+  return {
+    async senders(chain, hash) {
+      const r = originRequest(chain, hash);
+      if (!r) return undefined;
+      const res = await fetch(r.url, { ...r.init, signal: AbortSignal.timeout(5000) });
+      if (!res.ok) throw new Error(`origin ${chain} ${res.status}`);
+      return parseSenders(chain, hash, await res.json());
+    },
+  };
+}
+
 export function oneClick(baseUrl: string, apiKey?: string): OneClick {
   const call = async (path: string, init?: RequestInit) => {
     const headers: Record<string, string> = { "content-type": "application/json" };
@@ -123,6 +136,7 @@ if (import.meta.main) {
     creator: cfg.merchantParent === cfg.accountId ? undefined : rpcNear({ rpcUrl: cfg.rpcUrl, accountId: cfg.merchantParent, secret: cfg.secret }),
     oneclick: oneClick(cfg.oneclickUrl, cfg.oneclickKey),
     outlayer: outlayerApi(cfg.outlayerApi),
+    origin: originApi(),
     llm: cfg.llmApiKey ? llmClient(cfg) : undefined,
     now: Date.now,
   };
