@@ -164,7 +164,7 @@ export function fakeDeps(over: Partial<Config> = {}): TestDeps {
   return { cfg: cfg(over), db: openDb(":memory:"), near: fakeNear(), oneclick: fakeOneClick(), outlayer: fakeOutLayer(), origin: fakeOrigin(), llm: fakeLlm(), now: () => clock.ms, clock };
 }
 
-export const req = (method: string, path: string, body?: any, cookies: Record<string, string> = {}): Req => {
+export const req = (method: string, path: string, body?: any, cookies: Record<string, string> = {}, headers: Record<string, string> = {}): Req => {
   const url = new URL(path, "http://x");
-  return { method, path: url.pathname, query: url.searchParams, body, cookies };
+  return { method, path: url.pathname, query: url.searchParams, body, cookies, headers };
 };

@@ -49,7 +49,7 @@
 
 ## 1. API keys
 
-- [ ] 1.1 Add `headers: Record<string, string>` to `Req` in `relay/src/types.ts`, with lower-cased names filled in `relay/src/main.ts`.
+- [x] 1.1 Add `headers: Record<string, string>` to `Req` in `relay/src/types.ts`, with lower-cased names filled in `relay/src/main.ts`.
   - Add `INVOICE_SIGNER_KEY` to `Config` as `invoiceSigner?: string`.
   - Verify: existing tests pass, and a new test in `relay/src/shell.test.ts` shows a handler reading `req.headers.authorization`.
 - [ ] 1.2 Create `relay/src/api.ts` with pure helpers:

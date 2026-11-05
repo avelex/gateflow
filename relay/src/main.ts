@@ -20,7 +20,7 @@ export async function dispatch(table: Record<string, Handler>, req: Req, deps: D
   let res: Res;
   if (checkout && req.method === "OPTIONS") res = { status: 204 };
   else {
-    const handler = table[`${req.method} ${req.path}`];
+    const handler = table[`${req.method} ${req.path}`] ?? table[`${req.method} ${req.path.replace(/\/\d+$/, "/:id")}`];
     try {
       if (handler) res = await handler(req, deps);
       else {
@@ -45,6 +45,12 @@ function cookies(header: string | undefined): Record<string, string> {
     const i = part.indexOf("=");
     if (i > 0) out[part.slice(0, i).trim()] = decodeURIComponent(part.slice(i + 1).trim());
   }
+  return out;
+}
+
+function headerMap(req: IncomingMessage): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(req.headers)) if (typeof v === "string") out[k] = v;
   return out;
 }
 
@@ -111,7 +117,7 @@ export function serve(deps: Deps, table = routes) {
     let out: Res;
     try {
       const body = req.method === "GET" || req.method === "OPTIONS" ? undefined : await readBody(req);
-      out = await dispatch(table, { method: req.method ?? "GET", path: url.pathname, query: url.searchParams, body, cookies: cookies(req.headers.cookie) }, deps);
+      out = await dispatch(table, { method: req.method ?? "GET", path: url.pathname, query: url.searchParams, body, cookies: cookies(req.headers.cookie), headers: headerMap(req) }, deps);
     } catch (e) {
       out = e instanceof HttpError ? { status: e.status, json: { error: e.message } } : { status: 500, json: { error: "internal error" } };
       if (/^\/checkout(\/|$)/.test(url.pathname)) out.headers = CORS;

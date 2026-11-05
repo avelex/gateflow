@@ -6,8 +6,8 @@ import { join } from "node:path";
 import { openDb } from "./db.ts";
 import { dispatch } from "./main.ts";
 import { serveStatic } from "./static.ts";
-import { fakeDeps, req } from "./testing.ts";
-import { HttpError } from "./types.ts";
+import { cfg, fakeDeps, req } from "./testing.ts";
+import { HttpError, loadConfig } from "./types.ts";
 
 test("db_merchant_roundtrip", () => {
   const db = openDb(":memory:");
@@ -83,4 +83,21 @@ test("checkout_cors_and_options", async () => {
   assert.equal(miss.headers?.["access-control-allow-origin"], "*");
   const consoleMiss = await dispatch({}, req("GET", "/console/nope"), deps);
   assert.equal(consoleMiss.headers?.["access-control-allow-origin"], undefined);
+});
+
+test("dispatch_passes_headers_and_id_routes", async () => {
+  const deps = fakeDeps();
+  const table = {
+    "GET /api/v1/x": async (r: any) => ({ status: 200, json: { auth: r.headers.authorization } }),
+    "GET /api/v1/x/:id": async (r: any) => ({ status: 200, json: { path: r.path } }),
+  };
+  const a = await dispatch(table, req("GET", "/api/v1/x", undefined, {}, { authorization: "Bearer k" }), deps);
+  assert.deepEqual(a.json, { auth: "Bearer k" });
+  assert.deepEqual((await dispatch(table, req("GET", "/api/v1/x/42"), deps)).json, { path: "/api/v1/x/42" });
+  assert.equal((await dispatch(table, req("GET", "/api/v1/x/abc"), deps)).status, 404);
+});
+
+test("config_invoice_signer", () => {
+  assert.equal(cfg({}).invoiceSigner, undefined);
+  assert.equal(loadConfig({ GATEFLOW_CONTRACT: "g", INVOICE_SIGNER_KEY: "ed25519:s" }).invoiceSigner, "ed25519:s");
 });

@@ -26,6 +26,8 @@ export type Config = {
   outlayerContract: string;
   outlayerProject: string;
   outlayerApi: string;
+  /// ed25519 secret of the invoice signer key merchants add to enable the API.
+  invoiceSigner?: string;
 };
 
 export interface OneClick {
@@ -63,6 +65,8 @@ export type Req = {
   query: URLSearchParams;
   body: any;
   cookies: Record<string, string>;
+  /// Lower-cased header names.
+  headers: Record<string, string>;
 };
 
 export type Res = {
@@ -111,5 +115,6 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     outlayerContract: env.OUTLAYER_CONTRACT || "outlayer.near",
     outlayerProject: env.OUTLAYER_PROJECT || "ops.gateflow.near/gateflow",
     outlayerApi: env.OUTLAYER_API || "https://api.outlayer.ai",
+    invoiceSigner: env.INVOICE_SIGNER_KEY || undefined,
   };
 }
