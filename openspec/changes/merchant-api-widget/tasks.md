@@ -131,7 +131,7 @@
 
 ## 4. Webhooks
 
-- [ ] 4.1 Add the tables `gateway_dev(gateway PK, webhook_url, webhook_secret, origins)` and `webhook_deliveries(id PK, invoice, event, body, attempts, next_at_ms, done)`.
+- [x] 4.1 Add the tables `gateway_dev(gateway PK, webhook_url, webhook_secret, origins)` and `webhook_deliveries(id PK, invoice, event, body, attempts, next_at_ms, done)`.
 
   Add console routes:
   - `PUT /console/webhook {url}` requires `https:`, returns a fresh secret once, and clears the URL on `null`.

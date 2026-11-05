@@ -110,7 +110,22 @@ CREATE TABLE IF NOT EXISTS api_invoices (
   status TEXT NOT NULL DEFAULT 'open',
   expires_at_ms INTEGER NOT NULL
 );
-CREATE INDEX IF NOT EXISTS api_invoices_order ON api_invoices (gateway, order_id);`;
+CREATE INDEX IF NOT EXISTS api_invoices_order ON api_invoices (gateway, order_id);
+CREATE TABLE IF NOT EXISTS gateway_dev (
+  gateway INTEGER PRIMARY KEY,
+  webhook_url TEXT,
+  webhook_secret TEXT,
+  origins TEXT NOT NULL DEFAULT '[]'
+);
+CREATE TABLE IF NOT EXISTS webhook_deliveries (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  invoice INTEGER NOT NULL,
+  event TEXT NOT NULL,
+  body TEXT NOT NULL,
+  attempts INTEGER NOT NULL DEFAULT 0,
+  next_at_ms INTEGER NOT NULL,
+  done INTEGER NOT NULL DEFAULT 0
+);`;
 
 const toMessage = (row: any): Message => ({ ...row, trace: JSON.parse(row.trace), cards: JSON.parse(row.cards) });
 const toAction = (row: any): ChatAction | undefined => row && { ...row, params: JSON.parse(row.params), result: row.result === null ? null : JSON.parse(row.result) };
@@ -169,6 +184,10 @@ export function openDb(path: string) {
   const newApiInvoice = q("INSERT INTO api_invoices (invoice, gateway, order_id, expires_at_ms) VALUES (?, ?, ?, ?)");
   const apiByOrder = q("SELECT * FROM api_invoices WHERE gateway = ? AND order_id = ? ORDER BY invoice DESC");
   const apiById = q("SELECT * FROM api_invoices WHERE invoice = ?");
+  const devOf = q("SELECT * FROM gateway_dev WHERE gateway = ?");
+  const devInit = q("INSERT OR IGNORE INTO gateway_dev (gateway) VALUES (?)");
+  const setWebhook = q("UPDATE gateway_dev SET webhook_url = ?, webhook_secret = ? WHERE gateway = ?");
+  const setOrigins = q("UPDATE gateway_dev SET origins = ? WHERE gateway = ?");
   const keyOwner = q("SELECT email FROM api_keys WHERE hash = ? AND revoked_at IS NULL");
 
   return {
@@ -236,6 +255,19 @@ export function openDb(path: string) {
       const r = apiById.get(id);
       return r && ({ ...r } as ApiInvoice);
     },
+    /// Webhook and allowed origins of a gateway; empty when never set.
+    gatewayDev(gateway: number): GatewayDev {
+      const r = devOf.get(gateway) as any;
+      return { webhook_url: r?.webhook_url ?? null, webhook_secret: r?.webhook_secret ?? null, origins: JSON.parse(r?.origins ?? "[]") };
+    },
+    setWebhook(gateway: number, url: string | null, secret: string | null) {
+      devInit.run(gateway);
+      setWebhook.run(url, secret, gateway);
+    },
+    setOrigins(gateway: number, origins: string[]) {
+      devInit.run(gateway);
+      setOrigins.run(JSON.stringify(origins), gateway);
+    },
     merchantByKeyHash(hash: string) {
       const row = keyOwner.get(hash) as { email: string } | undefined;
       return row && toMerchant(byEmail.get(row.email));
@@ -244,4 +276,5 @@ export function openDb(path: string) {
 }
 
 export type Db = ReturnType<typeof openDb>;
+export type GatewayDev = { webhook_url: string | null; webhook_secret: string | null; origins: string[] };
 export type ApiInvoice = { invoice: number; gateway: number; order_id: string | null; status: string; expires_at_ms: number };

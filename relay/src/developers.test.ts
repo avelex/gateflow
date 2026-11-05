@@ -40,10 +40,44 @@ test("dev_enabled_after_add_key", async () => {
   const { account, cookies } = merchant(deps);
   const pub = signer(secret).publicKeyString;
   const before = (await call(deps, "GET", "/console/dev", undefined, cookies)).json as any;
-  assert.deepEqual(before, { available: true, enabled: false, signerPublicKey: pub, allowance: null, receiver: "gateflow.testnet", methods: ["create_invoice"] });
+  assert.deepEqual(before, { available: true, enabled: false, signerPublicKey: pub, allowance: null, receiver: "gateflow.testnet", methods: ["create_invoice"], webhookUrl: null, origins: [] });
   deps.near.keys[`${account}/${pub}`] = 0n;
   assert.equal(((await call(deps, "GET", "/console/dev", undefined, cookies)).json as any).enabled, true);
   const none = fakeDeps();
   const m2 = merchant(none);
   assert.equal(((await call(none, "GET", "/console/dev", undefined, m2.cookies)).json as any).available, false);
+});
+
+test("webhook_requires_https", async () => {
+  const deps = fakeDeps();
+  const { cookies } = merchant(deps);
+  for (const url of ["http://shop.example/hook", "ftp://x", "not a url", 5])
+    assert.equal((await call(deps, "PUT", "/console/webhook", { url }, cookies)).status, 400, String(url));
+  assert.equal((await call(deps, "POST", "/console/webhook/secret", undefined, cookies)).status, 409);
+});
+
+test("webhook_secret_once", async () => {
+  const deps = fakeDeps();
+  const { cookies } = merchant(deps);
+  const set = (await call(deps, "PUT", "/console/webhook", { url: "https://shop.example/hook" }, cookies)).json as any;
+  assert.match(set.secret, /^whsec_/);
+  const dev = JSON.stringify((await call(deps, "GET", "/console/dev", undefined, cookies)).json);
+  assert.ok(dev.includes("https://shop.example/hook") && !dev.includes(set.secret));
+  const rolled = (await call(deps, "POST", "/console/webhook/secret", undefined, cookies)).json as any;
+  assert.notEqual(rolled.secret, set.secret);
+  assert.equal(deps.db.gatewayDev(0).webhook_secret, rolled.secret);
+  await call(deps, "PUT", "/console/webhook", { url: null }, cookies);
+  assert.deepEqual(deps.db.gatewayDev(0), { webhook_url: null, webhook_secret: null, origins: [] });
+});
+
+test("origins_validated", async () => {
+  const deps = fakeDeps();
+  const { cookies } = merchant(deps);
+  const good = await call(deps, "PUT", "/console/origins", { origins: ["https://shop.example", "https://shop.example:8443", "http://localhost:8080", "https://shop.example"] }, cookies);
+  assert.deepEqual(good.json, { origins: ["https://shop.example", "https://shop.example:8443", "http://localhost:8080"] });
+  for (const bad of ["https://shop.example/", "https://shop.example/path", "http://shop.example", "shop.example", "https://*.shop.example"])
+    assert.equal((await call(deps, "PUT", "/console/origins", { origins: [bad] }, cookies)).status, 400, bad);
+  const main = fakeDeps({ gateflow: "gateflow.near" });
+  const m = merchant(main);
+  assert.equal((await call(main, "PUT", "/console/origins", { origins: ["http://localhost:8080"] }, m.cookies)).status, 400);
 });
