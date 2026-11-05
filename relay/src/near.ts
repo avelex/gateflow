@@ -219,6 +219,11 @@ export function rpcNear(cfg: { rpcUrl: string; accountId: string; secret?: strin
   const accessKey = async (account: string, publicKey: string) => {
     try {
       const r = await call("query", { request_type: "view_access_key", finality: "final", account_id: account, public_key: publicKey });
+      // Some RPC nodes report a missing key as `result.error` instead of a JSON-RPC error.
+      if (typeof r?.error === "string") {
+        if (/does not exist/.test(r.error)) return undefined;
+        throw new RpcError(r.error, r);
+      }
       return { nonce: BigInt(r.nonce), blockHash: base58decode(r.block_hash) };
     } catch (e) {
       if (e instanceof RpcError && /UNKNOWN_(ACCESS_KEY|ACCOUNT)/.test(e.message)) return undefined;

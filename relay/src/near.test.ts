@@ -80,3 +80,14 @@ test("tx_unknown_is_undefined", async () => {
     globalThis.fetch = real;
   }
 });
+
+test("access_key_missing_in_result_is_undefined", async () => {
+  const real = globalThis.fetch;
+  globalThis.fetch = (async () =>
+    new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, result: { block_hash: "Zpo", block_height: 1, error: "access key ed25519:111 does not exist while viewing", logs: [] } }))) as typeof fetch;
+  try {
+    assert.equal(await rpcNear({ rpcUrl: "http://rpc", accountId: "op.testnet" }).accessKey("kaja.testnet", "ed25519:111"), undefined);
+  } finally {
+    globalThis.fetch = real;
+  }
+});
