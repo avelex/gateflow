@@ -66,7 +66,8 @@ export type Payment = {
   refund_to: string;
   token: string;
   amount: string;
-  reference: string | null;
+  /// The 1Click reference; the contract serializes it as `ref`.
+  ref: string | null;
   deposit_address: string | null;
   opened_at_sec: number;
   max_risk: number;
@@ -115,7 +116,7 @@ export function searchMatches(q: string, invoices: Invoice[], payments: Payment[
 }
 
 /// The payer to show: the NEAR refund account for 1Click deliveries (sent by intents.near), else the sender.
-export const payerLabel = (p: Payment) => (p.reference ? p.refund_to : p.payer);
+export const payerLabel = (p: Payment) => (p.ref ? p.refund_to : p.payer);
 
 export type InvoiceTab = "Open" | "Paying" | "Paid" | "Returned" | "Expired";
 
@@ -207,7 +208,7 @@ const OUTCOME = { pending: "Screening", approved: "Approved", rejected: "Rejecte
 export function screeningFields(p: Payment, project: string, network: string): Field[] {
   const s = p.screening;
   const f: Field[] = [
-    { label: "Flow", value: p.reference === null ? "Direct" : "Cross-chain" },
+    { label: "Flow", value: p.ref === null ? "Direct" : "Cross-chain" },
     { label: "Risk limit", value: String(p.max_risk) },
     ...(p.deposit_address ? [{ label: "Deposit address", value: p.deposit_address }] : []),
     { label: "Project", value: s?.project ?? project },

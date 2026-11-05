@@ -33,11 +33,11 @@
 
 ## 1. Payment `ref` field
 
-- [ ] 1.1 In `web/src/console/logic.ts`, rename `Payment.reference` to `ref: string | null`. Update `payerLabel` and the `Flow` field in `screeningFields` to use it, and change every fixture in `web/src/console/logic.test.ts` from `reference` to `ref`.
+- [x] 1.1 In `web/src/console/logic.ts`, rename `Payment.reference` to `ref: string | null`. Update `payerLabel` and the `Flow` field in `screeningFields` to use it, and change every fixture in `web/src/console/logic.test.ts` from `reference` to `ref`.
   - Add `payer_ref_without_origin`: `payerLabel({..., ref: "ab…", payer: "intents.near", refund_to: "bob.near"}) === "bob.near"`.
   - Add `flow_direct_without_ref`: `ref: null` gives Flow "Direct".
   - Verify: `cd web && npm test` passes both tests.
-- [ ] 1.2 In `relay/src/chat.ts:80`, read `p.ref` instead of `p.reference`.
+- [x] 1.2 In `relay/src/chat.ts:80`, read `p.ref` instead of `p.reference`.
   - Add `chat_payer_uses_ref` to `relay/src/chat.test.ts`: a payment `{ref: "r1", payer: "intents.near", refund_to: "bob.near"}` yields payer `bob.near`.
   - Verify: `cd relay && npm test`.
 

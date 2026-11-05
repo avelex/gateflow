@@ -16,7 +16,7 @@ const USDC = { symbol: "USDC", decimals: 6 };
 const NBTC = { symbol: "nBTC", decimals: 8 };
 const at = (d: Date) => Math.floor(d.getTime() / 1000);
 const pay = (id: number, amount: string, status: string, opened: Date, extra: Partial<Payment> = {}): Payment => ({
-  id, gateway: 0, invoice: id, payer: "alice.near", refund_to: "alice.near", token: "usdc.near", amount, reference: null, deposit_address: null,
+  id, gateway: 0, invoice: id, payer: "alice.near", refund_to: "alice.near", token: "usdc.near", amount, ref: null, deposit_address: null,
   opened_at_sec: at(opened), max_risk: 50, status, tokenMeta: USDC, screening: null, ...extra,
 });
 const inv = (id: number, amount: string, meta = USDC, extra: Partial<Invoice> = {}): Invoice => ({
@@ -79,7 +79,7 @@ test("screening_tabs", () => {
 
 test("payer_label", () => {
   const d = new Date();
-  expect(payerLabel(pay(1, "1", "Pending", d, { reference: "ab".repeat(16), payer: "intents.near", refund_to: "bob.near" }))).toBe("bob.near");
+  expect(payerLabel(pay(1, "1", "Pending", d, { ref: "ab".repeat(16), payer: "intents.near", refund_to: "bob.near" }))).toBe("bob.near");
   expect(payerLabel(pay(1, "1", "Pending", d, { payer: "alice.near", refund_to: "alice.near" }))).toBe("alice.near");
 });
 
@@ -151,7 +151,7 @@ test("fields_unavailable", () => {
 });
 
 test("fields_cross_chain", () => {
-  const f = byLabel(screeningFields(pay(3, "1", "Pending", new Date(), { reference: "r1", deposit_address: "0x76fc" }), PROJECT, "mainnet"));
+  const f = byLabel(screeningFields(pay(3, "1", "Pending", new Date(), { ref: "r1", deposit_address: "0x76fc" }), PROJECT, "mainnet"));
   expect(f).toMatchObject({ Flow: "Cross-chain", "Deposit address": "0x76fc" });
   expect(f["Screening record"]).toBeUndefined();
 });
@@ -161,4 +161,14 @@ test("fields_request_attestation", () => {
   expect(f.find((x) => x.label === "Request")).toEqual({ label: "Request", value: "2796", href: "https://app.outlayer.ai/attestation/1255332?network=mainnet" });
   const plain = screeningFields(pay(3, "1", "Settled", new Date(), { screening: EV }), PROJECT, "mainnet");
   expect(plain.find((x) => x.label === "Request")?.href).toBe("https://app.outlayer.ai/executions");
+});
+
+test("payer_ref_without_origin", () => {
+  expect(payerLabel(pay(1, "1", "Settled", new Date(), { ref: "ab".repeat(16), payer: "intents.near", refund_to: "bob.near" }))).toBe("bob.near");
+});
+
+test("flow_direct_without_ref", () => {
+  const flow = (ref: string | null) => screeningFields(pay(1, "1", "Settled", new Date(), { ref }), "p", "mainnet").find((f) => f.label === "Flow")!.value;
+  expect(flow(null)).toBe("Direct");
+  expect(flow("r1")).toBe("Cross-chain");
 });

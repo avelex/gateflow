@@ -77,7 +77,7 @@ const paymentView = (p: any) => ({
   amount: decimal(p),
   symbol: p.tokenMeta.symbol,
   status: paymentStatus(p),
-  payer: p.reference ? p.refund_to : p.payer,
+  payer: p.ref ? p.refund_to : p.payer,
   opened_at: iso(p.opened_at_sec),
 });
 

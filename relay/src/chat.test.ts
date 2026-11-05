@@ -98,10 +98,10 @@ export function chain(deps: TestDeps, over: { invoices?: any[]; payments?: any[]
     { gateway: 9, token: "usdc.testnet", amount: "5", expires_at_sec: NOW_SEC + 60, memo: null, status: "Open", payment: null },
   ];
   const payments = over.payments ?? [
-    { gateway: 0, invoice: 2, payer: "alice.testnet", refund_to: "alice.testnet", token: "usdc.testnet", amount: "10000000", reference: null, deposit_address: null, opened_at_sec: NOW_SEC - 60, max_risk: 50, status: "Settled" },
-    { gateway: 0, invoice: 0, payer: "intents.near", refund_to: "bob.testnet", token: "usdc.testnet", amount: "5000000", reference: "r1", deposit_address: "d", opened_at_sec: NOW_SEC - 3 * 86400, max_risk: 50, status: "Settled" },
-    { gateway: 0, invoice: 1, payer: "carol.testnet", refund_to: "carol.testnet", token: "nbtc.testnet", amount: "100", reference: null, deposit_address: null, opened_at_sec: NOW_SEC - 40 * 86400, max_risk: 50, status: "RefundFailed" },
-    { gateway: 9, invoice: 3, payer: "eve.testnet", refund_to: "eve.testnet", token: "usdc.testnet", amount: "1", reference: null, deposit_address: null, opened_at_sec: NOW_SEC, max_risk: 50, status: "Pending" },
+    { gateway: 0, invoice: 2, payer: "alice.testnet", refund_to: "alice.testnet", token: "usdc.testnet", amount: "10000000", ref: null, deposit_address: null, opened_at_sec: NOW_SEC - 60, max_risk: 50, status: "Settled" },
+    { gateway: 0, invoice: 0, payer: "intents.near", refund_to: "bob.testnet", token: "usdc.testnet", amount: "5000000", ref: "r1", deposit_address: "d", opened_at_sec: NOW_SEC - 3 * 86400, max_risk: 50, status: "Settled" },
+    { gateway: 0, invoice: 1, payer: "carol.testnet", refund_to: "carol.testnet", token: "nbtc.testnet", amount: "100", ref: null, deposit_address: null, opened_at_sec: NOW_SEC - 40 * 86400, max_risk: 50, status: "RefundFailed" },
+    { gateway: 9, invoice: 3, payer: "eve.testnet", refund_to: "eve.testnet", token: "usdc.testnet", amount: "1", ref: null, deposit_address: null, opened_at_sec: NOW_SEC, max_risk: 50, status: "Pending" },
   ];
   const own = (list: any[]) => list.map((x, i) => [i, x] as [number, any]).filter(([, x]) => x.gateway === 0);
   v["gateflow.testnet.get_gateway"] = { owner: "kaja-coffee.op.testnet", payout_to: "kaja.testnet", policy: { max_risk: 50 }, fuel: "100000000000000000000000", invoices: own(invoices).length, payments: own(payments).length };
@@ -153,6 +153,15 @@ test("get_payment_foreign_not_found", async () => {
   assert.equal(((await run(deps, "get_payment", { id: 2 })) as any).status, "failed");
   const failed: any = await run(deps, "list_payments", { status: "failed" });
   assert.deepEqual(failed.map((x: any) => x.id), [2]);
+});
+
+test("chat_payer_uses_ref", async () => {
+  const deps = fakeDeps();
+  chain(deps);
+  const p: any = await run(deps, "get_payment", { id: 1 });
+  assert.equal(p.payer, "bob.testnet");
+  const direct: any = await run(deps, "get_payment", { id: 0 });
+  assert.equal(direct.payer, "alice.testnet");
 });
 
 test("settled_totals_periods", async () => {
