@@ -1,5 +1,5 @@
 // A minimal shop that takes Gateflow payments. Node built-ins only.
-// Usage: GATEFLOW_URL=https://<relay> GATEFLOW_KEY=gf_test_... GATEFLOW_WEBHOOK_SECRET=whsec_... node server.mjs
+// Usage: GATEFLOW_URL=https://<relay> GATEFLOW_KEY=gf_test_... GATEFLOW_WEBHOOK_SECRET=whsec_... [AMOUNT=1.00 CURRENCY=USDC] node server.mjs
 // Then open http://localhost:8080 (add it to Settings > Developers > Allowed origins).
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -9,6 +9,8 @@ const GATEFLOW = (process.env.GATEFLOW_URL ?? "http://localhost:8787").replace(/
 const KEY = process.env.GATEFLOW_KEY;
 const SECRET = process.env.GATEFLOW_WEBHOOK_SECRET;
 const PORT = Number(process.env.PORT ?? 8080);
+const AMOUNT = process.env.AMOUNT ?? "1.00";
+const CURRENCY = process.env.CURRENCY ?? "USDC";
 const MAX_SKEW_SEC = 300;
 
 /// True when `header` (`t=<s>,v1=<hex>`) signs `body` with `secret` within five minutes of now.
@@ -30,7 +32,9 @@ const send = (res, status, body, type = "application/json") => res.writeHead(sta
 
 if (import.meta.main) {
   if (!KEY || !SECRET) throw new Error("set GATEFLOW_KEY and GATEFLOW_WEBHOOK_SECRET");
-  const page = readFileSync(new URL("./index.html", import.meta.url), "utf8").replaceAll("GATEFLOW_URL", GATEFLOW);
+  const page = readFileSync(new URL("./index.html", import.meta.url), "utf8")
+    .replaceAll("GATEFLOW_URL", GATEFLOW)
+    .replaceAll("PRICE", `${AMOUNT} ${CURRENCY}`);
   createServer(async (req, res) => {
     if (req.method === "GET" && req.url === "/") return send(res, 200, page, "text/html; charset=utf-8");
 
@@ -40,7 +44,7 @@ if (import.meta.main) {
       const r = await fetch(`${GATEFLOW}/api/v1/invoices`, {
         method: "POST",
         headers: { authorization: `Bearer ${KEY}`, "content-type": "application/json" },
-        body: JSON.stringify({ amount: "1.00", currency: "USDC", order_id: orderId }),
+        body: JSON.stringify({ amount: AMOUNT, currency: CURRENCY, order_id: orderId }),
       });
       const invoice = await r.json();
       console.log("created", r.status, invoice);
