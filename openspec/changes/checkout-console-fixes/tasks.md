@@ -186,7 +186,7 @@
   - Replace the `Select` with one button card per asset, with `chainIcon`, the chain name, the symbol and `aria-pressed`.
   - With no assets, say "This invoice can only be paid with a NEAR wallet." and hide the form and the quote button.
   - Verify: `npm run build`, then in `npm run dev` with the fake relay, a USDC invoice shows Base, Arbitrum and Ethereum cards.
-- [ ] 9.2 Make `DepositPanel` render the amount with `<Hash value={amountInFormatted} head={64} tail={0} />` so it gets the copy action.
+- [x] 9.2 Make `DepositPanel` render the amount with `<Hash value={amountInFormatted} head={64} tail={0} />` so it gets the copy action.
   - Add `feeLine(q: SavedQuote, inv: CheckoutInvoice, originDecimals: number): string | undefined` in `web/src/checkout/logic.ts`. It returns `"<x> <symbol> of this covers the 1Click fee and slippage buffer."`, where x is `amountIn` (at `originDecimals`) minus `inv.amount` (at `inv.decimals`), computed by string math through `formatAmount`/`parseAmount`. It returns undefined when x ≤ 0.
   - `SavedQuote` stores `decimals`.
   - Add to `logic.test.ts`:

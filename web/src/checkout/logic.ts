@@ -1,5 +1,5 @@
 // Pure checkout rules (tested in logic.test.ts).
-import { isNearAccount } from "../format.ts";
+import { formatAmount, isNearAccount } from "../format.ts";
 
 /// GET /checkout/invoice.
 export type CheckoutInvoice = {
@@ -105,7 +105,16 @@ export function quoteFormError(f: { originAsset: string; refundTo: string; refun
 }
 
 /// A 1Click quote this browser requested, kept so a reload resumes the deposit view and timeline.
-export type SavedQuote = { ref: string; depositAddress: string; depositMemo: string | null; amountIn: string; amountInFormatted: string | null; deadline: string; symbol?: string };
+/// `symbol` and `decimals` are the paying asset's.
+export type SavedQuote = { ref: string; depositAddress: string; depositMemo: string | null; amountIn: string; amountInFormatted: string | null; deadline: string; symbol?: string; decimals?: number };
+
+/// How much of the amount to send exceeds the invoice amount, as the 1Click fee and slippage buffer; undefined when none.
+export function feeLine(q: SavedQuote, inv: Pick<CheckoutInvoice, "amount" | "decimals">, originDecimals: number): string | undefined {
+  const d = Math.max(originDecimals, inv.decimals);
+  const diff = BigInt(q.amountIn) * 10n ** BigInt(d - originDecimals) - BigInt(inv.amount) * 10n ** BigInt(d - inv.decimals);
+  if (diff <= 0n) return undefined;
+  return `${formatAmount(diff, d)} ${q.symbol ?? ""} of this covers the 1Click fee and slippage buffer.`.replace("  ", " ");
+}
 const QUOTE = (invoice: number) => `gateflow:quote:${invoice}`;
 const store = (s?: Storage) => s ?? localStorage;
 

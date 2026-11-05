@@ -257,7 +257,7 @@ export default function Checkout({ id }: { id: number }) {
   const quoteExpired = !!quote && Date.parse(quote.deadline) / 1000 <= now;
   const deposit = quote && waiting && (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      <DepositPanel quote={quote} now={now} />
+      <DepositPanel quote={quote} now={now} inv={inv} />
       {quoteExpired && (
         <Button variant="secondary" size="sm" icon="rotate-cw" onClick={() => (clearQuote(id), setQuote(undefined), setQuoteStatus(undefined))}>
           Get a new quote

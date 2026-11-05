@@ -188,3 +188,22 @@ test("timeline_no_time_on_current_step", () => {
   const t = timeline(inv({ status: "Paying", payment: { id: 1, status: "Pending", refundTo: "bob.near" }, times }));
   expect(t.find((s) => s.label === "Screening in enclave")?.atSec).toBeUndefined();
 });
+
+import { feeLine } from "./logic.ts";
+
+const fq = (amountIn: string, symbol = "USDC"): SavedQuote => ({ ref: "r", depositAddress: "0x", depositMemo: null, amountIn, amountInFormatted: null, deadline: "", symbol });
+
+test("fee_line_usdc", () => {
+  expect(feeLine(fq("1010225"), { amount: "1000000", decimals: 6 }, 6)).toBe("0.010225 USDC of this covers the 1Click fee and slippage buffer.");
+});
+
+test("fee_line_mixed_decimals", () => {
+  // 1.010225 of an 18-decimal origin token for a 1.0 invoice in a 6-decimal token
+  expect(feeLine(fq("1010225000000000000", "USDC"), { amount: "1000000", decimals: 6 }, 18)).toBe("0.010225 USDC of this covers the 1Click fee and slippage buffer.");
+  expect(feeLine(fq("101", "BTC"), { amount: "1000000000000", decimals: 12 }, 2)).toBe("0.01 BTC of this covers the 1Click fee and slippage buffer.");
+});
+
+test("fee_line_none_when_exact", () => {
+  expect(feeLine(fq("1000000"), { amount: "1000000", decimals: 6 }, 6)).toBeUndefined();
+  expect(feeLine(fq("999999"), { amount: "1000000", decimals: 6 }, 6)).toBeUndefined();
+});
