@@ -94,6 +94,14 @@ CREATE TABLE IF NOT EXISTS chat_actions (
   summary TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'pending',
   result TEXT
+);
+CREATE TABLE IF NOT EXISTS api_keys (
+  hash TEXT PRIMARY KEY,
+  email TEXT NOT NULL,
+  label TEXT NOT NULL,
+  last4 TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  revoked_at INTEGER
 );`;
 
 const toMessage = (row: any): Message => ({ ...row, trace: JSON.parse(row.trace), cards: JSON.parse(row.cards) });
@@ -147,6 +155,10 @@ export function openDb(path: string) {
   const actionById = q("SELECT * FROM chat_actions WHERE id = ? AND email = ?");
   const claim = q("UPDATE chat_actions SET status = 'done' WHERE id = ? AND status = 'pending'");
   const finish = q("UPDATE chat_actions SET status = ?, result = ? WHERE id = ?");
+  const newKey = q("INSERT INTO api_keys (hash, email, label, last4, created_at) VALUES (?, ?, ?, ?, ?)");
+  const keysOf = q("SELECT hash, label, last4, created_at FROM api_keys WHERE email = ? AND revoked_at IS NULL ORDER BY created_at");
+  const revokeKey = q("UPDATE api_keys SET revoked_at = ? WHERE email = ? AND hash LIKE ? || '%' AND revoked_at IS NULL");
+  const keyOwner = q("SELECT email FROM api_keys WHERE hash = ? AND revoked_at IS NULL");
 
   return {
     merchantByEmail: (email: string) => toMerchant(byEmail.get(email)),
@@ -199,6 +211,16 @@ export function openDb(path: string) {
     /// Marks a pending action dismissed; false when it was not pending.
     dismissAction: (id: number) => Number(dismiss.run(id).changes) === 1,
     finishAction: (id: number, status: ActionStatus, result: unknown) => void finish.run(status, JSON.stringify(result ?? null), id),
+    addApiKey: (k: { hash: string; email: string; label: string; last4: string; created_at: number }) =>
+      void newKey.run(k.hash, k.email, k.label, k.last4, k.created_at),
+    /// Live (unrevoked) keys of a merchant, oldest first.
+    apiKeys: (email: string) => keysOf.all(email).map((r) => ({ ...r }) as { hash: string; label: string; last4: string; created_at: number }),
+    /// Revokes the merchant's live key whose hash starts with `hashPrefix`; false when none matched.
+    revokeApiKey: (email: string, hashPrefix: string, now: number) => Number(revokeKey.run(now, email, hashPrefix).changes) > 0,
+    merchantByKeyHash(hash: string) {
+      const row = keyOwner.get(hash) as { email: string } | undefined;
+      return row && toMerchant(byEmail.get(row.email));
+    },
   };
 }
 

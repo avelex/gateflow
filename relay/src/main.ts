@@ -4,6 +4,7 @@ import { chatRoutes, llmClient } from "./chat.ts";
 import { checkoutRoutes } from "./checkout.ts";
 import { consoleRoutes, syncRegistrations } from "./console.ts";
 import { openDb } from "./db.ts";
+import { developerRoutes } from "./developers.ts";
 import { rpcNear } from "./near.ts";
 import { originRequest, parseSenders } from "./origin.ts";
 import { serveStatic } from "./static.ts";
@@ -13,7 +14,7 @@ import { type Deps, type Handler, HttpError, loadConfig, type OneClick, type Ori
 const CORS = { "access-control-allow-origin": "*", "access-control-allow-headers": "content-type", "access-control-allow-methods": "GET, POST, OPTIONS" };
 const MAX_BODY = 64 * 1024;
 
-export const routes: Record<string, Handler> = { ...consoleRoutes, ...chatRoutes, ...checkoutRoutes };
+export const routes: Record<string, Handler> = { ...consoleRoutes, ...developerRoutes, ...chatRoutes, ...checkoutRoutes };
 
 export async function dispatch(table: Record<string, Handler>, req: Req, deps: Deps): Promise<Res> {
   const checkout = /^\/checkout(\/|$)/.test(req.path);

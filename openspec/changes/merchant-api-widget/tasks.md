@@ -52,7 +52,7 @@
 - [x] 1.1 Add `headers: Record<string, string>` to `Req` in `relay/src/types.ts`, with lower-cased names filled in `relay/src/main.ts`.
   - Add `INVOICE_SIGNER_KEY` to `Config` as `invoiceSigner?: string`.
   - Verify: existing tests pass, and a new test in `relay/src/shell.test.ts` shows a handler reading `req.headers.authorization`.
-- [ ] 1.2 Create `relay/src/api.ts` with pure helpers:
+- [x] 1.2 Create `relay/src/api.ts` with pure helpers:
   - `newApiKey(testnet: boolean): string`
   - `keyHash(key: string): string` (sha256 hex)
   - `newWebhookSecret(): string`
@@ -63,7 +63,7 @@
   - `api_key_format`: matches `/^gf_test_[0-9A-Za-z]{43}$/`.
   - `key_hash_stable`.
   - `revoked_key_not_found`.
-- [ ] 1.3 Add console routes:
+- [x] 1.3 Add console routes:
   - `GET /console/api-keys` returns `[{id: hash.slice(0,12), label, last4, createdAt}]`.
   - `POST /console/api-keys {label}` returns `{key}`, once.
   - `DELETE /console/api-keys?id=` revokes the key.
