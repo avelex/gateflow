@@ -104,6 +104,18 @@ export function quoteFormError(f: { originAsset: string; refundTo: string; refun
   return undefined;
 }
 
+/// The L1 each L2 settles to; an L2 lists under its parent when the parent is offered too.
+export const PARENT_CHAIN: Record<string, string> = { base: "eth", arb: "eth" };
+
+/// Origin chain rows in display order: Ethereum first, other top-level chains in 1Click order,
+/// each followed by its nested L2s. An L2 whose parent is not offered stays top-level.
+export function chainRows<T extends { chain: string }>(assets: T[]): { asset: T; nested: boolean }[] {
+  const chains = new Set(assets.map((a) => a.chain));
+  const parentOf = (a: T) => (chains.has(PARENT_CHAIN[a.chain]) ? PARENT_CHAIN[a.chain] : undefined);
+  const top = assets.filter((a) => !parentOf(a)).sort((a, b) => Number(b.chain === "eth") - Number(a.chain === "eth"));
+  return top.flatMap((p) => [{ asset: p, nested: false }, ...assets.filter((a) => parentOf(a) === p.chain).map((asset) => ({ asset, nested: true }))]);
+}
+
 /// A 1Click quote this browser requested, kept so a reload resumes the deposit view and timeline.
 /// `symbol` and `decimals` are the paying asset's.
 export type SavedQuote = { ref: string; depositAddress: string; depositMemo: string | null; amountIn: string; amountInFormatted: string | null; deadline: string; symbol?: string; decimals?: number };

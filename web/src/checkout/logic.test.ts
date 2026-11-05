@@ -207,3 +207,28 @@ test("fee_line_none_when_exact", () => {
   expect(feeLine(fq("1000000"), { amount: "1000000", decimals: 6 }, 6)).toBeUndefined();
   expect(feeLine(fq("999999"), { amount: "1000000", decimals: 6 }, 6)).toBeUndefined();
 });
+
+import { chainRows } from "./logic.ts";
+
+const rows = (chains: string[]) => chainRows(chains.map((chain) => ({ chain }))).map((r) => `${r.asset.chain}:${r.nested}`);
+
+test("chain_rows_usdc", () => {
+  expect(rows(["base", "arb", "eth"])).toEqual(["eth:false", "base:true", "arb:true"]);
+});
+
+test("chain_rows_orphan_l2", () => {
+  expect(rows(["base", "arb"])).toEqual(["base:false", "arb:false"]);
+  expect(rows(["op", "eth"])).toEqual(["eth:false", "op:false"]);
+});
+
+test("chain_rows_eth_first", () => {
+  expect(rows(["btc", "base", "eth"])).toEqual(["eth:false", "base:true", "btc:false"]);
+});
+
+test("chain_rows_single", () => {
+  expect(rows(["btc"])).toEqual(["btc:false"]);
+});
+
+test("chain_rows_empty", () => {
+  expect(rows([])).toEqual([]);
+});
