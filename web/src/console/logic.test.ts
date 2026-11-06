@@ -258,7 +258,7 @@ test("invoice_steps_returned", () => {
   expect(s.slice(-2).map((x) => x.title)).toEqual(["Screened: rejected", "Returned to payer"]);
 });
 
-import { enableAction, snippets } from "./logic.ts";
+import { enableAction, highlight, snippets } from "./logic.ts";
 
 test("snippets_use_origin", () => {
   const s = snippets("https://gw.example");
@@ -272,4 +272,16 @@ test("enable_action_matches_dev", () => {
   const dev = { available: true, enabled: false, signerPublicKey: "ed25519:abc", allowance: null, receiver: "gateflow.testnet", methods: ["create_invoice"], webhookUrl: null, origins: [] };
   expect(enableAction(dev)).toEqual({ addKey: { publicKey: "ed25519:abc", allowance: null, receiver: "gateflow.testnet", methods: ["create_invoice"] } });
   expect((enableAction({ ...dev, allowance: "5" }) as any).addKey.allowance).toBe(5n);
+});
+
+test("highlight_snippets", () => {
+  const { curl, widget } = snippets("http://localhost:8787");
+  const kinds = (code: string, kind: string) => highlight(code).filter((t) => t.kind === kind).map((t) => t.text);
+  for (const code of [curl, widget]) expect(highlight(code).map((t) => t.text).join("")).toBe(code);
+  expect(kinds(curl, "comment")).toEqual([]);
+  expect(kinds(curl, "keyword")).toEqual(["curl"]);
+  expect(kinds(curl, "flag")).toEqual(["-H", "-H", "-d"]);
+  expect(kinds(curl, "string")).toContain(`'{"amount":"10.00","currency":"USDC","order_id":"order_123"}'`);
+  expect(kinds(widget, "comment")).toEqual(["// id from POST /api/v1/invoices on your server"]);
+  expect(kinds(widget, "tag")).toEqual(["<script", ">", "</script", ">", "<script", ">", "</script", ">"]);
 });

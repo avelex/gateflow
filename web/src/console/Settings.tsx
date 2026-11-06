@@ -137,6 +137,7 @@ function Chains({ data, refresh }: ScreenProps) {
 
 export default function Settings(props: ScreenProps & { onClose(): void }) {
   const [tab, setTab] = useState<"gateway" | "chains" | "developers">("gateway");
+  const [apiOn, setApiOn] = useState<boolean>();
   const tabs = [
     { k: "gateway" as const, label: "Gateway", icon: "key-round" },
     { k: "chains" as const, label: "Blockchains & Tokens", icon: "blocks" },
@@ -156,10 +157,17 @@ export default function Settings(props: ScreenProps & { onClose(): void }) {
         </div>
         <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
           <div style={{ height: 60, flex: "none", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px 0 28px", borderBottom: "1px solid var(--border-1)" }}>
-            <span style={{ fontSize: 17, fontWeight: 600, letterSpacing: "-0.01em" }}>{tabs.find((t) => t.k === tab)!.label}</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <span style={{ fontSize: 17, fontWeight: 600, letterSpacing: "-0.01em" }}>{tabs.find((t) => t.k === tab)!.label}</span>
+              {tab === "developers" && apiOn !== undefined && (
+                <Badge tone={apiOn ? "success" : "neutral"} dot>
+                  {apiOn ? "API enabled" : "API disabled"}
+                </Badge>
+              )}
+            </div>
             <IconButton icon="x" label="Close" onClick={props.onClose} />
           </div>
-          <div style={{ flex: 1, minHeight: 0, overflow: "auto", padding: "24px 28px 32px" }}>{tab === "gateway" ? <Gateway {...props} /> : tab === "chains" ? <Chains {...props} /> : <Developers {...props} />}</div>
+          <div style={{ flex: 1, minHeight: 0, overflow: "auto", padding: "24px 28px 32px", background: tab === "developers" ? "var(--ink-50)" : undefined }}>{tab === "gateway" ? <Gateway {...props} /> : tab === "chains" ? <Chains {...props} /> : <Developers {...props} onEnabled={setApiOn} />}</div>
         </div>
       </div>
     </div>

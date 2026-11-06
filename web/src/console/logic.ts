@@ -86,6 +86,25 @@ export function snippets(origin: string) {
   };
 }
 
+/// A piece of a code snippet, tagged for colour.
+export type CodeToken = { text: string; kind?: "comment" | "string" | "tag" | "flag" | "keyword" };
+const KINDS = ["comment", "string", "tag", "flag", "keyword"] as const;
+// ponytail: regex tokenizer for the two snippets above, not a general highlighter
+const CODE = /((?<=^|\s)\/\/.*)|("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')|(<\/?[\w-]+|\/?>)|((?<=^|\s)-[A-Za-z]\b)|(\b(?:curl|const|await|function)\b|=>)/gm;
+
+/// Splits `code` into tokens whose texts join back into `code`.
+export function highlight(code: string): CodeToken[] {
+  const out: CodeToken[] = [];
+  let last = 0;
+  for (const m of code.matchAll(CODE)) {
+    if (m.index > last) out.push({ text: code.slice(last, m.index) });
+    out.push({ text: m[0], kind: KINDS[m.slice(1).findIndex(Boolean)] });
+    last = m.index + m[0].length;
+  }
+  if (last < code.length) out.push({ text: code.slice(last) });
+  return out;
+}
+
 export type TokenMeta = { symbol: string; decimals: number };
 /// A row of GET /console/invoices.
 export type Invoice = {
