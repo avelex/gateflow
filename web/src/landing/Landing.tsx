@@ -1,6 +1,6 @@
 // Public landing deck for signed-out visitors: five full-screen slides, no page scroll.
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { chainIcon, chainName, logo, nearLogo } from "../assets.ts";
+import { chainIcon, chainName, logo, nearLogo, tokenIcon } from "../assets.ts";
 import { Button, Icon } from "../ds.jsx";
 import "./landing.css";
 import { clamp, fromHash, GITHUB, highlight, keyStep, shopUrl, SLIDES, snippet, swipeStep, toHash, wheelGate } from "./logic.ts";
@@ -19,6 +19,27 @@ function Chain({ id }: { id: string }) {
       <img src={chainIcon(id)} alt="" />
       {chainName(id)}
     </span>
+  );
+}
+
+/// The branded checkout button merchants put on their sites. Here it opens the example shop to try it.
+const PAY_ICONS = [tokenIcon("USDC"), ...["near", "eth", "btc"].map(chainIcon)];
+
+function PayButton() {
+  return (
+    <div className="landing-pay">
+      <a className="landing-pay-button" target="_blank" rel="noopener" aria-label="Pay with crypto: try it in the example shop">
+        Pay with crypto
+        <span className="landing-pay-chains">
+          {PAY_ICONS.map((src) => (
+            <img key={src} src={src} alt="" />
+          ))}
+        </span>
+      </a>
+      <span className="landing-pay-via">
+        secured by <img src={logo} alt="gateflow" />
+      </span>
+    </div>
   );
 }
 
@@ -116,9 +137,9 @@ function Problem() {
         </div>
         <div className="landing-after">
           <h3>
-            With <img src={logo} alt="Gateflow" />
+            With Gateflow
           </h3>
-          <p>One payment link</p>
+          <PayButton />
         </div>
       </div>
     </div>
@@ -235,7 +256,7 @@ function Trust() {
             <Icon name="lock" size={18} /> Gateflow never holds your keys.
           </li>
           <li>
-            <Icon name="key-square" size={18} /> Bring your own key (BYOK) for AML and KYT providers <span className="landing-soon">Coming soon</span>
+            <Icon name="key-square" size={18} /> Bring your own key (BYOK) for AML and KYT providers.
           </li>
         </ul>
       </div>

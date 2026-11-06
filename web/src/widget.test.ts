@@ -23,6 +23,7 @@ test("widget_defines_api", () => {
   const g = load();
   expect(typeof g.open).toBe("function");
   expect(typeof g.close).toBe("function");
+  expect(typeof g.button).toBe("function");
 });
 
 test("widget_ignores_foreign_origin", () => {
@@ -41,4 +42,10 @@ test("widget_ignores_foreign_source", () => {
 
 test("widget_accepts_own_frame", () => {
   expect(load()._accepts(msg(), "https://gw.example", frame)).toBe(true);
+});
+
+test("widget_button_rejects_bad_invoice", () => {
+  const g = load();
+  expect(() => g.button("#pay", -1)).toThrow("invoice must be an id");
+  expect(() => g.button("#pay", "abc")).toThrow("invoice must be an id");
 });

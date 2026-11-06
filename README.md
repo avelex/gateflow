@@ -186,6 +186,8 @@ A shop creates one invoice per order from its server, opens the checkout on its 
    <script>Gateflow.open(42, { onStatus: (e) => console.log(e.status) });</script>
    ```
 
+   Or render the branded "Pay with crypto" button, which opens the invoice on click: `Gateflow.button("#pay", 42, { theme: "auto" })`. `theme` is `ink` (default), `white` for dark sites, or `auto`. Pass a function instead of the id to create the order on click; the button stays disabled until its promise settles.
+
    These events are for your UI only. Without the script, redirect to `url` with `?return_url=https://shop.example/done`, which must be on your allowed origins.
 4. Fulfil on the webhook. Gateflow POSTs `{event, created_at, data}` for `invoice.paying`, `invoice.paid`, `invoice.returned` and `invoice.expired`, with the header `Gateflow-Signature: t=<unix s>,v1=<hex>`. `v1` is HMAC-SHA256 of `<t>.<raw body>` with your `whsec_` secret. A non-2xx answer is retried after 1 min, 5 min, 30 min, 2 h and 12 h.
 

@@ -57,7 +57,7 @@ export function wheelGate(lockMs = 350, gapMs = 150): (now: number, delta: numbe
 export const shopUrl = (env?: string): string => env || SHOP_ON_GITHUB;
 
 export const snippet = (origin: string): string =>
-  `<script src="${origin}/js/v1/gateflow.js"></script>\n<button onclick="Gateflow.open(42)">Pay with crypto</button>`;
+  `<script src="${origin}/js/v1/gateflow.js"></script>\n<div id="pay"></div>\n<script>Gateflow.button("#pay", 42)</script>`;
 
 export type Token = { t: "tag" | "attr" | "str" | "text"; s: string };
 

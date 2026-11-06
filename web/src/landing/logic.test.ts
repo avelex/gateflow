@@ -69,7 +69,7 @@ test("shop_url", () => {
 test("snippet", () => {
   const s = snippet("https://gateflow.example");
   expect(s).toContain('<script src="https://gateflow.example/js/v1/gateflow.js"></script>');
-  expect(s).toContain("Gateflow.open(");
+  expect(s).toContain('Gateflow.button("#pay", 42)');
   expect(s.split("\n").length).toBeLessThanOrEqual(4);
 });
 
@@ -81,5 +81,5 @@ test("highlight", () => {
   expect(toks).toContainEqual({ t: "attr", s: "src" });
   expect(toks).toContainEqual({ t: "str", s: '"https://gateflow.example/js/v1/gateflow.js"' });
   expect(toks).toContainEqual({ t: "tag", s: "</script" });
-  expect(toks).toContainEqual({ t: "text", s: "Pay with crypto" });
+  expect(toks).toContainEqual({ t: "str", s: '"#pay"' });
 });

@@ -33,6 +33,7 @@
       button:disabled { opacity: 0.5; cursor: default; }
       .qty button { width: 30px; height: 30px; padding: 0; }
       .primary { width: 100%; margin-top: 14px; padding: 12px 18px; border: 0; background: var(--accent); color: #fff; font-weight: 600; }
+      .pay { margin-top: 14px; }
       .err { color: var(--bad); font-size: 14px; margin: 8px 0 0; }
       .err:empty { display: none; }
       main a { color: var(--accent); }
@@ -114,23 +115,16 @@
           const count = lines.reduce((s, p) => s + cart[p.id], 0);
           document.getElementById("cartlink").textContent = count ? `Cart (${count})` : "";
           const err = el("p", { className: "err", role: "alert" });
-          const pay = el("button", { type: "button", className: "primary", disabled: !lines.length }, "Pay with crypto");
-          pay.onclick = async () => {
-            pay.disabled = true;
-            try {
-              await checkout(lines.map((p) => ({ id: p.id, qty: cart[p.id] })));
-            } catch (e) {
-              err.textContent = e.message;
-              pay.disabled = false;
-            }
-          };
+          // Gateflow's branded button; it stays disabled while checkout() runs.
+          const payHost = el("div", { className: "pay" });
+          const start = () => checkout(lines.map((p) => ({ id: p.id, qty: cart[p.id] }))).catch((e) => (err.textContent = e.message));
+          Gateflow.button(payHost, start, { theme: "ink" }).disabled = !lines.length;
           panel.replaceChildren(
             el("h2", {}, "Your cart"),
             ...(lines.length ? lines.map((p) => el("div", { className: "row" }, el("span", {}, `${p.emoji} ${p.name}`), el("span", { className: "qty" }, el("button", { type: "button", ariaLabel: `One less ${p.name}`, onclick: () => set(p.id, cart[p.id] - 1) }, "−"), String(cart[p.id]), el("button", { type: "button", ariaLabel: `One more ${p.name}`, onclick: () => set(p.id, cart[p.id] + 1) }, "+")))) : [el("p", { className: "muted" }, "Empty. Add something from the menu.")]),
             el("div", { className: "row total" }, el("span", {}, "Total"), el("span", {}, `${fmt(total)} ${catalog.currency}`)),
-            pay,
+            payHost,
             err,
-            el("p", { className: "muted" }, "Pay from a NEAR wallet or from another chain. The order is confirmed when Gateflow notifies this shop's server."),
           );
         }
         render();

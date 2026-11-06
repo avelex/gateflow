@@ -88,8 +88,24 @@
 .landing-before .landing-long { display: block; font-weight: 400; font-size: var(--fs-small); color: var(--text-3); }
 .landing-after { display: flex; flex-direction: column; border: 1.5px solid var(--accent); background: var(--surface-accent-soft); }
 .landing-after h3 { display: flex; align-items: center; gap: 8px; color: var(--accent-press); }
-.landing-after h3 img { height: 1.35em; }
-.landing-after p { margin: auto 0; font-size: clamp(20px, 3.4dvh, 28px); line-height: 1.15; font-weight: 700; letter-spacing: -0.02em; }
+.landing-pay { display: grid; gap: 8px; justify-items: center; margin: auto 0; }
+/* .landing prefix: beats `.landing a` and the global a:hover colours. */
+.landing .landing-pay-button { --pay-bg: var(--ink-950); box-sizing: border-box; width: 100%; height: 48px; display: flex; align-items: center; justify-content: center; gap: 10px; border-radius: 10px; background: var(--pay-bg); color: var(--white); font: 600 16px/1 var(--font-sans); text-decoration: none; white-space: nowrap; transition: background var(--dur-fast) var(--ease-standard), transform var(--dur-fast) var(--ease-standard); }
+.landing .landing-pay-button:hover { --pay-bg: var(--ink-800); color: var(--white); }
+.landing-pay-button:active { transform: scale(0.985); }
+.landing-pay-button:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.landing-pay-chains { display: inline-flex; }
+.landing-pay-chains img { width: 20px; height: 20px; border-radius: 50%; background: var(--white); box-shadow: 0 0 0 2px var(--pay-bg); }
+.landing-pay-chains img + img { margin-left: -6px; }
+.landing-pay-via { display: flex; align-items: center; gap: 4px; font-size: var(--fs-caption); color: var(--text-3); }
+.landing-pay-via img { height: 1.7em; }
+/* The "With Gateflow" box gets narrow on short-wide screens: shrink the button rather than wrap it. */
+.landing-after { container-type: inline-size; }
+@container (max-width: 200px) {
+  .landing .landing-pay-button { font-size: 14px; gap: 6px; }
+  .landing-pay-chains img { width: 16px; height: 16px; }
+  .landing-pay-chains img + img { margin-left: -5px; }
+}
 
 /* 3 How: a real sequence, so numbered */
 .landing-steps { list-style: none; margin: clamp(20px, 5dvh, 48px) 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(16px, 3vw, 40px); }
@@ -158,9 +174,9 @@
   .landing-step > span:last-child { flex-basis: 100%; }
   .landing-step-n { font-size: 28px; }
   .landing-compare { grid-template-columns: 1fr; }
-  .landing-after { flex-direction: row; align-items: center; gap: 12px; }
+  .landing-after { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 12px; }
   .landing-after h3 { margin: 0; }
-  .landing-after p { margin: 0; }
+  .landing-pay { flex-basis: 100%; }
   .landing-verdict { max-height: 22dvh; }
   .landing-tee ul { display: none; }
 }

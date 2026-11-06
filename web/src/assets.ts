@@ -1,11 +1,7 @@
 // Images from the design exports. No icons are drawn that the exports do not have.
-import arbitrum from "./assets/chain-arbitrum.png";
-import base from "./assets/chain-base.png";
-import bitcoin from "./assets/chain-bitcoin.png";
-import ethereum from "./assets/chain-ethereum.png";
-import near from "./assets/chain-near.png";
-import usdc from "./assets/chain-usdc.png";
-import zcash from "./assets/chain-zcash.png";
+// Chain icons live in public/img so merchant sites (the example shop's pay button) can load them from the relay too.
+const img = (name: string): string => `/img/chain-${name}.png`;
+const [arbitrum, base, bitcoin, ethereum, near, usdc, zcash] = ["arbitrum", "base", "bitcoin", "ethereum", "near", "usdc", "zcash"].map(img);
 export { default as logo } from "./assets/logo.png";
 export { near as nearLogo };
 
