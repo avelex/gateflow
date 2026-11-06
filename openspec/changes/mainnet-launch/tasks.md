@@ -45,7 +45,7 @@ Run 0.3 and 0.4 before 0.1: the contract needs a working enclave project.
 - [ ] 2.1 Pay a 1 USDC invoice from Base through the checkout; verify `get_payment` shows `Settled`, the invoice is `Paid`, and the merchant gains 1 USDC. Record the `sender_id` of the delivery's `ft_on_transfer` (must be `intents.near`, design decision 10 of `contract-from-scratch`) and the gas 1Click attached. Save the `/v0/status` response as `enclave/tests/fixtures/oneclick-status-live.json` (not `-success.json`, which the unit tests rely on) and check `jq -e '.status=="SUCCESS" and (.swapDetails.originChainTxHashes|length>0)'`
 - [ ] 2.2 Pay a 0.0001 nBTC invoice from native BTC; verify `Settled` and that the merchant gains nBTC
 - [ ] 2.3 Pay a ZEC invoice from a transparent address; verify `Settled` and that the merchant gains `zec.omft.near`
-- [ ] 2.4 Merchant API live check (from `merchant-api-widget`): with the API enabled, the tunnel origin in Allowed origins and a webhook URL set, buy through `examples/shop` with `CURRENCY=USDC AMOUNT=0.10` and pay from Base; verify the modal's `onStatus` shows `paying` then `paid`, the shop logs `invoice.paying` and `invoice.paid` with a valid `Gateflow-Signature`, and `webhook_deliveries` rows are `done = 1`
+- [ ] 2.4 Merchant API live check (from `merchant-api-widget`): with the API enabled, the tunnel origin in Allowed origins and a webhook URL set, buy one item through `examples/shop` and pay from Base; verify the modal's `onStatus` shows `paying` then `paid`, the shop logs `invoice.paying` and `invoice.paid` with a valid `Gateflow-Signature`, and `webhook_deliveries` rows are `done = 1`
 
 ## 3. Negative check
 
