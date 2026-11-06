@@ -103,7 +103,7 @@ export default function Layout({
         </div>
         {side ? (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 12px 14px 20px" }}>
-            <img src={logo} alt="gateflow" style={{ height: 22, display: "block" }} />
+            <img src={logo} alt="gateflow" style={{ height: 32, display: "block" }} />
             <IconButton icon="panel-left-close" label="Close sidebar" size="sm" onClick={() => (setSide(false), setProfileOpen(false))} />
           </div>
         ) : (

@@ -20,7 +20,7 @@
   justify-content: space-between;
   padding: clamp(12px, 2.5dvh, 24px) var(--gutter);
 }
-.landing-logo { height: 22px; }
+.landing-logo { height: clamp(26px, 4.4dvh, 36px); }
 .landing-header nav { display: flex; align-items: center; gap: 16px; }
 .landing-header-link { font-size: var(--fs-small); font-weight: 600; text-decoration: none; color: var(--text-2) !important; }
 .landing-header-link:hover { color: var(--text-1) !important; }

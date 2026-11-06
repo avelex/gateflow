@@ -9,7 +9,7 @@ export default function AuthCard({ title, text, children }: { title: ReactNode; 
     <div style={{ minHeight: "100vh", display: "flex", background: "var(--surface-page)", fontFamily: "var(--font-sans)", color: "var(--text-1)" }}>
       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 32 }}>
         <div style={{ width: 360, maxWidth: "100%", background: "var(--surface-card)", border: "1px solid var(--border-1)", borderRadius: "var(--radius-3)", padding: 28, display: "flex", flexDirection: "column", gap: 16 }}>
-          <img src={logo} alt="gateflow" style={{ height: 22, alignSelf: "flex-start" }} />
+          <img src={logo} alt="gateflow" style={{ height: 32, alignSelf: "flex-start" }} />
           <div style={{ fontSize: 19, lineHeight: "26px", fontWeight: 600, letterSpacing: "-0.01em" }}>{title}</div>
           {text && <div style={{ fontSize: 14, color: "var(--text-2)" }}>{text}</div>}
           {children}
