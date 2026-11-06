@@ -189,7 +189,7 @@ A shop creates one invoice per order from its server, opens the checkout on its 
    These events are for your UI only. Without the script, redirect to `url` with `?return_url=https://shop.example/done`, which must be on your allowed origins.
 4. Fulfil on the webhook. Gateflow POSTs `{event, created_at, data}` for `invoice.paying`, `invoice.paid`, `invoice.returned` and `invoice.expired`, with the header `Gateflow-Signature: t=<unix s>,v1=<hex>`. `v1` is HMAC-SHA256 of `<t>.<raw body>` with your `whsec_` secret. A non-2xx answer is retried after 1 min, 5 min, 30 min, 2 h and 12 h.
 
-[`examples/shop/`](examples/shop/) is a runnable shop with Node built-ins only: it creates an invoice, opens the modal and verifies webhooks.
+[`examples/shop/`](examples/shop/) is a demo storefront that uses Node built-ins only. It has a cart, prices checkout on the server and creates one invoice per order. Its order page turns Paid only when the signed webhook arrives, and a strip at the bottom lists every webhook the server received. Items cost at most 0.01 USDC. Run `GATEFLOW_URL=https://<gateflow> GATEFLOW_KEY=gf_test_... GATEFLOW_WEBHOOK_SECRET=whsec_... node examples/shop/server.mjs`, expose port 8080 through an HTTPS tunnel, add the tunnel origin to Allowed origins and set the webhook URL to `<tunnel>/webhook`.
 
 **Trust:** Enable API adds one key of the operator's to your account. That key can only call `create_invoice` on the Gateflow contract, and the relay refuses to add any wider key. An invoice always pays out to your gateway's payout account, so the key cannot move funds. If it leaked, it could only create invoices on your gateway, which uses up screening fuel at the rate limit. **Disable API** removes the key with one passkey prompt.
 

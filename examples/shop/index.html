@@ -3,27 +3,210 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Example shop</title>
+    <title>Harbor Coffee</title>
     <style>
-      body { font: 16px/1.5 system-ui, sans-serif; max-width: 480px; margin: 48px auto; padding: 0 16px; }
-      button { font: inherit; padding: 10px 18px; border-radius: 8px; border: 0; background: #111; color: #fff; cursor: pointer; }
-      #status { color: #555; }
+      :root { --bg: #f6f1ea; --card: #fffdf9; --ink: #2a211b; --muted: #7a6c60; --line: #e6dccf; --accent: #8a4b2a; --ok: #2f7d4f; --warn: #b7791f; --bad: #b3412e; }
+      @media (prefers-color-scheme: dark) {
+        :root { --bg: #17130f; --card: #211b16; --ink: #f1e8dd; --muted: #a8998a; --line: #3a3029; --accent: #e09a6b; --ok: #5fc48a; --warn: #e7b14f; --bad: #ef7d68; }
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 system-ui, -apple-system, sans-serif; padding-bottom: 64px; }
+      header { display: flex; align-items: center; justify-content: space-between; gap: 12px; max-width: 1040px; margin: 0 auto; padding: 20px 16px; }
+      header a { color: inherit; text-decoration: none; }
+      .brand { font-weight: 700; font-size: 20px; letter-spacing: -0.01em; }
+      .brand small { display: block; font-weight: 400; font-size: 13px; color: var(--muted); }
+      main { max-width: 1040px; margin: 0 auto; padding: 0 16px; }
+      .shop { display: grid; grid-template-columns: 1fr 320px; gap: 24px; align-items: start; }
+      @media (max-width: 760px) { .shop { grid-template-columns: 1fr; } }
+      .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 16px; }
+      .card, .panel { background: var(--card); border: 1px solid var(--line); border-radius: 14px; }
+      .card { padding: 16px; display: flex; flex-direction: column; gap: 6px; }
+      .art { font-size: 44px; line-height: 1; height: 88px; display: grid; place-items: center; border-radius: 10px; background: var(--bg); }
+      .name { font-weight: 600; }
+      .price, .muted { color: var(--muted); font-size: 14px; }
+      .panel { padding: 18px; }
+      .panel h2 { margin: 0 0 12px; font-size: 17px; }
+      .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 0; }
+      .total { border-top: 1px solid var(--line); margin-top: 8px; padding-top: 12px; font-weight: 700; }
+      .qty { display: flex; align-items: center; gap: 6px; }
+      button { font: inherit; cursor: pointer; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--ink); padding: 6px 12px; }
+      button:disabled { opacity: 0.5; cursor: default; }
+      .qty button { width: 30px; height: 30px; padding: 0; }
+      .primary { width: 100%; margin-top: 14px; padding: 12px 18px; border: 0; background: var(--accent); color: #fff; font-weight: 600; }
+      .err { color: var(--bad); font-size: 14px; margin: 8px 0 0; }
+      .err:empty { display: none; }
+      main a { color: var(--accent); }
+      .order { max-width: 520px; margin: 0 auto; }
+      .badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 13px; font-weight: 600; text-transform: capitalize; background: var(--bg); color: var(--muted); }
+      .badge.paying { color: var(--warn); }
+      .badge.paid { color: var(--ok); }
+      .badge.expired, .badge.returned { color: var(--bad); }
+      .strip { position: fixed; left: 0; right: 0; bottom: 0; background: var(--card); border-top: 1px solid var(--line); font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+      .strip summary { cursor: pointer; padding: 10px 16px; font-weight: 600; }
+      .strip ol { list-style: none; margin: 0; padding: 0 16px 12px; max-height: 30vh; overflow: auto; }
+      .strip li { display: flex; gap: 12px; flex-wrap: wrap; padding: 2px 0; }
+      .ok { color: var(--ok); }
+      .bad { color: var(--bad); }
     </style>
   </head>
   <body>
-    <h1>Coffee beans, 250 g</h1>
-    <p>PRICE</p>
-    <button id="buy">Buy</button>
-    <p id="status"></p>
+    <header>
+      <a class="brand" href="/">☕ Harbor Coffee<small>Demo shop paid through Gateflow</small></a>
+      <a id="cartlink" class="muted" href="/"></a>
+    </header>
+    <main id="view"></main>
+    <details class="strip" id="strip">
+      <summary>Merchant server: webhooks received (<span id="evcount">0</span>)</summary>
+      <ol id="events"><li class="muted">None yet. They appear here when Gateflow calls /webhook.</li></ol>
+    </details>
     <script src="GATEFLOW_URL/js/v1/gateflow.js"></script>
     <script>
-      const status = document.getElementById("status");
-      document.getElementById("buy").onclick = async () => {
-        const invoice = await (await fetch("/checkout", { method: "POST" })).json();
-        if (!invoice.id && invoice.id !== 0) return (status.textContent = invoice.error ?? "Could not start checkout");
-        // UI only: the order is fulfilled by the webhook on the server.
-        Gateflow.open(invoice.id, { onStatus: (e) => (status.textContent = `Invoice ${e.invoice}: ${e.status}`) });
+      const view = document.getElementById("view");
+      const el = (tag, props = {}, ...kids) => {
+        const e = Object.assign(document.createElement(tag), props);
+        e.append(...kids.filter((k) => k != null && k !== false));
+        return e;
       };
+      const getJSON = async (url, init) => {
+        const r = await fetch(url, init);
+        return { ok: r.ok, body: await r.json().catch(() => ({})) };
+      };
+      const time = (iso) => new Date(iso).toLocaleTimeString();
+      const micro = (s) => Math.round(Number(s) * 1e6);
+      const fmt = (m) => `${Math.floor(m / 1e6)}.${String(m % 1e6).padStart(6, "0").replace(/0+$/, "").padEnd(2, "0")}`;
+
+      const Cart = {
+        read() {
+          try { return JSON.parse(localStorage.getItem("harbor-cart")) ?? {}; } catch { return {}; }
+        },
+        write(c) {
+          try { localStorage.setItem("harbor-cart", JSON.stringify(c)); } catch {}
+        },
+      };
+
+      // Prices come from the server; the page only sends product ids and quantities.
+      async function checkout(items) {
+        const { ok, body } = await getJSON("/checkout", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ items }) });
+        if (!ok) throw new Error(body.error ?? "Could not start checkout");
+        location.href = `/order/${body.order.id}?open=1`;
+      }
+
+      async function storefront() {
+        const { body: catalog } = await getJSON("/catalog");
+        let cart = Cart.read();
+        const grid = el("div", { className: "grid" });
+        const panel = el("aside", { className: "panel" });
+        view.replaceChildren(el("div", { className: "shop" }, el("section", {}, grid), panel));
+
+        const set = (id, qty) => {
+          if (qty > 0) cart[id] = Math.min(qty, 10);
+          else delete cart[id];
+          Cart.write(cart);
+          render();
+        };
+        for (const p of catalog.items) {
+          grid.append(el("div", { className: "card" }, el("div", { className: "art", ariaHidden: "true" }, p.emoji), el("div", { className: "name" }, p.name), el("div", { className: "price" }, `${p.price} ${catalog.currency}`), el("button", { type: "button", onclick: () => set(p.id, (cart[p.id] ?? 0) + 1) }, "Add to cart")));
+        }
+
+        function render() {
+          const lines = catalog.items.filter((p) => cart[p.id]);
+          const total = lines.reduce((s, p) => s + micro(p.price) * cart[p.id], 0);
+          const count = lines.reduce((s, p) => s + cart[p.id], 0);
+          document.getElementById("cartlink").textContent = count ? `Cart (${count})` : "";
+          const err = el("p", { className: "err", role: "alert" });
+          const pay = el("button", { type: "button", className: "primary", disabled: !lines.length }, "Pay with crypto");
+          pay.onclick = async () => {
+            pay.disabled = true;
+            try {
+              await checkout(lines.map((p) => ({ id: p.id, qty: cart[p.id] })));
+            } catch (e) {
+              err.textContent = e.message;
+              pay.disabled = false;
+            }
+          };
+          panel.replaceChildren(
+            el("h2", {}, "Your cart"),
+            ...(lines.length ? lines.map((p) => el("div", { className: "row" }, el("span", {}, `${p.emoji} ${p.name}`), el("span", { className: "qty" }, el("button", { type: "button", ariaLabel: `One less ${p.name}`, onclick: () => set(p.id, cart[p.id] - 1) }, "−"), String(cart[p.id]), el("button", { type: "button", ariaLabel: `One more ${p.name}`, onclick: () => set(p.id, cart[p.id] + 1) }, "+")))) : [el("p", { className: "muted" }, "Empty. Add something from the menu.")]),
+            el("div", { className: "row total" }, el("span", {}, "Total"), el("span", {}, `${fmt(total)} ${catalog.currency}`)),
+            pay,
+            err,
+            el("p", { className: "muted" }, "Pay from a NEAR wallet or from another chain. The order is confirmed when Gateflow notifies this shop's server."),
+          );
+        }
+        render();
+      }
+
+      // The badge shows what the shop's server knows, which changes only when a signed webhook arrives.
+      async function orderPage(id) {
+        const autoOpen = new URLSearchParams(location.search).has("open");
+        history.replaceState(null, "", `/order/${id}`);
+        let order = null;
+        let timer = null;
+        const openCheckout = () =>
+          Gateflow.open(order.invoice.id, {
+            onStatus: (e) => {
+              if (e.status === "paid") setTimeout(() => Gateflow.close(), 2000);
+            },
+          });
+
+        async function poll() {
+          const { ok, body } = await getJSON(`/orders/${encodeURIComponent(id)}`);
+          if (!ok) {
+            clearInterval(timer);
+            return view.replaceChildren(el("div", { className: "order panel" }, el("h2", {}, "Order not found"), el("p", { className: "muted" }, "Orders live in the shop server's memory and are lost when it restarts."), el("a", { href: "/" }, "Back to the shop")));
+          }
+          const first = !order;
+          order = body;
+          render();
+          if (order.status === "paid") Cart.write({});
+          if (["paid", "expired", "returned"].includes(order.status)) clearInterval(timer);
+          if (first && autoOpen && order.status === "pending") openCheckout();
+        }
+
+        function render() {
+          const s = order.status;
+          const err = el("p", { className: "err", role: "alert" });
+          const retry = el("button", { type: "button", className: "primary" }, "Try again");
+          retry.onclick = () => checkout(order.lines.map((l) => ({ id: l.id, qty: l.qty }))).catch((e) => (err.textContent = e.message));
+          view.replaceChildren(
+            el("div", { className: "order panel" },
+              el("div", { className: "row" }, el("h2", { style: "margin:0" }, `Order ${order.id}`), el("span", { className: `badge ${s}` }, s)),
+              ...order.lines.map((l) => el("div", { className: "row" }, el("span", {}, `${l.emoji} ${l.name} × ${l.qty}`), el("span", { className: "muted" }, `${fmt(micro(l.price) * l.qty)} ${order.currency}`))),
+              el("div", { className: "row total" }, el("span", {}, "Total"), el("span", {}, `${order.total} ${order.currency}`)),
+              el("p", { className: "muted" },
+                {
+                  pending: "Waiting for payment. The shop's server has heard nothing from Gateflow yet.",
+                  paying: "Gateflow reported a payment in progress. Waiting for it to settle.",
+                  paid: `Paid. Confirmed by webhook at ${time(order.updated_at)}. Your order is being prepared.`,
+                  expired: "The invoice expired before it was paid.",
+                  returned: "The payment was returned to the payer.",
+                }[s],
+              ),
+              s === "pending" && el("button", { type: "button", className: "primary", onclick: openCheckout }, "Reopen checkout"),
+              (s === "expired" || s === "returned") && retry,
+              err,
+              el("p", {}, el("a", { href: "/" }, "Back to the shop")),
+            ),
+          );
+        }
+        timer = setInterval(poll, 1000);
+        poll();
+      }
+
+      // Merchant strip: what the shop's server received on /webhook.
+      async function events() {
+        const { body } = await getJSON("/events").catch(() => ({ body: null }));
+        if (!Array.isArray(body)) return;
+        document.getElementById("evcount").textContent = body.length;
+        if (body.length) document.getElementById("events").replaceChildren(...body.map((e) => el("li", {}, el("span", { className: "muted" }, time(e.at)), el("span", {}, e.event), el("span", {}, e.order_id), e.sig_ok ? el("span", { className: "ok" }, "✓ signature ok") : el("span", { className: "bad" }, "✗ bad signature, rejected"))));
+      }
+      document.getElementById("strip").open = innerWidth >= 760;
+      setInterval(events, 1000);
+      events();
+
+      const m = location.pathname.match(/^\/order\/([\w-]+)$/);
+      if (m) orderPage(m[1]);
+      else storefront();
     </script>
   </body>
 </html>
