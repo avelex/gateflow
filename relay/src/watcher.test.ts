@@ -33,6 +33,18 @@ test("watcher_already_started_counts_as_screened", async () => {
   assert.equal(deps.db.screening(4), undefined);
 });
 
+test("watcher_skips_payment_already_screened_or_closed", async () => {
+  for (const p of [{ status: "Settled" }, { status: "Pending", deposit_address: "dep1" }]) {
+    const deps = fakeDeps();
+    quote(deps);
+    deps.near.viewTable["gateflow.testnet.get_payment_by_ref"] = () => [4, p];
+    deps.oneclick.statuses.dep1 = { status: "SUCCESS" };
+    await tick(deps);
+    assert.equal(deps.near.sent.length, 0);
+    assert.equal(deps.db.quoteByRef(REF)?.screened, 1);
+  }
+});
+
 test("watcher_waits_for_payment", async () => {
   const deps = fakeDeps();
   quote(deps);

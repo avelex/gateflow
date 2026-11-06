@@ -28,6 +28,11 @@ export async function tick(deps: Deps): Promise<void> {
       if (q.screened) continue;
       const found = await deps.near.view(deps.cfg.gateflow, "get_payment_by_ref", { reference: q.ref });
       if (!found) continue; // delivery not on NEAR yet; next tick
+      // Already screened or closed: `screen_intents` would only panic and burn relay gas every tick.
+      if (found[1].status !== "Pending" || found[1].deposit_address) {
+        deps.db.markQuote(q.ref, { status, screened: true });
+        continue;
+      }
       await submitScreening(deps, q.ref, found[0], q.deposit_address);
     } catch (e) {
       console.error(`watcher: quote ${q.ref}:`, (e as Error).message);
