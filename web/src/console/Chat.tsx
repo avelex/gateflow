@@ -55,7 +55,7 @@ export default function Chat({ thread, data, refresh, toast }: ScreenProps & { t
       setMsgs((m) => [...m.filter((x) => x.id !== -1), ...r.messages]);
       if (threadRef.current !== r.threadId) {
         threadRef.current = r.threadId;
-        replaceTo(`/chat/${r.threadId}`);
+        replaceTo(`/console/chat/${r.threadId}`);
       }
       refresh();
     } catch (e) {

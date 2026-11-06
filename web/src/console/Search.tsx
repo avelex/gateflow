@@ -48,7 +48,7 @@ export default function Search({ data, onClose }: { data: ConsoleData; onClose()
         <div style={{ maxHeight: 420, overflow: "auto", padding: 8 }}>
           {invoices.length > 0 && <div style={{ ...SECTION, paddingTop: 8 }}>Invoices</div>}
           {invoices.map((i) => (
-            <div key={`i${i.id}`} className="hv" onClick={() => open(`/invoices#invoice-${i.id}`)} style={ROW}>
+            <div key={`i${i.id}`} className="hv" onClick={() => open(`/console/invoices#invoice-${i.id}`)} style={ROW}>
               <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, width: 76 }}>#{i.id}</span>
               <span style={{ flex: 1, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: "var(--text-2)" }}>
                 {payerOf(i.payment)} · {amountOf(i)} {i.tokenMeta.symbol}
@@ -59,7 +59,7 @@ export default function Search({ data, onClose }: { data: ConsoleData; onClose()
           ))}
           {payments.length > 0 && <div style={SECTION}>Payments</div>}
           {payments.map((p) => (
-            <div key={`p${p.id}`} className="hv" onClick={() => open(`/screening#payment-${p.id}`)} style={ROW}>
+            <div key={`p${p.id}`} className="hv" onClick={() => open(`/console/screening#payment-${p.id}`)} style={ROW}>
               <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, width: 76 }}>#{p.invoice}</span>
               <span style={{ flex: 1, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: "var(--text-2)" }}>
                 {payerLabel(p)} · {amountOf(p)} {p.tokenMeta.symbol}
@@ -69,7 +69,7 @@ export default function Search({ data, onClose }: { data: ConsoleData; onClose()
           ))}
           {chats.length > 0 && <div style={SECTION}>Chats</div>}
           {chats.map((c) => (
-            <div key={`c${c.id}`} className="hv" onClick={() => open(`/chat/${c.id}`)} style={ROW}>
+            <div key={`c${c.id}`} className="hv" onClick={() => open(`/console/chat/${c.id}`)} style={ROW}>
               <Icon name="message-square" size={14} />
               <span style={{ flex: 1, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: "var(--text-2)" }}>{c.title}</span>
             </div>

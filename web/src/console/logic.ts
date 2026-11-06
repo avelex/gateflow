@@ -310,7 +310,7 @@ let pendingAsk: string | undefined;
 /// Opens a new chat whose first message is `text` (Home, hint chips, Search, Invoices).
 export function ask(text: string, navigate: (path: string) => void): void {
   pendingAsk = text.trim();
-  if (pendingAsk) navigate("/chat");
+  if (pendingAsk) navigate("/console/chat");
 }
 
 /// The text queued by `ask`, once.

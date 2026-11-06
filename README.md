@@ -120,7 +120,7 @@ cd ../relay && GATEFLOW_CONTRACT=<contract> RELAY_ACCOUNT_ID=<operator> RELAY_PR
 # open http://localhost:8787
 ```
 
-Mainnet runs on Fly.io at `https://gateflow.fly.dev`; see [Deploy (Fly.io)](relay/README.md#deploy-flyio). `node --env-file=.env src/main.ts` reads the same variables from `relay/.env`. For UI work, run `npm run dev` in `web/` (port 5173); it proxies `/console` and `/checkout` to the relay on 8787.
+Mainnet runs on Fly.io at `https://gateflow.fly.dev`; see [Deploy (Fly.io)](relay/README.md#deploy-flyio). `node --env-file=.env src/main.ts` reads the same variables from `relay/.env`. For UI work, run `npm run dev` in `web/` (port 5173); it proxies `/console` and `/checkout` to the relay on 8787, except browser navigations to `/console/*`, which load the app.
 
 | Variable | Default | Meaning |
 |---|---|---|

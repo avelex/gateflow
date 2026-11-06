@@ -29,9 +29,9 @@ const file = (p: string): Res => ({
   headers: { "content-type": TYPES[extname(p)] ?? "application/octet-stream" },
 });
 
-/// A file under `dir`, `index.html` for any other non-API path, or `undefined` (the caller answers 404 JSON).
-export function serveStatic(dir: string, pathname: string): Res | undefined {
-  if (/^\/(console|checkout|api)(\/|$)/.test(pathname)) return undefined;
+/// A file under `dir`, `index.html` for any other non-API path (or any `page` navigation), or `undefined` (the caller answers 404 JSON).
+export function serveStatic(dir: string, pathname: string, page = false): Res | undefined {
+  if (!page && /^\/(console|checkout|api)(\/|$)/.test(pathname)) return undefined;
   const root = normalize(dir);
   let decoded: string;
   try {

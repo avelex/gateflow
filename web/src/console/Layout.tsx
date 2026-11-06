@@ -77,11 +77,11 @@ export default function Layout({
   const pending = data.payments.filter((p) => p.status === "Pending").length;
   const name = data.me.name ?? data.me.email;
   const nav = [
-    { label: "Home", icon: "house", key: "home", onClick: () => navigate("/") },
+    { label: "Home", icon: "house", key: "home", onClick: () => navigate("/console") },
     { label: "Search", icon: "search", kbd: "⌘K", key: "search", onClick: () => setSearchOpen(true) },
-    { label: "Invoices", icon: "file-text", key: "invoices", onClick: () => navigate("/invoices") },
-    { label: "Balance", icon: "wallet", key: "balance", onClick: () => navigate("/balance") },
-    { label: "Screening", icon: "shield-check", key: "screening", count: pending || null, onClick: () => navigate("/screening") },
+    { label: "Invoices", icon: "file-text", key: "invoices", onClick: () => navigate("/console/invoices") },
+    { label: "Balance", icon: "wallet", key: "balance", onClick: () => navigate("/console/balance") },
+    { label: "Screening", icon: "shield-check", key: "screening", count: pending || null, onClick: () => navigate("/console/screening") },
   ].map((n) => ({
     ...n,
     kbd: side ? n.kbd : null,
@@ -127,7 +127,7 @@ export default function Layout({
             <div style={{ padding: "24px 22px 8px", fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--text-3)" }}>Recents</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 1, padding: "0 12px", overflow: "auto", flex: 1, minHeight: 0 }}>
               {data.threads.slice(0, 20).map((t) => (
-                <div key={t.id} className="hv" onClick={() => navigate(`/chat/${t.id}`)} title={t.title} style={{ padding: "7px 10px", borderRadius: "var(--radius-2)", fontSize: 13, lineHeight: "18px", color: "var(--text-2)", cursor: "pointer", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", background: tab === "chat" && thread === t.id ? "var(--ink-150)" : "transparent" }}>
+                <div key={t.id} className="hv" onClick={() => navigate(`/console/chat/${t.id}`)} title={t.title} style={{ padding: "7px 10px", borderRadius: "var(--radius-2)", fontSize: 13, lineHeight: "18px", color: "var(--text-2)", cursor: "pointer", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", background: tab === "chat" && thread === t.id ? "var(--ink-150)" : "transparent" }}>
                   {t.title}
                 </div>
               ))}

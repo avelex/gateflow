@@ -58,6 +58,15 @@ test("static_api_404_json", async () => {
   assert.equal((await dispatch({}, req("GET", "/"), noWeb)).status, 404);
 });
 
+test("console_navigation_serves_app", async () => {
+  const deps = fakeDeps({ webDist: webDir() });
+  const table = { "GET /console/invoices": async () => ({ status: 200, json: { rows: [] } }) };
+  const html = { accept: "text/html,application/xhtml+xml,*/*;q=0.8" };
+  assert.equal(String((await dispatch(table, req("GET", "/console/invoices", undefined, {}, html), deps)).body), "<html>app</html>");
+  assert.equal(String((await dispatch(table, req("GET", "/console", undefined, {}, html), deps)).body), "<html>app</html>");
+  assert.deepEqual((await dispatch(table, req("GET", "/console/invoices"), deps)).json, { rows: [] });
+});
+
 test("dispatch_maps_http_error", async () => {
   const deps = fakeDeps();
   const table = {

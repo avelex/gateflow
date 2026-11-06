@@ -6,8 +6,8 @@ Explains Gateflow to signed-out visitors, such as hackathon judges and prospecti
 
 ## Requirements
 
-### Requirement: Landing replaces the sign-in card for visitors
-When a visitor without a session opens a console path, the web app SHALL show the landing deck instead of the sign-in card. A signed-in merchant SHALL see the console as before. The screen shown right after Sign out SHALL stay unchanged.
+### Requirement: Landing at the root, console at /console
+The web app SHALL show the landing deck at `/` to every visitor, signed in or not. The console SHALL live under `/console`; a visitor without a session there SHALL see the sign-in card. The screen shown right after Sign out SHALL stay unchanged.
 
 #### Scenario: Judge opens the root URL
 - **WHEN** a visitor with no session cookie opens `/`
@@ -15,7 +15,7 @@ When a visitor without a session opens a console path, the web app SHALL show th
 
 #### Scenario: Merchant with a session
 - **WHEN** a signed-in merchant opens `/`
-- **THEN** the console Home shows and the deck does not
+- **THEN** the landing deck shows, and "Launch console" opens the console Home at `/console`
 
 #### Scenario: Checkout untouched
 - **WHEN** a visitor opens `/pay/42`
@@ -153,7 +153,7 @@ Slide changes SHALL use a transition of about 300 ms. The How it works steps SHA
 - **THEN** the next slide shows with no animation
 
 ### Requirement: Handoff to sign-in
-"Launch console" SHALL replace the deck with the existing sign-in card on the same path, with a link back to the deck. After sign-in, onboarding and the console SHALL behave as before.
+"Launch console" SHALL open `/console`, which shows the existing sign-in card with a link back to the deck at `/`. After sign-in, onboarding and the console SHALL behave as before.
 
 #### Scenario: Launch and back
 - **WHEN** a visitor clicks "Launch console" and then the back link

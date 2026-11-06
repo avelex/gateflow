@@ -19,7 +19,7 @@ The console SHALL show a collapsible sidebar with Home, Invoices, Balance, Scree
 
 #### Scenario: Balance opened
 - **WHEN** Kaja clicks Balance in the sidebar
-- **THEN** the Balance screen opens at `/balance`
+- **THEN** the Balance screen opens at `/console/balance`
 
 ### Requirement: Home
 Home SHALL greet the merchant, show today's settled totals per token, and show the assistant composer with hint chips ("Create invoice for 0.01 BTC", "Which invoices are unpaid?", "What was returned this week?", "Lower my risk tolerance"). Sending from Home SHALL open a new thread in the chat view.

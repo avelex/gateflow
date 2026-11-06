@@ -35,7 +35,7 @@ export default function Balance({ data }: ScreenProps) {
             const s = stuck.get(b.token);
             const p = s ? oldestStuck(b.token) : undefined;
             return (
-              <div key={b.token} className="hv" onClick={() => navigate("/invoices")} style={{ display: "grid", gridTemplateColumns: COLS, gap: 16, minWidth: 680, alignItems: "center", padding: "14px 20px", borderBottom: "1px solid var(--border-1)", fontSize: 14, fontVariantNumeric: "tabular-nums", cursor: "pointer" }}>
+              <div key={b.token} className="hv" onClick={() => navigate("/console/invoices")} style={{ display: "grid", gridTemplateColumns: COLS, gap: 16, minWidth: 680, alignItems: "center", padding: "14px 20px", borderBottom: "1px solid var(--border-1)", fontSize: 14, fontVariantNumeric: "tabular-nums", cursor: "pointer" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
                   {logo ? (
                     <img src={logo} alt="" style={{ width: 28, height: 28, flex: "none", objectFit: "contain" }} />
@@ -48,7 +48,7 @@ export default function Balance({ data }: ScreenProps) {
                 <span style={{ textAlign: "right", whiteSpace: "nowrap", color: pending.get(b.token) ? "var(--amber-700)" : "var(--text-3)" }}>{amount(pending.get(b.token), b)}</span>
                 <span style={{ textAlign: "right", whiteSpace: "nowrap" }}>
                   {p ? (
-                    <button onClick={(e) => (e.stopPropagation(), navigate(`/screening#payment-${p.id}`))} title="Open in Screening" style={{ border: 0, padding: 0, background: "none", cursor: "pointer", font: "inherit", color: "var(--red-700)", textDecoration: "underline" }}>
+                    <button onClick={(e) => (e.stopPropagation(), navigate(`/console/screening#payment-${p.id}`))} title="Open in Screening" style={{ border: 0, padding: 0, background: "none", cursor: "pointer", font: "inherit", color: "var(--red-700)", textDecoration: "underline" }}>
                       {amount(s, b)}
                     </button>
                   ) : (

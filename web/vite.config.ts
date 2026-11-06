@@ -5,6 +5,7 @@ const relay = "http://localhost:8787";
 
 export default defineConfig({
   plugins: [react()],
-  server: { proxy: { "/console": relay, "/checkout": relay } },
+  // Browser navigations to /console/* load the SPA; its fetch() calls to the same prefix go to the relay.
+  server: { proxy: { "/console": { target: relay, bypass: (req) => (req.headers.accept?.includes("text/html") ? "/index.html" : undefined) }, "/checkout": relay } },
   test: { environment: "node" },
 });

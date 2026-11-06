@@ -22,11 +22,13 @@ export async function dispatch(table: Record<string, Handler>, req: Req, deps: D
   let res: Res;
   if (checkout && req.method === "OPTIONS") res = { status: 204 };
   else {
-    const handler = table[`${req.method} ${req.path}`] ?? table[`${req.method} ${req.path.replace(/\/\d+$/, "/:id")}`];
+    // The console SPA lives under the /console API prefix: a browser navigation (Accept: text/html) gets the app, fetch() gets JSON.
+    const page = req.method === "GET" && /^\/console(\/|$)/.test(req.path) && (req.headers.accept ?? "").includes("text/html");
+    const handler = page ? undefined : (table[`${req.method} ${req.path}`] ?? table[`${req.method} ${req.path.replace(/\/\d+$/, "/:id")}`]);
     try {
       if (handler) res = await handler(req, deps);
       else {
-        const file = req.method === "GET" ? serveStatic(deps.cfg.webDist, req.path) : undefined;
+        const file = req.method === "GET" ? serveStatic(deps.cfg.webDist, req.path, page) : undefined;
         if (!file) throw new HttpError(404, "not found");
         res = file;
       }
