@@ -1,0 +1,19 @@
+# Secrets and local state never enter the image.
+.env
+**/.env
+*.db
+**/*.db
+# Rebuilt inside the image or not needed at runtime.
+**/node_modules
+**/target
+web/dist
+contract
+enclave
+design
+examples
+openspec
+.git
+.claude
+.superpowers
+.impeccable
+**/.DS_Store
