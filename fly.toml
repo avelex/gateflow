@@ -1,0 +1,45 @@
+# Relay + web for mainnet at https://gateflow.fly.dev. Exactly one always-on machine:
+# the watcher and webhook loops run in-process, and SQLite plus the relay key's nonce
+# queue assume a single instance. Secrets: see relay/README.md "Deploy (Fly.io)".
+app = "gateflow"
+primary_region = "fra"
+
+[build.args]
+  VITE_NEAR_NETWORK = "mainnet"
+  VITE_SHOP_URL = "https://gateflow-shop.fly.dev"
+
+[env]
+  GATEFLOW_CONTRACT = "gateflow.near"
+  RELAY_ACCOUNT_ID = "relay.gateflow.near"
+  MERCHANT_PARENT = "merchant.gateflow.near"
+  NEAR_RPC_URL = "https://rpc.mainnet.fastnear.com"
+  PUBLIC_URL = "https://gateflow.fly.dev"
+  PORT = "8080"
+  DB_PATH = "/data/gateflow.db"
+  WEB_DIST = "/app/web/dist"
+  LLM_MODEL = "z-ai/glm-5.3-flash"
+  OUTLAYER_CONTRACT = "outlayer.near"
+  OUTLAYER_PROJECT = "ops.gateflow.near/gateflow"
+  OUTLAYER_API = "https://api.outlayer.ai"
+
+[mounts]
+  source = "gateflow_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    method = "GET"
+    path = "/"
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

@@ -1,0 +1,20 @@
+# Demo shop at https://gateflow-shop.fly.dev. Stateless, so it may sleep; the Fly proxy
+# wakes it on a request and the relay's webhook retries cover a slow cold start.
+# Secrets: GATEFLOW_KEY, GATEFLOW_WEBHOOK_SECRET (fly secrets set).
+app = "gateflow-shop"
+primary_region = "fra"
+
+[env]
+  GATEFLOW_URL = "https://gateflow.fly.dev"
+  PORT = "8080"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
