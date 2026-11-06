@@ -5,6 +5,7 @@ import { activeVersion, evidenceFor, opensPayment } from "./screening.ts";
 import { type Deps, type Handler, HttpError, ok } from "./types.ts";
 
 const TGAS = 10n ** 12n;
+export const SCREEN_GAS = 160n * TGAS;
 const NEAR_ACCOUNT = /^(([a-z\d]+[-_])*[a-z\d]+\.)*([a-z\d]+[-_])*[a-z\d]+$/;
 const REF = /^[0-9a-f]{32}$/;
 const TX_HASH = /^[1-9A-HJ-NP-Za-km-z]{43,44}$/;
@@ -191,8 +192,10 @@ const status: Handler = async (req, deps) => {
 
 /// Sends `screen_intents` from the relay account and records its tx. "screening already started" counts as done.
 export async function submitScreening(deps: Deps, ref: string, payment: number, depositAddress: string): Promise<{ txHash: string | null }> {
+  // Covers OUTLAYER_GAS (100) + SCREENED_CALLBACK_GAS (40) + ~3 TGas own execution on mainnet, with margin.
+  // NEAR checks the signer can afford prepaid gas at a pessimistic price (~0.001 NEAR/TGas), so less gas needs less relay balance.
   const r = await deps.near.send(deps.cfg.gateflow, [
-    { functionCall: { method: "screen_intents", args: { payment, deposit_address: depositAddress }, gas: 300n * TGAS, deposit: 0n } },
+    { functionCall: { method: "screen_intents", args: { payment, deposit_address: depositAddress }, gas: SCREEN_GAS, deposit: 0n } },
   ]);
   if (r.error && !r.error.includes("screening already started")) throw new HttpError(422, r.error);
   deps.db.markQuote(ref, { status: "SUCCESS", screened: true });
