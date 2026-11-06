@@ -1,84 +1,68 @@
 // The export's "Settings" overlay. "Blockchains & Tokens" keeps its layout; "Gateway" replaces "Compliance BYOK" in that panel's layout.
-import { type ReactNode, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../api.ts";
 import { CHAIN_NAMES, chainIcon, chainName } from "../assets.ts";
-import { Badge, Button, Checkbox, Hash, Icon, IconButton } from "../ds.jsx";
-import { keyMode } from "../near/key.ts";
+import { Badge, Button, Checkbox, Icon, IconButton } from "../ds.jsx";
 import Developers from "./Developers.tsx";
 import type { ScreenProps } from "./Layout.tsx";
-import { acquireKey, signAndRelay, TGAS } from "./logic.ts";
-import { message } from "./Onboarding.tsx";
 
 const SECTION = { fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--text-3)" } as const;
 const INTRO = { margin: 0, fontSize: 14, lineHeight: "22px", color: "var(--text-2)", maxWidth: 600, textWrap: "pretty" } as const;
 const BOX = { border: "1px solid var(--border-1)", borderRadius: "var(--radius-2)" } as const;
 
-/// A row in the BYOK panel's "Decision signing key" style.
-function KeyRow({ icon, title, badge, sub, action }: { icon: string; title: string; badge?: ReactNode; sub: ReactNode; action?: ReactNode }) {
+const TILE = { ...BOX, background: "var(--surface-card)", padding: "16px 18px", display: "flex", flexDirection: "column", gap: 6 } as const;
+const TILE_VALUE = { fontSize: 19, lineHeight: "26px", fontWeight: 600 } as const;
+const TILE_HINT = { fontSize: 12, lineHeight: "16px", color: "var(--text-3)" } as const;
+
+function Gateway({ data, toast }: ScreenProps) {
+  const g = data.gateway;
   return (
-    <div style={{ ...BOX, padding: "16px 20px", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-      <span style={{ width: 36, height: 36, flex: "none", borderRadius: "var(--radius-2)", background: "var(--blue-50)", color: "var(--blue-700)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <Icon name={icon} size={18} />
-      </span>
-      <div style={{ flex: 1, minWidth: 200, display: "flex", flexDirection: "column", gap: 2 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 14, fontWeight: 600 }}>{title}</span>
-          {badge}
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <section aria-labelledby="payout-h" style={{ background: "var(--surface-inverse)", color: "var(--text-inverse)", borderRadius: "var(--radius-2)", padding: "24px 28px", display: "flex", flexDirection: "column", gap: 14 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <Icon name="wallet" size={18} />
+          <span id="payout-h" style={{ ...SECTION, color: "var(--ink-300)" }}>
+            Your money goes to
+          </span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--text-3)" }}>{sub}</div>
-      </div>
-      {action}
-    </div>
-  );
-}
-
-function Gateway({ data, refresh, toast }: ScreenProps) {
-  const current = data.gateway.policy.max_risk;
-  const [risk, setRisk] = useState(current);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string>();
-  const save = async () => {
-    setBusy(true);
-    setError(undefined);
-    try {
-      await signAndRelay(await acquireKey(keyMode()), [{ method: "set_policy", args: { gateway: data.gateway.id, policy: { max_risk: risk } }, gas: 30n * TGAS }]);
-      toast("Risk tolerance saved", `Payers scoring above ${risk} are returned`);
-      refresh();
-    } catch (e) {
-      setError(message(e));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
-      <p style={INTRO}>Your gateway receives payments into the Gateflow contract. The enclave screens each payer, then the contract releases the payment to your payout account or returns it.</p>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <span style={SECTION}>Payout account</span>
-        <KeyRow icon="wallet" title="Payouts" badge={<Badge tone="success" dot>Active</Badge>} sub={<Hash value={data.gateway.payout_to} head={24} tail={8} muted />} />
-        <span style={{ fontSize: 12, color: "var(--text-3)" }}>Released payments go only here. Gateflow never holds your funds.</span>
-      </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <span style={SECTION}>Screening fuel</span>
-        <KeyRow
-          icon="shield-check"
-          title="Fuel"
-          badge={data.gateway.fuelReady ? <Badge tone="success" dot>Ready</Badge> : <Badge tone="warning" dot>Topping up</Badge>}
-          sub="Gateflow keeps your gateway funded for screening."
-        />
-      </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <span style={SECTION}>Risk tolerance</span>
-        <div style={{ ...BOX, padding: "16px 20px", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-          <input type="range" min={0} max={80} step={5} value={risk} onChange={(e) => setRisk(Number(e.target.value))} aria-label="Risk tolerance" style={{ flex: 1, minWidth: 200, accentColor: "var(--accent)" }} />
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, width: 28, textAlign: "right" }}>{risk}</span>
-          <Button variant="primary" size="sm" icon="key-round" disabled={busy || risk === current} onClick={save}>
-            Save
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <span title={g.payout_to} style={{ fontFamily: "var(--font-mono)", fontSize: 22, lineHeight: "30px", fontWeight: 500, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {g.payout_to}
+          </span>
+          <Button variant="ink" size="sm" icon="copy" onClick={() => (navigator.clipboard?.writeText(g.payout_to), toast("Payout account copied", g.payout_to))} style={{ border: "1px solid var(--ink-700)" }}>
+            Copy
           </Button>
         </div>
-        <span style={{ fontSize: 12, color: error ? "var(--red-700)" : "var(--text-3)" }}>{error ?? "Lower is stricter. A payer whose risk score is above this value is returned. Saving asks for your passkey."}</span>
+        <span style={{ fontSize: 13, color: "var(--ink-300)" }}>Approved payments are released straight here. Gateflow never holds your funds.</span>
+      </section>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 16 }}>
+        <div style={TILE}>
+          <span style={SECTION}>Screening</span>
+          <span style={{ ...TILE_VALUE, display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <span style={{ width: 8, height: 8, borderRadius: "var(--radius-pill)", background: g.fuelReady ? "var(--success)" : "var(--warning)" }} />
+            {g.fuelReady ? "Ready" : "Topping up"}
+          </span>
+          <span style={TILE_HINT}>Gateflow covers the NEAR cost of each check.</span>
+        </div>
+        <div style={TILE}>
+          <span style={SECTION}>Invoices</span>
+          <span style={{ ...TILE_VALUE, fontFamily: "var(--font-mono)" }}>{g.invoices}</span>
+          <span style={TILE_HINT}>Created on this gateway.</span>
+        </div>
+        <div style={TILE}>
+          <span style={SECTION}>Payments</span>
+          <span style={{ ...TILE_VALUE, fontFamily: "var(--font-mono)" }}>{g.payments}</span>
+          <span style={TILE_HINT}>Received and screened.</span>
+        </div>
       </div>
+
+      <details style={{ ...BOX, background: "var(--surface-card)", padding: "12px 18px" }}>
+        <summary style={{ fontSize: 13, fontWeight: 600, cursor: "pointer" }}>How your gateway works</summary>
+        <p style={{ ...INTRO, margin: "8px 0 0", fontSize: 13, lineHeight: "20px" }}>
+          Payments land in the Gateflow contract. The enclave screens each payer, then the contract releases the payment to your payout account or returns it to the payer.
+        </p>
+      </details>
     </div>
   );
 }
@@ -167,7 +151,7 @@ export default function Settings(props: ScreenProps & { onClose(): void }) {
             </div>
             <IconButton icon="x" label="Close" onClick={props.onClose} />
           </div>
-          <div style={{ flex: 1, minHeight: 0, overflow: "auto", padding: "24px 28px 32px", background: tab === "developers" ? "var(--ink-50)" : undefined }}>{tab === "gateway" ? <Gateway {...props} /> : tab === "chains" ? <Chains {...props} /> : <Developers {...props} onEnabled={setApiOn} />}</div>
+          <div style={{ flex: 1, minHeight: 0, overflow: "auto", padding: "24px 28px 32px", background: tab === "chains" ? undefined : "var(--ink-50)" }}>{tab === "gateway" ? <Gateway {...props} /> : tab === "chains" ? <Chains {...props} /> : <Developers {...props} onEnabled={setApiOn} />}</div>
         </div>
       </div>
     </div>
