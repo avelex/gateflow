@@ -34,6 +34,40 @@ GATEFLOW_CONTRACT=<contract> RELAY_ACCOUNT_ID=<operator> RELAY_PRIVATE_KEY=ed255
 
 The environment variables are listed in the root `README.md`. `PUBLIC_URL` sets the port; the default is `http://localhost:8787`.
 
+## Deploy (Fly.io)
+
+Mainnet runs at `https://gateflow.fly.dev` (Fly app `gateflow`, region `fra`). The root `Dockerfile` builds `web/` for mainnet and runs the relay, which serves both. `fly.toml` holds the non-secret config. The relay key runs in one place only. Never start a local relay with the mainnet `relay/.env` while the Fly app is up: two processes race on the key's nonce and submit `screen_intents` twice.
+
+First deploy, from the repo root:
+
+```sh
+fly apps create gateflow
+fly volumes create gateflow_data --region fra --size 1 -a gateflow
+grep -E '^(RELAY_PRIVATE_KEY|INVOICE_SIGNER_KEY|LLM_API_KEY|ONECLICK_API_KEY)=' relay/.env | fly secrets import --stage -a gateflow
+fly deploy --ha=false
+```
+
+Later deploys are only `fly deploy`. Keep exactly one machine: the volume attaches to one, and the watcher, webhook delivery and the SQLite file at `/data/gateflow.db` all assume a single process. `auto_stop_machines = "off"` keeps the watcher running when nobody has the site open.
+
+- **Logs:** `fly logs -a gateflow`. A healthy start prints `gateflow relay on :8080 (contract gateflow.near)`.
+- **Backups:** Fly takes daily volume snapshots and keeps them 5 days. To restore, run `fly volumes snapshots list <volume id>` (the id comes from `fly volumes list -a gateflow`), then `fly volumes create gateflow_data --snapshot-id <id> --region fra -a gateflow`. Then destroy the old volume and machine, and run `fly deploy`. A restore loses at most a day of SQLite data (sessions, quotes, webhook settings). On-chain state is unaffected.
+- **Rollback:** `fly releases -a gateflow --image`, then `fly deploy --image <previous image>`.
+- **Moving back to a laptop:** run `fly scale count 0 -a gateflow` first, then start the local relay.
+- **Hostname lock:** passkeys use `location.hostname` as RP ID, so merchants onboarded on `gateflow.fly.dev` can only sign there. A custom domain later means every merchant onboards again.
+
+### Demo shop
+
+The landing page links to `https://gateflow-shop.fly.dev` (build arg `VITE_SHOP_URL`). Deploy it from `examples/shop` after a merchant on `gateflow.fly.dev` has enabled the API. Set that merchant's allowed origin to `https://gateflow-shop.fly.dev` and its webhook URL to `https://gateflow-shop.fly.dev/webhook`, then run:
+
+```sh
+cd examples/shop
+fly apps create gateflow-shop
+fly secrets set --stage -a gateflow-shop GATEFLOW_KEY=gf_... GATEFLOW_WEBHOOK_SECRET=whsec_...
+fly deploy --ha=false
+```
+
+The shop keeps no state, so it may stop when idle. The first request wakes it, and webhook retries cover the cold start.
+
 ## Testnet dev deployment (relay-from-scratch 5.1, 2026-11-02)
 
 - **Accounts:**
