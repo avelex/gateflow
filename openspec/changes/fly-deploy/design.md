@@ -46,10 +46,9 @@
      - `GATEFLOW_CONTRACT=gateflow.near`
      - `RELAY_ACCOUNT_ID=relay.gateflow.near`
      - `MERCHANT_PARENT=merchant.gateflow.near`
-     - `NEAR_RPC_URL=https://rpc.mainnet.fastnear.com`
      - `PUBLIC_URL`, `PORT`, `DB_PATH`, `WEB_DIST`, `LLM_MODEL`
      - `OUTLAYER_CONTRACT`, `OUTLAYER_PROJECT`, `OUTLAYER_API`
-   - Secrets go through `fly secrets set`: `RELAY_PRIVATE_KEY`, `INVOICE_SIGNER_KEY`, `LLM_API_KEY` and, if used, `ONECLICK_API_KEY`.
+   - Secrets go through `fly secrets set`: `RELAY_PRIVATE_KEY`, `INVOICE_SIGNER_KEY`, `LLM_API_KEY`, `NEAR_RPC_URL` (a keyed provider URL, so it is not in `fly.toml`) and, if used, `ONECLICK_API_KEY`.
    - Build-time values go in `[build.args]`: `VITE_NEAR_NETWORK`, `VITE_SHOP_URL`.
 
    The key names match the ones in today's `relay/.env`.

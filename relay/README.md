@@ -44,8 +44,11 @@ First deploy, from the repo root:
 fly apps create gateflow
 fly volumes create gateflow_data --region fra --size 1 -a gateflow
 grep -E '^(RELAY_PRIVATE_KEY|INVOICE_SIGNER_KEY|LLM_API_KEY|ONECLICK_API_KEY)=' relay/.env | fly secrets import --stage -a gateflow
+fly secrets set --stage -a gateflow NEAR_RPC_URL=<mainnet RPC URL with its key>
 fly deploy --ha=false
 ```
+
+`NEAR_RPC_URL` is a secret, not a `fly.toml` value, because the provider URL carries an API key. Stage it before any deploy. Without it the relay falls back to the testnet RPC, and every call against `gateflow.near` fails. Set secrets in your own terminal, not through an agent session, so their values stay out of transcripts.
 
 Later deploys are only `fly deploy`. Keep exactly one machine: the volume attaches to one, and the watcher, webhook delivery and the SQLite file at `/data/gateflow.db` all assume a single process. `auto_stop_machines = "off"` keeps the watcher running when nobody has the site open.
 

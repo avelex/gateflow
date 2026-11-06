@@ -1,6 +1,6 @@
 # Relay + web for mainnet at https://gateflow.fly.dev. Exactly one always-on machine:
 # the watcher and webhook loops run in-process, and SQLite plus the relay key's nonce
-# queue assume a single instance. Secrets: see relay/README.md "Deploy (Fly.io)".
+# queue assume a single instance. Secrets (incl. NEAR_RPC_URL): see relay/README.md "Deploy (Fly.io)".
 app = "gateflow"
 primary_region = "fra"
 
@@ -12,7 +12,6 @@ primary_region = "fra"
   GATEFLOW_CONTRACT = "gateflow.near"
   RELAY_ACCOUNT_ID = "relay.gateflow.near"
   MERCHANT_PARENT = "merchant.gateflow.near"
-  NEAR_RPC_URL = "https://rpc.mainnet.fastnear.com"
   PUBLIC_URL = "https://gateflow.fly.dev"
   PORT = "8080"
   DB_PATH = "/data/gateflow.db"

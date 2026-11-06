@@ -15,9 +15,9 @@
 - No source changes in `relay/src`, `web/src` or `examples/shop/server.mjs`. If one turns out to be needed, stop and raise it.
 - Base images: `node:26` for the build stage, `node:26-slim` for runtime.
 - Relay app `gateflow`, region `fra`, `internal_port = 8080`, `PORT=8080`, `PUBLIC_URL=https://gateflow.fly.dev`, `DB_PATH=/data/gateflow.db`, `WEB_DIST=/app/web/dist`, `auto_stop_machines = "off"`, `min_machines_running = 1`.
-- Relay env: `GATEFLOW_CONTRACT=gateflow.near`, `RELAY_ACCOUNT_ID=relay.gateflow.near`, `MERCHANT_PARENT=merchant.gateflow.near`, `NEAR_RPC_URL=https://rpc.mainnet.fastnear.com`. The `OUTLAYER_*` and `LLM_MODEL` values are copied from the names in `relay/.env`.
+- Relay env: `GATEFLOW_CONTRACT=gateflow.near`, `RELAY_ACCOUNT_ID=relay.gateflow.near`, `MERCHANT_PARENT=merchant.gateflow.near`. The `OUTLAYER_*` and `LLM_MODEL` values are copied from the names in `relay/.env`.
 - Build args: `VITE_NEAR_NETWORK=mainnet`, `VITE_SHOP_URL=https://gateflow-shop.fly.dev`.
-- Secrets go only through `fly secrets`: `RELAY_PRIVATE_KEY`, `INVOICE_SIGNER_KEY`, `LLM_API_KEY` and `ONECLICK_API_KEY` if set. Never print a secret value in a terminal transcript. Pipe it, for example `grep -E '^(RELAY_PRIVATE_KEY|INVOICE_SIGNER_KEY|LLM_API_KEY)=' relay/.env | fly secrets import --stage`.
+- Secrets go only through `fly secrets`: `RELAY_PRIVATE_KEY`, `INVOICE_SIGNER_KEY`, `LLM_API_KEY`, `NEAR_RPC_URL` (the provider URL carries a key) and `ONECLICK_API_KEY` if set. Never print a secret value in a terminal transcript. Pipe it, for example `grep -E '^(RELAY_PRIVATE_KEY|INVOICE_SIGNER_KEY|LLM_API_KEY)=' relay/.env | fly secrets import --stage`.
 - The relay key runs in one place only. Stop the laptop relay before the first Fly deploy.
 - Shop app `gateflow-shop`, region `fra`, `internal_port = 8080`, auto-stop on, `min_machines_running = 0`, no volume.
 
@@ -43,7 +43,7 @@
 
 ## 2. Relay on Fly
 
-- [ ] 2.1 First deploy (design Migration Plan 1–3). Steps:
+- [x] 2.1 First deploy (design Migration Plan 1–3). Steps:
   - Check that `pgrep -fl "node src/main.ts"` shows no local relay. Stop it if it runs.
   - `fly apps create gateflow`, then `fly volumes create gateflow_data --region fra --size 1`.
   - Import the secrets as Global Constraints shows, then `fly deploy`.
