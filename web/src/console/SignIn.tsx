@@ -15,7 +15,7 @@ export function SignedOut({ onSignIn }: { onSignIn: () => void }) {
   );
 }
 
-export function SignIn({ onDone }: { onDone: () => void }) {
+export function SignIn({ onDone, onBack }: { onDone: () => void; onBack?: () => void }) {
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
@@ -43,6 +43,11 @@ export function SignIn({ onDone }: { onDone: () => void }) {
         <Button variant="primary" type="submit" fullWidth disabled={busy || !email}>
           Continue
         </Button>
+        {onBack && (
+          <Button variant="ghost" onClick={onBack} fullWidth>
+            Back
+          </Button>
+        )}
       </form>
     </AuthCard>
   );

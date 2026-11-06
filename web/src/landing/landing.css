@@ -1,0 +1,171 @@
+/* Landing deck: fixed full-viewport frame, slides swap in place, never scroll. */
+.landing {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  background: var(--surface-page);
+  color: var(--text-1);
+  font-family: var(--font-sans);
+  overflow: hidden;
+  --gutter: clamp(16px, 5vw, 72px);
+}
+.landing a { color: inherit; }
+.landing :focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--radius-2); }
+
+.landing-header,
+.landing-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: clamp(12px, 2.5dvh, 24px) var(--gutter);
+}
+.landing-logo { height: 22px; }
+.landing-header nav { display: flex; align-items: center; gap: 16px; }
+.landing-header-link { font-size: var(--fs-small); font-weight: 600; text-decoration: none; color: var(--text-2) !important; }
+.landing-header-link:hover { color: var(--text-1) !important; }
+
+.landing-slides { position: relative; min-height: 0; }
+.landing-slide {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 var(--gutter);
+  opacity: 0;
+  transform: translateY(24px);
+  visibility: hidden;
+  transition: opacity 300ms var(--ease-standard), transform 300ms var(--ease-standard), visibility 0s linear 300ms;
+}
+.landing-slide.is-active { opacity: 1; transform: none; visibility: visible; transition-delay: 0s; }
+.landing-slide > * { width: 100%; max-width: 1180px; margin: 0 auto; }
+
+/* Type: one family, scaled to the shorter of width and height so a slide always fits. */
+.landing-display {
+  margin: 0;
+  font-size: clamp(36px, min(4.6vw, 8dvh), 84px);
+  line-height: 0.95;
+  letter-spacing: -0.045em;
+  font-weight: 700;
+}
+.landing-display-muted { display: block; color: var(--text-3); }
+.landing-title {
+  margin: 0;
+  max-width: 18ch;
+  font-size: clamp(28px, min(4.4vw, 6.4dvh), 56px);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  font-weight: 700;
+}
+.landing-lead {
+  margin: clamp(12px, 2.5dvh, 24px) 0 0;
+  max-width: 46ch;
+  font-size: clamp(16px, min(1.6vw, 2.6dvh), 21px);
+  line-height: 1.45;
+  color: var(--text-2);
+}
+
+/* 1 Hook */
+.landing-hero { display: grid; grid-template-columns: 1.25fr 1fr; gap: clamp(24px, 4vw, 64px); align-items: center; }
+.landing-claims { display: flex; flex-wrap: wrap; gap: 8px 24px; margin: clamp(16px, 3dvh, 32px) 0 0; font-weight: 600; font-size: clamp(15px, 2.2dvh, 18px); }
+.landing-claims span { display: inline-flex; align-items: center; gap: 8px; }
+.landing-claims svg { color: var(--accent); }
+.landing-flow { width: 100%; max-height: 48dvh; overflow: visible; }
+.landing-flow path { fill: none; stroke: var(--border-2); stroke-width: 1.5; }
+.landing-flow text { font: 600 14px var(--font-sans); fill: var(--text-1); }
+.landing-flow .landing-flow-caption { font-weight: 400; font-size: 12px; fill: var(--text-3); }
+.landing-flow-account { fill: var(--surface-card); stroke: var(--border-strong); stroke-width: 1.5; }
+
+/* 2 Problem */
+.landing-split { display: grid; grid-template-columns: 1.1fr 1fr; gap: clamp(24px, 5vw, 80px); align-items: center; }
+.landing-compare { display: grid; grid-template-columns: 1.15fr 1fr; gap: 12px; }
+.landing-compare h3 { margin: 0 0 clamp(10px, 2dvh, 16px); font-size: var(--fs-small); font-weight: 600; color: var(--text-3); }
+.landing-before, .landing-after { padding: clamp(16px, 3dvh, 24px); border-radius: var(--radius-3); }
+.landing-before { border: 1px solid var(--border-1); background: var(--surface-card); }
+.landing-before ul { list-style: none; margin: 0; padding: 0; display: grid; gap: clamp(10px, 2dvh, 16px); }
+.landing-before li { display: flex; gap: 10px; font-size: clamp(15px, 2.3dvh, 17px); font-weight: 600; line-height: 1.3; }
+.landing-before li svg { flex: none; margin-top: 2px; color: var(--danger); }
+.landing-before .landing-long { display: block; font-weight: 400; font-size: var(--fs-small); color: var(--text-3); }
+.landing-after { display: flex; flex-direction: column; border: 1.5px solid var(--accent); background: var(--surface-accent-soft); }
+.landing-after h3 { display: flex; align-items: center; gap: 8px; color: var(--accent-press); }
+.landing-after h3 img { height: 1.35em; }
+.landing-after p { margin: auto 0; font-size: clamp(20px, 3.4dvh, 28px); line-height: 1.15; font-weight: 700; letter-spacing: -0.02em; }
+
+/* 3 How: a real sequence, so numbered */
+.landing-steps { list-style: none; margin: clamp(20px, 5dvh, 48px) 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(16px, 3vw, 40px); }
+.landing-step { display: flex; flex-direction: column; gap: 8px; padding-top: 16px; border-top: 2px solid var(--text-1); font-size: clamp(14px, 2.2dvh, 16px); line-height: 1.5; color: var(--text-2); }
+.landing-step strong { font-size: clamp(17px, 2.8dvh, 22px); line-height: 1.25; color: var(--text-1); letter-spacing: -0.01em; }
+.landing-step-n { font-size: clamp(32px, 6dvh, 56px); font-weight: 700; line-height: 1; letter-spacing: -0.04em; color: var(--accent); }
+.landing-slide.is-active .landing-step { animation: landing-step-in 300ms var(--ease-standard) both; animation-delay: calc(150ms + var(--i) * 140ms); }
+@keyframes landing-step-in { from { opacity: 0; transform: translateY(12px); } }
+.landing-chains { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 10px; }
+.landing-chain { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; color: var(--text-1); white-space: nowrap; }
+.landing-chain img { width: 16px; height: 16px; }
+.landing-more { font-size: var(--fs-small); color: var(--text-3); }
+
+/* 4 Trust */
+.landing-points { list-style: none; margin: clamp(16px, 3dvh, 28px) 0 0; padding: 0; display: grid; gap: 12px; font-size: clamp(14px, 2.2dvh, 16px); line-height: 1.45; }
+.landing-points li { display: flex; gap: 10px; align-items: baseline; }
+.landing-points svg { flex: none; position: relative; top: 3px; color: var(--accent); }
+.landing-soon { font-size: var(--fs-caption); font-weight: 600; color: var(--status-review-fg); background: var(--status-review-bg); padding: 2px 8px; border-radius: var(--radius-pill); white-space: nowrap; }
+.landing-trust-side { display: grid; gap: clamp(12px, 3dvh, 28px); }
+.landing-verdict { width: 100%; max-height: 32dvh; overflow: visible; }
+.landing-tee { padding: clamp(12px, 2.4dvh, 20px) 20px; border-radius: var(--radius-3); background: var(--surface-inverse); color: var(--text-inverse); }
+.landing-tee-head { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: clamp(16px, 2.6dvh, 19px); }
+.landing-tee-head svg { color: var(--blue-300); }
+.landing-tee ul { list-style: none; margin: clamp(8px, 1.6dvh, 14px) 0 0; padding: 0; display: grid; gap: 6px; font-size: clamp(14px, 2.1dvh, 15px); }
+.landing-tee li { display: flex; align-items: center; gap: 8px; }
+.landing-tee li svg { flex: none; color: #8FD3A8; }
+.landing-tee p { margin: clamp(8px, 1.6dvh, 14px) 0 0; padding-top: clamp(8px, 1.6dvh, 12px); border-top: 1px solid var(--ink-700); font-size: var(--fs-small); color: var(--ink-300); }
+.landing-verdict path { fill: none; stroke: var(--border-2); stroke-width: 1.5; }
+.landing-verdict text { font: 600 15px var(--font-sans); fill: var(--text-1); }
+.landing-verdict .landing-flow-caption { font-weight: 400; font-size: 12px; fill: var(--text-3); }
+.landing-verdict .landing-verdict-ok { stroke: var(--success); stroke-width: 2; }
+.landing-verdict .landing-verdict-bad { stroke: var(--danger); stroke-width: 2; stroke-dasharray: 5 4; }
+.landing-verdict-node { fill: var(--surface-card); stroke: var(--border-2); }
+.landing-verdict-gate { fill: var(--surface-card); stroke: var(--border-strong); stroke-width: 2; }
+.landing-verdict-okbox { fill: var(--status-approved-bg); stroke: var(--success); }
+.landing-verdict-badbox { fill: var(--status-frozen-bg); stroke: var(--danger); }
+.landing-verdict .landing-verdict-tick { stroke: var(--success); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.landing-verdict .landing-verdict-back { stroke: var(--danger); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* 5 Developers */
+.landing-ctas { display: flex; flex-wrap: wrap; gap: 12px; margin-top: clamp(20px, 4dvh, 40px); }
+.landing-link-button { display: inline-flex; align-items: center; height: var(--control-h-lg); padding: 0 18px; border: 1px solid var(--border-2); border-radius: var(--radius-2); background: var(--surface-card); font-size: 15px; font-weight: 600; text-decoration: none; }
+.landing-link-button:hover { border-color: var(--border-strong); }
+.landing-tok-tag { color: var(--blue-300); }
+.landing-tok-attr { color: var(--ink-400); }
+.landing-tok-str { color: #8FD3A8; }
+.landing-snippet { margin: 0; padding: 24px; overflow: hidden; background: var(--surface-inverse); color: var(--ink-200); border-radius: var(--radius-3); font: var(--fs-mono) / 1.7 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* Footer */
+.landing-powered { display: inline-flex; align-items: center; gap: 8px; font-size: var(--fs-small); color: var(--text-2); }
+.landing-powered img { width: 20px; height: 20px; }
+.landing-dots { display: flex; gap: 4px; }
+.landing-dots button { width: 28px; height: 28px; padding: 0; border: 0; background: none; cursor: pointer; display: grid; place-items: center; }
+.landing-dots button::after { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--border-2); transition: background var(--dur-fast), transform var(--dur-fast); }
+.landing-dots button[aria-current]::after { background: var(--text-1); transform: scale(1.25); }
+
+/* Phone */
+@media (max-width: 639px) {
+  .landing-header-link, .landing-long, .landing-snippet { display: none; }
+  .landing-hero, .landing-split, .landing-steps { grid-template-columns: 1fr; }
+  .landing-hero { gap: 20px; }
+  .landing-flow { max-height: 30dvh; }
+  .landing-split { gap: 20px; }
+  .landing-steps { gap: 14px; margin-top: 20px; }
+  .landing-step { flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding-top: 12px; }
+  .landing-step > span:last-child { flex-basis: 100%; }
+  .landing-step-n { font-size: 28px; }
+  .landing-compare { grid-template-columns: 1fr; }
+  .landing-after { flex-direction: row; align-items: center; gap: 12px; }
+  .landing-after h3 { margin: 0; }
+  .landing-after p { margin: 0; }
+  .landing-verdict { max-height: 22dvh; }
+  .landing-tee ul { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-slide, .landing-slide.is-active { transition: none; transform: none; }
+  .landing-slide.is-active .landing-step { animation: none; }
+}
