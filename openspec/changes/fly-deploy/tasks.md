@@ -33,13 +33,13 @@
 
 ## 1. Relay image and config
 
-- [ ] 1.1 Add `.dockerignore` (design decision 7) and the root `Dockerfile` (decision 2, with `ARG VITE_NEAR_NETWORK` and `ARG VITE_SHOP_URL` passed into the web build). Verify all of these:
+- [x] 1.1 Add `.dockerignore` (design decision 7) and the root `Dockerfile` (decision 2, with `ARG VITE_NEAR_NETWORK` and `ARG VITE_SHOP_URL` passed into the web build). Verify all of these:
   - `docker build --build-arg VITE_NEAR_NETWORK=mainnet --build-arg VITE_SHOP_URL=https://gateflow-shop.fly.dev -t gateflow .` succeeds.
   - `docker run --rm gateflow sh -c 'find / \( -name ".env" -o -name "*.db" \) -not -path "/proc/*" 2>/dev/null'` prints nothing.
   - `docker run --rm gateflow sh -c 'grep -l gateflow-shop.fly.dev /app/web/dist/assets/*.js && grep -l mainnet /app/web/dist/assets/*.js'` finds both.
   - `docker run --rm -p 8080:8080 -e GATEFLOW_CONTRACT=gateflow.near -e PORT=8080 -e PUBLIC_URL=http://localhost:8080 -e DB_PATH=/tmp/g.db gateflow` logs `gateflow relay on :8080 (contract gateflow.near)`, and `curl -sf localhost:8080/ | grep -q '<div id="root"'` passes.
   - Commit `build: add relay docker image`.
-- [ ] 1.2 Add the root `fly.toml` with every value from Global Constraints (app, region, `[build.args]`, `[env]`, `[mounts] source = "gateflow_data"` at `/data`, `[http_service]` with `force_https = true`, the auto-stop settings, and a `[[http_service.checks]]` `GET /`). Verify `fly config validate` passes and `grep -c auto_stop_machines fly.toml` is 1. Commit `build: add fly config for relay`.
+- [x] 1.2 Add the root `fly.toml` with every value from Global Constraints (app, region, `[build.args]`, `[env]`, `[mounts] source = "gateflow_data"` at `/data`, `[http_service]` with `force_https = true`, the auto-stop settings, and a `[[http_service.checks]]` `GET /`). Verify `fly config validate` passes and `grep -c auto_stop_machines fly.toml` is 1. Commit `build: add fly config for relay`.
 
 ## 2. Relay on Fly
 
@@ -54,13 +54,13 @@
   - `fly machines list` shows exactly one machine.
   - After 10 idle minutes, `fly machine status <id>` still says `started`.
   - After `fly machine restart <id>`, `fly ssh console -C "ls -l /data"` still lists `gateflow.db`.
-- [ ] 2.2 Merchant and API setup on the new host (design Migration Plan 4).
+- [x] 2.2 Merchant and API setup on the new host (design Migration Plan 4).
   - Onboard one merchant with a passkey at `https://gateflow.fly.dev`, then Enable API.
   - Set Allowed origins to `https://gateflow-shop.fly.dev` and the webhook URL to `https://gateflow-shop.fly.dev/webhook`.
   - Keep the `gf_` key and the `whsec_` secret out of the repo.
 
   Verify `near contract call-function as-read-only gateflow.near get_gateway json-args '{"id":<n>}' network-config mainnet now` shows the new merchant as `owner`, and the console's Developers page lists the origin and webhook. Record the merchant account and gateway id under `mainnet-launch` task 1.3.
-- [ ] 2.3 Add a "Deploy (Fly.io)" section to `relay/README.md` and link it from the root `README.md` Run section. The section covers:
+- [x] 2.3 Add a "Deploy (Fly.io)" section to `relay/README.md` and link it from the root `README.md` Run section. The section covers:
   - the app and volume commands and the secrets import line
   - "the relay key runs in one place only"
   - the snapshot restore (`fly volumes snapshots list`, `fly volumes create --snapshot-id`)
@@ -71,8 +71,8 @@
 
 ## 3. Shop on Fly
 
-- [ ] 3.1 Add `examples/shop/Dockerfile` (`node:26-slim`, copies `server.mjs` and `index.html`, `CMD ["node", "server.mjs"]`) and `examples/shop/fly.toml` (shop values from Global Constraints, `[env] GATEFLOW_URL = "https://gateflow.fly.dev"`, `PORT = "8080"`). Verify that `node --test examples/shop/server.test.mjs` passes, that `docker build -t gateflow-shop examples/shop` succeeds, and that `cd examples/shop && fly config validate` passes. Commit `build: add fly config for demo shop`.
-- [ ] 3.2 Deploy the shop. In `examples/shop`, run `fly apps create gateflow-shop`, then `fly secrets set` for `GATEFLOW_KEY` and `GATEFLOW_WEBHOOK_SECRET` from 2.2 (typed by the owner, not echoed into the transcript), then `fly deploy`. Verify that `curl -sf https://gateflow-shop.fly.dev/` returns the shop page and that the landing page's shop link at `https://gateflow.fly.dev` opens it. Add the shop deploy commands to the `relay/README.md` section from 2.3 and to the `examples/shop` paragraph in the root `README.md`. Commit `docs: shop deploy`.
+- [x] 3.1 Add `examples/shop/Dockerfile` (`node:26-slim`, copies `server.mjs` and `index.html`, `CMD ["node", "server.mjs"]`) and `examples/shop/fly.toml` (shop values from Global Constraints, `[env] GATEFLOW_URL = "https://gateflow.fly.dev"`, `PORT = "8080"`). Verify that `node --test examples/shop/server.test.mjs` passes, that `docker build -t gateflow-shop examples/shop` succeeds, and that `cd examples/shop && fly config validate` passes. Commit `build: add fly config for demo shop`.
+- [x] 3.2 Deploy the shop. In `examples/shop`, run `fly apps create gateflow-shop`, then `fly secrets set` for `GATEFLOW_KEY` and `GATEFLOW_WEBHOOK_SECRET` from 2.2 (typed by the owner, not echoed into the transcript), then `fly deploy`. Verify that `curl -sf https://gateflow-shop.fly.dev/` returns the shop page and that the landing page's shop link at `https://gateflow.fly.dev` opens it. Add the shop deploy commands to the `relay/README.md` section from 2.3 and to the `examples/shop` paragraph in the root `README.md`. Commit `docs: shop deploy`.
 
 ## Workflow follow-up
 
