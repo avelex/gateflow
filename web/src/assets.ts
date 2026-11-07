@@ -2,7 +2,7 @@
 // Chain icons live in public/img so merchant sites (the example shop's pay button) can load them from the relay too.
 const img = (name: string): string => `/img/chain-${name}.png`;
 const [arbitrum, base, bitcoin, ethereum, near, usdc, zcash] = ["arbitrum", "base", "bitcoin", "ethereum", "near", "usdc", "zcash"].map(img);
-export { default as logo } from "./assets/logo.png";
+export { default as logo } from "./assets/logo.svg";
 export { near as nearLogo };
 
 const CHAINS: Record<string, string> = { near, eth: ethereum, base, arb: arbitrum, btc: bitcoin, zec: zcash };
