@@ -167,7 +167,7 @@ The enclave SHALL approve a deferred screening only if the 1Click status for the
 - **THEN** screening returns false and the payment is refunded
 
 ### Requirement: Deferred screening checks the origin senders
-The enclave SHALL determine the origin chain from 1Click's record of the quote, resolve the senders of every origin deposit transaction 1Click lists, and approve only if every sender passes that chain's screener against `max_risk`. Supported origins are the configured EVM chains, Bitcoin and Zcash. Any other origin, a missing transaction, an unresolvable sender or a failed lookup SHALL fail closed.
+The enclave SHALL determine the origin chain from 1Click's record of the quote, resolve the senders of every origin deposit transaction 1Click lists, and approve only if every sender passes that chain's screener against `max_risk`. Supported origins are the configured EVM chains, Solana, Bitcoin and Zcash. Any other origin, a missing transaction, an unresolvable sender or a failed lookup SHALL fail closed.
 
 #### Scenario: Clean EVM payer
 - **WHEN** the origin deposit transaction on Base is from an address with no GoPlus flags
@@ -178,7 +178,7 @@ The enclave SHALL determine the origin chain from 1Click's record of the quote, 
 - **THEN** screening returns false and the payment is refunded
 
 #### Scenario: Unsupported origin
-- **WHEN** the quote's origin chain is not EVM, Bitcoin or Zcash
+- **WHEN** the quote's origin chain is not EVM, Solana, Bitcoin or Zcash
 - **THEN** screening returns false and the payment is refunded
 
 #### Scenario: Several origin deposits
@@ -206,6 +206,25 @@ For a Zcash origin, the senders SHALL be the transparent input addresses of the 
 #### Scenario: Shielded sender
 - **WHEN** the ZEC deposit comes from the shielded pool with no transparent inputs
 - **THEN** screening returns false and the payment is refunded
+
+### Requirement: Solana senders are every signer
+For a Solana origin, the senders SHALL be every signer account of the deposit transaction, and each SHALL be checked against the OFAC sanctioned Solana address list. A listed signer SHALL count as risk 100 and any other as 0. A transaction the RPC does not return, or one with no signer, SHALL fail closed.
+
+#### Scenario: Clean Solana payer
+- **WHEN** no signer of the Solana USDC deposit is on the OFAC list
+- **THEN** screening returns true and the USDC payment settles
+
+#### Scenario: Sanctioned signer
+- **WHEN** the fee payer of the Solana deposit is clean but its other signer is on the OFAC list
+- **THEN** screening returns false and the payment is refunded
+
+#### Scenario: Transaction not found
+- **WHEN** the Solana RPC answers `getTransaction` with a null result for the deposit signature
+- **THEN** screening returns false and the payment is refunded
+
+#### Scenario: Solana RPC down
+- **WHEN** the Solana RPC fails while screening a Solana-origin payment
+- **THEN** the enclave outputs `false` and the payment is refunded
 
 ### Requirement: Failed payout transfer is retryable
 When the token transfer that settles or refunds a payment fails, the system SHALL mark the payment `SettleFailed` or `RefundFailed` and emit `transfer_failed`. Any account SHALL be able to call `retry(payment)` on such a payment to send the same amount again: a settle to the gateway's current `payout_to`, a refund to the payment's `refund_to`. A successful transfer SHALL leave the payment `Settled` or `Refunded`.
@@ -323,7 +342,7 @@ The GoPlus score of an EVM address SHALL be the highest weight among the flags G
 - **THEN** screening returns false and the payment is refunded
 
 ### Requirement: Enclave reads no secrets
-The enclave SHALL read no secrets. The accepted caller and the EVM RPC endpoint of each supported EVM origin chain (`base`, `eth`, `arb`) SHALL be fixed when the enclave is built, with one build per network. The enclave SHALL query 1Click without an API key.
+The enclave SHALL read no secrets. The accepted caller, the EVM RPC endpoint of each supported EVM origin chain (`base`, `eth`, `arb`) and the Solana RPC endpoint SHALL be fixed when the enclave is built, with one build per network. The enclave SHALL query 1Click without an API key.
 
 #### Scenario: No secrets stored
 - **WHEN** the Gateflow contract requests a screening and the secrets profile it references holds no values
