@@ -4,9 +4,12 @@ import { base58decode, base58encode } from "./borsh.ts";
 import { keyFromSeed, type MerchantKey } from "./delegate.ts";
 
 export class PrfUnsupported extends Error {}
+export class NotOwner extends Error {}
 
 const enc = new TextEncoder();
 const MODE = "gateflow:keyMode";
+// Before keys were kept per email, one browser-wide mode and stored key; the first email to load them claims them.
+const CLAIMED = "gateflow:legacyClaimedBy";
 const salt = () => crypto.subtle.digest("SHA-256", enc.encode("gateflow/merchant-key/v1"));
 const random = (n: number) => crypto.getRandomValues(new Uint8Array(n));
 
@@ -34,12 +37,38 @@ export async function parsePhrase(phrase: string): Promise<Uint8Array<ArrayBuffe
 }
 
 export function assertOwner(key: MerchantKey, expected: string): void {
-  if (key.publicKey !== expected) throw new Error("This passkey does not own this account");
+  if (key.publicKey !== expected) throw new NotOwner("This passkey does not own this account");
+}
+
+let owner: string | null = null;
+
+/// The signed-in email whose key mode and stored key this browser uses; null when signed out.
+export function setKeyOwner(email: string | null): void {
+  owner = email;
+}
+
+export const storeKeyName = (email: string) => `merchant:${email}`;
+
+/// True when the current owner claimed the browser-wide entries saved before keys were kept per email.
+function ownsLegacy(): boolean {
+  try {
+    return owner !== null && localStorage.getItem(CLAIMED) === owner;
+  } catch {
+    return false;
+  }
 }
 
 export function keyMode(): "prf" | "stored" | null {
+  if (!owner) return null;
   try {
-    const m = localStorage.getItem(MODE);
+    let m = localStorage.getItem(`${MODE}:${owner}`);
+    const legacy = localStorage.getItem(MODE);
+    if (m === null && legacy !== null && localStorage.getItem(CLAIMED) === null) {
+      // The legacy entries stay, so a rollback to the old console still finds them.
+      localStorage.setItem(CLAIMED, owner);
+      localStorage.setItem(`${MODE}:${owner}`, legacy);
+      m = legacy;
+    }
     return m === "prf" || m === "stored" ? m : null;
   } catch {
     return null;
@@ -47,11 +76,17 @@ export function keyMode(): "prf" | "stored" | null {
 }
 
 function setMode(m: "prf" | "stored") {
+  if (!owner) return;
   try {
-    localStorage.setItem(MODE, m);
+    localStorage.setItem(`${MODE}:${owner}`, m);
   } catch {
     // ponytail: without storage, mode is re-chosen on the next sign-in.
   }
+}
+
+function requireOwner(): string {
+  if (!owner) throw new Error("Sign in first");
+  return owner;
 }
 
 let ed25519: Promise<boolean> | undefined;
@@ -137,7 +172,7 @@ function db<T>(mode: IDBTransactionMode, run: (s: IDBObjectStore) => IDBRequest<
 async function store(seed: Uint8Array<ArrayBuffer>): Promise<MerchantKey> {
   const { publicKey } = await keyFromSeed(seed);
   const key = await crypto.subtle.importKey("pkcs8", new Uint8Array([...PKCS8, ...seed]), "Ed25519", false, ["sign"]);
-  await db("readwrite", (s) => s.put({ key, publicKey } satisfies Stored, "merchant"));
+  await db("readwrite", (s) => s.put({ key, publicKey } satisfies Stored, storeKeyName(requireOwner())));
   setMode("stored");
   return unlocked({ key, publicKey });
 }
@@ -169,8 +204,10 @@ export async function restoreFallbackKey(phrase: string, email = "merchant", exp
 }
 
 export async function loadStoredKey(): Promise<MerchantKey | null> {
+  if (!owner) return null;
   try {
-    const s = await db<Stored | undefined>("readonly", (st) => st.get("merchant"));
+    const own = await db<Stored | undefined>("readonly", (st) => st.get(storeKeyName(owner!)));
+    const s = own ?? (ownsLegacy() ? await db<Stored | undefined>("readonly", (st) => st.get("merchant")) : undefined);
     return s ? unlocked(s) : null;
   } catch {
     return null;

@@ -41,7 +41,7 @@ test("owner_mismatch_throws", async () => {
 });
 
 import { afterEach, vi } from "vitest";
-import { getPasskeyKey, keyMode, restoreFallbackKey } from "./key.ts";
+import { getPasskeyKey, keyMode, NotOwner, rememberPasskeyMode, restoreFallbackKey, setKeyOwner, storeKeyName } from "./key.ts";
 
 class MemStorage {
   m = new Map<string, string>();
@@ -52,7 +52,8 @@ class MemStorage {
 
 function fakeDevice(mode: string) {
   const storage = new MemStorage();
-  storage.setItem("gateflow:keyMode", mode);
+  setKeyOwner("kaja@example.com");
+  storage.setItem("gateflow:keyMode:kaja@example.com", mode);
   const create = vi.fn(async () => ({ getClientExtensionResults: () => ({}) }));
   const get = vi.fn(async () => ({ getClientExtensionResults: () => ({ prf: { results: { first: new Uint8Array(32).fill(9).buffer } } }) }));
   vi.stubGlobal("localStorage", storage);
@@ -75,4 +76,50 @@ test("restore_rejects_other_accounts_phrase", async () => {
   await expect(restoreFallbackKey(phrase, "kaja@example.com", other)).rejects.toThrow("This recovery phrase does not own this account");
   expect(keyMode()).toBe("prf");
   expect(create).not.toHaveBeenCalled();
+});
+
+function emptyDevice() {
+  const storage = new MemStorage();
+  vi.stubGlobal("localStorage", storage);
+  return storage;
+}
+
+test("mode_scoped_by_owner", () => {
+  emptyDevice();
+  setKeyOwner("a@x");
+  rememberPasskeyMode();
+  setKeyOwner("b@x");
+  expect(keyMode()).toBe(null);
+  setKeyOwner("a@x");
+  expect(keyMode()).toBe("prf");
+});
+
+test("legacy_claimed_once", () => {
+  const storage = emptyDevice();
+  storage.setItem("gateflow:keyMode", "stored");
+  setKeyOwner("a@x");
+  expect(keyMode()).toBe("stored");
+  expect(storage.getItem("gateflow:legacyClaimedBy")).toBe("a@x");
+  setKeyOwner("b@x");
+  expect(keyMode()).toBe(null);
+  expect(storage.getItem("gateflow:keyMode")).toBe("stored");
+});
+
+test("no_owner_no_mode", () => {
+  const storage = emptyDevice();
+  storage.setItem("gateflow:keyMode", "prf");
+  setKeyOwner(null);
+  expect(keyMode()).toBe(null);
+  expect(storage.getItem("gateflow:legacyClaimedBy")).toBe(null);
+});
+
+test("store_key_name", () => {
+  expect(storeKeyName("a@x")).toBe("merchant:a@x");
+});
+
+test("not_owner_typed", async () => {
+  const key = await keyFromSeed(seed);
+  const other = (await keyFromSeed(new Uint8Array(32).fill(3))).publicKey;
+  expect(() => assertOwner(key, other)).toThrow(NotOwner);
+  expect(() => assertOwner(key, other)).toThrow("This passkey does not own this account");
 });

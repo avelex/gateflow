@@ -44,13 +44,13 @@
 
 ## 2. Key state per email
 
-- [ ] 2.1 Add failing tests in `web/src/near/key.test.ts`, using `MemStorage`:
+- [x] 2.1 Add failing tests in `web/src/near/key.test.ts`, using `MemStorage`:
   - `mode_scoped_by_owner`: `setKeyOwner("a@x")`, `rememberPasskeyMode()`, then `setKeyOwner("b@x")` gives `keyMode() === null`; switching back to `a@x` gives `"prf"`.
   - `legacy_claimed_once`: with `gateflow:keyMode = "stored"` and no marker, owner `a@x` gets `"stored"`, and `gateflow:legacyClaimedBy === "a@x"`. Owner `b@x` then gets `null`. The legacy key itself is still present.
   - `store_key_name`: `storeKeyName("a@x") === "merchant:a@x"`. For the claimer, `storeKeyName` falls back to `"merchant"` while no `merchant:<email>` record exists; that fallback is covered by the design and not unit-tested, since there is no IndexedDB fake.
   - `not_owner_typed`: `assertOwner(key, other)` throws an instance of `NotOwner`, with the message unchanged.
   - Verify: these fail.
-- [ ] 2.2 In `web/src/near/key.ts`:
+- [x] 2.2 In `web/src/near/key.ts`:
   - Add `export function setKeyOwner(email: string | null): void`.
   - Add `export class NotOwner extends Error`, thrown by `assertOwner`.
   - Add `export const storeKeyName = (email: string) => …`.
@@ -59,7 +59,7 @@
   - Existing tests that set `gateflow:keyMode` call `setKeyOwner` first.
 
   Verify: `cd web && npx vitest run && npx tsc --noEmit` pass.
-- [ ] 2.3 In `web/src/console/Console.tsx`, call `setKeyOwner(me.email)` after `/console/me` loads, and `setKeyOwner(null)` on sign-out. The callers in `cards.tsx`, `Developers.tsx` and `Invoices.tsx` stay unchanged. Verify: `npx tsc --noEmit`. Commit `feat(web): keep merchant key per email`.
+- [x] 2.3 In `web/src/console/Console.tsx`, call `setKeyOwner(me.email)` after `/console/me` loads, and `setKeyOwner(null)` on sign-out. The callers in `cards.tsx`, `Developers.tsx` and `Invoices.tsx` stay unchanged. Verify: `npx tsc --noEmit`. Commit `feat(web): keep merchant key per email`.
 
 ## 3. Onboarding row model
 
