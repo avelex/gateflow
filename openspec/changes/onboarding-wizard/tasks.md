@@ -117,7 +117,7 @@
   5. Every check passes in both the PRF mode and the fallback mode.
 
   Verify: all five checks pass. Note any failure in this task.
-- [ ] 5.2 Run all suites: `cd relay && npm test`, `cd web && npx vitest run && npx tsc --noEmit`, `cd contract && cargo test`. Verify: all pass.
+- [x] 5.2 Run all suites: `cd relay && npm test`, `cd web && npx vitest run && npx tsc --noEmit`, `cd contract && cargo test`. Verify: all pass.
 
 ## Workflow follow-up
 
