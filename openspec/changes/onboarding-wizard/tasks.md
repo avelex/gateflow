@@ -63,7 +63,7 @@
 
 ## 3. Onboarding row model
 
-- [ ] 3.1 Add failing tests in `web/src/console/logic.test.ts` for `onboardingRows(s: OnboardingState): Row[]`.
+- [x] 3.1 Add failing tests in `web/src/console/logic.test.ts` for `onboardingRows(s: OnboardingState): Row[]`.
   - Types:
     - `OnboardingState = { step: Step; running?: RowId; failed?: { row: RowId; error: string; notOwner: boolean }; fuel?: "checking" | "ready" | "low" }`
     - `RowId = "passkey" | "account" | "tokens" | "gateway" | "fuel"`
@@ -77,30 +77,30 @@
     - `rows_resume_reload`: `{ step: "gateway" }` with no running row gives gateway `waiting`, which is the same as `rows_gateway_waits` (spec: Resume on reload).
   - Replace the `onboardingScreen` tests: `onboardingScreen(step, mode)` returns `"timeline"` for `account`; `"resume-key"` when the step is past `account` and the mode is null; `"timeline"` otherwise; `"done"` for `done`.
   - Verify: these fail.
-- [ ] 3.2 Implement `onboardingRows`, the types above and the reduced `onboardingScreen` in `web/src/console/logic.ts`. The labels are the five exact strings from the global constraints. Verify: `cd web && npx vitest run` passes. Commit `feat(web): onboarding row model`.
+- [x] 3.2 Implement `onboardingRows`, the types above and the reduced `onboardingScreen` in `web/src/console/logic.ts`. The labels are the five exact strings from the global constraints. Verify: `cd web && npx vitest run` passes. Commit `feat(web): onboarding row model`.
 
 ## 4. Onboarding timeline card
 
-- [ ] 4.1 Rewrite `web/src/console/Onboarding.tsx` as one timeline card, following design decisions 2, 4 and 5 and artboards C1–C3.
+- [x] 4.1 Rewrite `web/src/console/Onboarding.tsx` as one timeline card, following design decisions 2, 4 and 5 and artboards C1–C3.
   - The business-name input and the `Create passkey and start` button show while `step === "account"`.
   - Rows render with the `Timeline` row markup from `web/src/checkout/Timeline.tsx`. Extract the row markup if reuse needs it.
   - Each `onboard` call updates `running` and the row's elapsed time.
   - The Gateway row shows an inline `Confirm` while `waiting`.
   - The recovery-phrase card and the resume-key card stay, each with the footer from 4.3.
   - Verify: `npx tsc --noEmit` passes; local relay check in 5.1.
-- [ ] 4.2 Hold the key. A `useRef<MerchantKey>` is set by `createPasskeyKey`, `createFallbackKey` or `acquireKey`. Retry and Confirm use the ref when it is set, and call `acquireKey(keyMode())` otherwise.
+- [x] 4.2 Hold the key. A `useRef<MerchantKey>` is set by `createPasskeyKey`, `createFallbackKey` or `acquireKey`. Retry and Confirm use the ref when it is set, and call `acquireKey(keyMode())` otherwise.
   - Extract `keyFor(held: MerchantKey | undefined, acquire: () => Promise<MerchantKey>): Promise<MerchantKey>` into `logic.ts`.
   - Test `key_for_reuses_held`: with a held key, `acquire` is never called.
   - Test `key_for_acquires_without_held`: without one, `acquire` is called once.
   - Verify: `npx vitest run`.
-- [ ] 4.3 Add the footer `Signed in as <email>` · `Use another email` to every onboarding card. Pressing `Use another email`:
+- [x] 4.3 Add the footer `Signed in as <email>` · `Use another email` to every onboarding card. Pressing `Use another email`:
   - calls `api("DELETE", "/console/session")`
   - clears the held-key ref
   - calls `setKeyOwner(null)`
   - calls a new `onSignOut` prop, which `Console.tsx` wires to `setState({ kind: "signin" })`
 
   Verify: `npx tsc --noEmit`, plus local relay check 5.1, step 4.
-- [ ] 4.4 Run the gateway and fuel sequence. After `signAndRelay(create_gateway)` succeeds:
+- [x] 4.4 Run the gateway and fuel sequence. After `signAndRelay(create_gateway)` succeeds:
   - Gateway is `done`, and fuel is `checking` while `GET /console/gateway` runs.
   - `fuelReady: true` gives `ready`, then `onChange()`.
   - `false` or a thrown error gives `low` with a `Check again` button.
