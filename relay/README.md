@@ -91,3 +91,13 @@ The shop keeps no state, so it may stop when idle. The first request wakes it, a
   - a delegate containing a Transfer was refused with 403 "only function calls are sponsored".
   - `/checkout/invoice?id=0` showed `Open` with "Kaja Coffee". `/checkout/assets` listed BTC and no Solana asset.
 - **Live dry quote:** 1 USDC on NEAR from Base USDC costs `amountIn` 1.010309 USDC.
+
+## Mainnet Solana check (screen-solana-payer 4.4, 2026-11-09)
+
+- **Deploy:** enclave version `bceb9c0b…` activated on `ops.gateflow.near/gateflow`, then the relay deployed on Fly.io. After that, `/checkout/assets` lists Solana assets.
+- **Payment:** invoice 46 (0.02 USDC, gateway 2, from the demo shop), paid with USDC on Solana.
+  - Solana sender: `CKPp4HE2KXm1nnyYa6auHgTgZe8YszCMrZpUh2J6FJP2`
+  - Solana tx: `2MGSRAMJmwZYsfpkLU84oro5ycUwK2MjRBAPFQTMY4f7g4ZHFThX2TuqHs46YYcdQCbsKgmjZHXFmJZJ63ZsXMiP`
+- **Result:** payment 12 `Settled`, invoice `Paid`. Screening `approved` in 1.5 s by OutLayer job `1326858` (request `2877`, NEAR tx `Bt38fMnAKAcZ2rGd7nnwzxtaeba662BvqEhq4QBquKya`), with wasm hash `bceb9c0bc12a0a8e8c81b1e419c9b43ebe58511d4f2b8089b1195fa80a18e27a`.
+  - Attestation: `https://app.outlayer.ai/attestation/1326858?network=mainnet`
+- **Timing:** the deposit was seen 11 s before the payment opened on NEAR, and the payment was screened and closed 14 s after that.

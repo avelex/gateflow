@@ -88,8 +88,8 @@
 - [x] 4.1 Confirm that live `GET https://1click.chaindefuser.com/v0/tokens` lists USDC with `blockchain: "sol"` and `coingeckoId: "usd-coin"`. If the id differs, stop and update the specs and Tasks 1–2.
 - [x] 4.2 As `ops.gateflow.near`, run `outlayer upload target/wasm32-wasip2/release/gateflow-enclave.wasm`, then `outlayer deploy gateflow <url>`. Record the new wasm hash and the date in `enclave/README.md` under Mainnet.
 - [x] 4.3 Deploy the relay to Fly.io (`relay/README.md` § Deploy). Then `GET https://gateflow.fly.dev/checkout/assets` lists a `sol` USDC asset.
-- [ ] 4.4 Pay a 0.01 USDC invoice from Solana. Expect the payment `Settled`, the attestation showing the new wasm hash, and the console payer reading "<addr> on Solana". Record the invoice id, Solana signature and attestation link in `relay/README.md`.
-- [ ] 4.5 Commit: `docs: record solana mainnet check`.
+- [x] 4.4 Pay a 0.01 USDC invoice from Solana. Expect the payment `Settled`, the attestation showing the new wasm hash, and the console payer reading "<addr> on Solana". Record the invoice id, Solana signature and attestation link in `relay/README.md`.
+- [x] 4.5 Commit: `docs: record solana mainnet check`.
 
 ## Workflow follow-up
 
