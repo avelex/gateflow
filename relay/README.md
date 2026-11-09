@@ -32,7 +32,34 @@ cd relay
 GATEFLOW_CONTRACT=<contract> RELAY_ACCOUNT_ID=<operator> RELAY_PRIVATE_KEY=ed25519:<secret> npm start
 ```
 
-The environment variables are listed in the root `README.md`. `PUBLIC_URL` sets the port; the default is `http://localhost:8787`.
+`PUBLIC_URL` sets the port; the default is `http://localhost:8787`. `node --env-file=.env src/main.ts` reads the same variables from `relay/.env`.
+
+For UI work, run `npm run dev` in `web/` (port 5173). It proxies `/console` and `/checkout` to the relay on 8787, except browser navigations to `/console/*`, which load the app.
+
+## Configuration
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `GATEFLOW_CONTRACT` | (required) | Gateflow contract account |
+| `RELAY_ACCOUNT_ID`, `RELAY_PRIVATE_KEY` | (required for writes) | Relay account: relays merchants' signed delegate actions, pays gas, storage and fuel |
+| `MERCHANT_PARENT` | `RELAY_ACCOUNT_ID` | Account that creates merchant accounts `<label>.<MERCHANT_PARENT>` (8 random `a-z2-7` characters); the relay key must be a full-access key on it |
+| `PUBLIC_URL` | `http://localhost:8787` | Public origin; `https:` turns on `Secure` session cookies |
+| `DB_PATH` | `gateflow.db` | SQLite file with merchants, sessions, quotes and screening txs; delete it to reset a demo |
+| `WEB_DIST` | `../web/dist` | Built web app to serve |
+| `FUEL_TARGET` | `100000000000000000000000` (0.1 NEAR) | Gateway fuel after a top-up; a top-up runs when fuel drops below two execution deposits |
+| `EXECUTION_DEPOSIT` | `10000000000000000000000` (0.01 NEAR) | Must match the contract's `execution_deposit` |
+| `MAX_MERCHANTS` | `100` | Onboarding cap; each merchant costs the operator about 0.02 NEAR |
+| `NEAR_RPC_URL` | `https://rpc.testnet.fastnear.com` | NEAR RPC |
+| `ONECLICK_URL`, `ONECLICK_API_KEY`, `EVM_CHAINS` | 1Click v0, none, `base,eth,arb` | NEAR Intents 1Click endpoint, optional key, and the EVM origins the enclave can screen |
+| `OUTLAYER_CONTRACT`, `OUTLAYER_PROJECT` | `outlayer.near`, `ops.gateflow.near/gateflow` | OutLayer contract and project whose active wasm hash the checkout shows; use `outlayer.testnet` and the testnet project on testnet |
+| `OUTLAYER_API` | `https://api.outlayer.ai` | OutLayer coordinator API, used to find each screening's job for its attestation link; `https://testnet-api.outlayer.ai` on testnet |
+| `LLM_BASE_URL` | `https://cloud-api.near.ai/v1` | OpenAI-compatible chat completions endpoint for the console assistant |
+| `LLM_API_KEY` | none | Key for that endpoint. Without it, chat answers 503 and the composer shows "Assistant not configured" |
+| `LLM_MODEL` | none | Model id with tool calling, from `GET <LLM_BASE_URL>/model/list`. Tested: `z-ai/glm-5.3-flash` (runs in a TEE, operated by NEAR AI) |
+| `CHAT_DAILY_LIMIT` | `200` | Assistant messages per merchant per UTC day; beyond it chat answers 429 |
+| `INVOICE_SIGNER_KEY` | none | `ed25519:` secret of the invoice signer key that merchants add with Enable API. Without it the merchant API is off |
+| `VITE_NEAR_NETWORK` (web build) | `testnet` | Network for the checkout's NEAR wallets |
+| `VITE_REOWN_PROJECT_ID` (web build) | none | Reserved for the Ethereum-wallet payer option, which is not wired yet (out of scope in `openspec/changes/web-from-scratch/proposal.md`) |
 
 ## Deploy (Fly.io)
 

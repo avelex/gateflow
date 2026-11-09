@@ -1,10 +1,83 @@
 # Gateflow
 
-Gateflow is a non-custodial compliance gateway for crypto checkouts on NEAR. A payment waits in the `Gateflow` contract while an OutLayer TEE screens the payer. After that, the contract can do only one of two things: settle the funds to the merchant or refund the payer.
+Taking crypto usually means running a crypto backend: blockchain nodes for every chain, hot wallets and keys, bridges, and a compliance vendor to screen who pays. Gateflow replaces that with a payment link or an API. A buyer pays from NEAR, an EVM chain, Solana, Bitcoin or Zcash. An OutLayer TEE screens the payer against sanctions and risk lists. The `Gateflow` contract on NEAR then does one of two things: it settles the funds to the merchant's own NEAR account, or it refunds the payer.
 
-A payer can pay from NEAR directly, or from an EVM chain (Base, Ethereum, Arbitrum), Bitcoin or Zcash through NEAR Intents 1Click. For cross-chain payments the enclave screens the real origin-chain senders, not the bridge account that delivers the tokens on NEAR. One gateway per merchant accepts every token on the operator's allowlist. The merchant issues on-chain invoices that fix the token, amount and expiry, and receives the payment's token on NEAR: USDC, nBTC (`nbtc.bridge.near`) or ZEC (`zec.omft.near`).
+NEAR does the heavy lifting. NEAR Intents 1Click brings in deposits from other chains, NEP-366 meta transactions let merchants act without holding NEAR, and the contract enforces where funds may go. OutLayer runs the screening in a TEE and publishes an attestation for each verdict.
 
-## Payment flow
+- **Live app (mainnet):** https://gateflow.fly.dev. The landing is at `/`, the merchant console at `/console`, and the checkout at `/pay/<invoice>`.
+- **Demo shop:** https://gateflow-shop.fly.dev, a storefront that uses the merchant API, the checkout widget and signed webhooks.
+- **Tracks:** Real-World Money (`realworld`), AI Security & Defense (`security`), Privacy & Private AI (`privacy`).
+
+## Try it
+
+The merchant side is free: the operator pays account creation, storage and gas. Paying an invoice costs 0.01 USDC from Arbitrum or Solana, plus the 1Click fee.
+
+1. Open https://gateflow.fly.dev/console, sign in with any email, and create a passkey when asked. The email is not verified.
+2. Enter a business name, then confirm the gateway with the passkey. You see Home, with today's settled totals and the assistant composer. Settings lists the payer networks.
+3. Open Invoices and create a 0.01 USDC invoice (one passkey prompt). You see a `/pay/<id>` link, and the invoice is Open.
+4. Open the link, pick Arbitrum or Solana, enter a refund address and a NEAR account you own, and send the amount shown to the deposit address. The page goes Paying, then Paid. The console shows the invoice as Paid and the payer as "`<address>` on `<chain>`".
+5. On the paid checkout page, open the screening attestation. You see the OutLayer attestation for that verdict, with the enclave's wasm hash.
+
+To test the shop flow, open https://gateflow-shop.fly.dev, buy an item, and pay in the checkout modal. The order turns Paid only when the signed `invoice.paid` webhook arrives, and the strip at the bottom lists every webhook the shop received.
+
+## Verify on mainnet
+
+These commands need only `curl` and `jq`. The outputs shown were taken on 2026-11-09.
+
+The contract allowlists three tokens: USDC, nBTC and ZEC.
+
+```sh
+curl -s https://rpc.mainnet.near.org -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"query","params":{"request_type":"call_function","finality":"final","account_id":"gateflow.near","method_name":"get_tokens","args_base64":"e30="}}' \
+  | jq -r '.result.result | implode'
+# ["17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1","nbtc.bridge.near","zec.omft.near"]
+```
+
+Payment 0 is the first mainnet payment. It was delivered by 1Click and settled.
+
+```sh
+curl -s https://rpc.mainnet.near.org -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"query","params":{"request_type":"call_function","finality":"final","account_id":"gateflow.near","method_name":"get_payment","args_base64":"eyJwYXltZW50IjowfQ=="}}' \
+  | jq -r '.result.result | implode | fromjson | {invoice, payer, status, deposit_address}'
+# {"invoice": 0, "payer": "intents.near", "status": "Settled", "deposit_address": "0x76fc1A1507d2D6a3f40E2983d3e3Af7238E201fc"}
+```
+
+1Click's record for that deposit shows it came from USDC on Arbitrum:
+
+```sh
+curl -s 'https://1click.chaindefuser.com/v0/status?depositAddress=0x76fc1A1507d2D6a3f40E2983d3e3Af7238E201fc' \
+  | jq '{status, origin: .quoteResponse.quoteRequest.originAsset, tx: .swapDetails.originChainTxHashes[0].hash}'
+# {"status": "SUCCESS", "origin": "nep141:arb-0xaf88d065e77c8cc2239327c5edb3a432268e5831.omft.near", "tx": "0x8d850d50359b240fdc95f476c6aea1bc0f2032c52e5b135e041a0780f34ee446"}
+```
+
+Payment 12 is a Solana USDC payment for invoice 46. The checkout's record shows the TEE verdict and the enclave build that gave it:
+
+```sh
+curl -s 'https://gateflow.fly.dev/checkout/invoice?id=46' \
+  | jq '{status, payment, outcome: .screening.outcome, job: .screening.jobId, wasm: .screening.wasmHash}'
+# {"status": "Paid", "payment": {"id": 12, "status": "Settled", "refundTo": "name.near"}, "outcome": "approved", "job": 1326858,
+#  "wasm": "bceb9c0bc12a0a8e8c81b1e419c9b43ebe58511d4f2b8089b1195fa80a18e27a"}
+```
+
+The attestation is at https://app.outlayer.ai/attestation/1326858?network=mainnet. The Solana deposit tx is `2MGSRAMJmwZYsfpkLU84oro5ycUwK2MjRBAPFQTMY4f7g4ZHFThX2TuqHs46YYcdQCbsKgmjZHXFmJZJ63ZsXMiP`.
+
+The contract account still has one full-access key, so its code can still be changed:
+
+```sh
+curl -s https://rpc.mainnet.near.org -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"query","params":{"request_type":"view_access_key_list","finality":"final","account_id":"gateflow.near"}}' \
+  | jq '[.result.keys[] | .access_key.permission]'
+# ["FullAccess"]
+```
+
+## How NEAR is used
+
+- **NEAR Intents 1Click:** the relay quotes an exact-output swap into the invoice's token. 1Click then delivers it to the contract with `ft_transfer_call` from `intents.near`, carrying the invoice and a random `ref` in the message.
+- **NEP-141 tokens:** USDC, nBTC (`nbtc.bridge.near`) and ZEC (`zec.omft.near`) are paid with `ft_transfer_call`, and payouts and refunds are `ft_transfer`.
+- **NEP-366 meta transactions:** merchants sign `create_gateway`, `create_invoice` and `set_policy` as delegate actions with a passkey-derived key, and the relay pays the gas. Payers on the 1Click path need no NEAR either.
+- **Function-call access key:** Enable API adds a key that can only call `create_invoice` on the contract, so a merchant's server can create invoices without a wallet.
+- **Named accounts:** every merchant gets `<label>.merchant.gateflow.near`, created by the backend with the merchant's key as its only access key.
+- **OutLayer (TEE on NEAR):** the contract calls `request_execution` on `outlayer.near`. The verdict comes back through `on_screened`, and each run has an attestation.
+- **NEAR AI Cloud:** the console assistant's model runs in a TEE, so invoice and payment data stays private during inference.
+
+## How it works
 
 ```mermaid
 sequenceDiagram
@@ -27,11 +100,11 @@ sequenceDiagram
         OutLayer->>OutLayer: GoPlus risk(sender_id) <= max_risk (EVM addresses only)
         OutLayer-->>Gateflow: on_screened(true | false | error)
 
-    else Cross-chain via 1Click (EVM, BTC, ZEC)
+    else Cross-chain via 1Click (EVM, Solana, BTC, ZEC)
         Page->>Relay: POST /checkout/quote {invoice, originAsset, refundTo, refundOnNear}
         Relay->>Gateflow: view get_invoice (404 unknown, 409 unless Open and unexpired past the quote deadline)
         Relay->>OneClick: GET /v0/tokens (origin chain, NEAR destination asset)
-        Note over Relay: 422 if origin is not EVM/btc/zec
+        Note over Relay: 422 if origin is not EVM/sol/btc/zec
         Relay->>OneClick: POST /v0/quote {EXACT_OUTPUT invoice amount, customRecipientMsg: {gateway, invoice, ref, refund_to}}
         OneClick-->>Relay: depositAddress, amountIn
         Relay-->>Page: depositAddress, amountIn, ref
@@ -57,6 +130,9 @@ sequenceDiagram
         alt EVM (base / eth / arb)
             OutLayer->>Chain: eth_getTransactionByHash: from
             OutLayer->>OutLayer: GoPlus risk(from)
+        else sol
+            OutLayer->>Chain: Solana getTransaction: every signer
+            OutLayer->>OutLayer: OFAC SOL list
         else btc
             OutLayer->>Chain: Blockstream /tx: all input addresses
             OutLayer->>OutLayer: OFAC XBT list
@@ -89,7 +165,7 @@ sequenceDiagram
 - An invoice is Open, Paying, then Paid or Returned. Returned is final: the merchant issues a new invoice. Expiry is not a status; an Open invoice past `expires_at_sec` accepts no payment.
 - Shielded Zcash senders cannot be screened, so they are always refunded.
 - Every payment names an invoice, and only `intents.near` may deliver a `ref` payment, so contract storage grows only with merchant invoices and paid 1Click deliveries.
-- The contract account holds no access keys and has no upgrade path. Tokens leave it only to the gateway's `payout_to` or the payment's `refund_to`.
+- In the contract code, tokens leave only to the gateway's `payout_to` or the payment's `refund_to`. The operator still holds a full-access key on `gateflow.near`, so the deployed code can change until that key is deleted (see [Verify on mainnet](#verify-on-mainnet) and [Roadmap](#roadmap)).
 - No KYC: there is no per-person limit; large payments are gated only by screening.
 
 ## Modules
@@ -103,16 +179,27 @@ sequenceDiagram
 
 ## Build and test
 
+Each command ends with the line shown in its comment. These were checked on 2026-11-09.
+
 ```sh
-cd contract && cargo test && cargo build --target wasm32-unknown-unknown --release
-cd enclave && cargo test && GATEFLOW_CONTRACT=<contract> cargo build --target wasm32-wasip2 --release
-cd relay && npm test
-cd web && npm ci && npx vitest run && npm run build
+cd contract && cargo test                  # test result: ok. 80 passed; 0 failed
+cd enclave && cargo test                   # test result: ok. 57 passed; 0 failed
+cd relay && npm test                       # ℹ fail 0
+cd web && npm ci && npx vitest run         # Test Files  9 passed (9)
+node --test examples/shop/server.test.mjs  # ℹ fail 0
 ```
 
-## Run the app
+To build the deployable artifacts:
 
-The relay serves the API and the built web app from one origin. Build `web/` first, then start the relay from `relay/`:
+```sh
+cd contract && cargo build --target wasm32-unknown-unknown --release
+cd enclave && GATEFLOW_CONTRACT=<contract> cargo build --target wasm32-wasip2 --release
+cd web && npm run build
+```
+
+## Run locally
+
+The relay serves the API and the built web app from one origin. Build `web/` first, then start the relay:
 
 ```sh
 cd web && npm ci && npm run build
@@ -120,32 +207,9 @@ cd ../relay && GATEFLOW_CONTRACT=<contract> RELAY_ACCOUNT_ID=<operator> RELAY_PR
 # open http://localhost:8787
 ```
 
-Mainnet runs on Fly.io at `https://gateflow.fly.dev`; see [Deploy (Fly.io)](relay/README.md#deploy-flyio). `node --env-file=.env src/main.ts` reads the same variables from `relay/.env`. For UI work, run `npm run dev` in `web/` (port 5173); it proxies `/console` and `/checkout` to the relay on 8787, except browser navigations to `/console/*`, which load the app.
+Every variable is listed in [`relay/README.md` § Configuration](relay/README.md#configuration). Mainnet runs on Fly.io; see [Deploy (Fly.io)](relay/README.md#deploy-flyio).
 
-| Variable | Default | Meaning |
-|---|---|---|
-| `GATEFLOW_CONTRACT` | (required) | Gateflow contract account |
-| `RELAY_ACCOUNT_ID`, `RELAY_PRIVATE_KEY` | (required for writes) | Relay account: relays merchants' signed delegate actions, pays gas, storage and fuel |
-| `MERCHANT_PARENT` | `RELAY_ACCOUNT_ID` | Account that creates merchant accounts `<label>.<MERCHANT_PARENT>` (8 random `a-z2-7` characters); the relay key must be a full-access key on it |
-| `PUBLIC_URL` | `http://localhost:8787` | Public origin; `https:` turns on `Secure` session cookies |
-| `DB_PATH` | `gateflow.db` | SQLite file with merchants, sessions, quotes and screening txs; delete it to reset a demo |
-| `WEB_DIST` | `../web/dist` | Built web app to serve |
-| `FUEL_TARGET` | `100000000000000000000000` (0.1 NEAR) | Gateway fuel after a top-up; a top-up runs when fuel drops below two execution deposits |
-| `EXECUTION_DEPOSIT` | `10000000000000000000000` (0.01 NEAR) | Must match the contract's `execution_deposit` |
-| `MAX_MERCHANTS` | `100` | Onboarding cap; each merchant costs the operator about 0.02 NEAR |
-| `NEAR_RPC_URL` | `https://rpc.testnet.fastnear.com` | NEAR RPC |
-| `ONECLICK_URL`, `ONECLICK_API_KEY`, `EVM_CHAINS` | 1Click v0, none, `base,eth,arb` | NEAR Intents 1Click endpoint, optional key, and the EVM origins the enclave can screen |
-| `OUTLAYER_CONTRACT`, `OUTLAYER_PROJECT` | `outlayer.near`, `ops.gateflow.near/gateflow` | OutLayer contract and project whose active wasm hash the checkout shows; use `outlayer.testnet` and the testnet project on testnet |
-| `OUTLAYER_API` | `https://api.outlayer.ai` | OutLayer coordinator API, used to find each screening's job for its attestation link; `https://testnet-api.outlayer.ai` on testnet |
-| `LLM_BASE_URL` | `https://cloud-api.near.ai/v1` | OpenAI-compatible chat completions endpoint for the console assistant |
-| `LLM_API_KEY` | none | Key for that endpoint. Without it, chat answers 503 and the composer shows "Assistant not configured" |
-| `LLM_MODEL` | none | Model id with tool calling, from `GET <LLM_BASE_URL>/model/list`. Tested: `z-ai/glm-5.3-flash` (runs in a TEE, operated by NEAR AI) |
-| `CHAT_DAILY_LIMIT` | `200` | Assistant messages per merchant per UTC day; beyond it chat answers 429 |
-| `INVOICE_SIGNER_KEY` | none | `ed25519:` secret of the invoice signer key that merchants add with Enable API. Without it the merchant API is off |
-| `VITE_NEAR_NETWORK` (web build) | `testnet` | Network for the checkout's NEAR wallets |
-| `VITE_REOWN_PROJECT_ID` (web build) | none | Reserved for the Ethereum-wallet payer option, which is not wired yet (out of scope in `openspec/changes/web-from-scratch/proposal.md`) |
-
-### The merchant's side
+## The merchant's side
 
 1. Sign in with an email. This is a demo sign-in: the email is not verified, and a session can only read.
 2. Create a passkey. The browser derives the merchant's NEAR key from it (WebAuthn PRF); without PRF support it shows a recovery phrase instead. The key never leaves the browser.
@@ -155,7 +219,7 @@ Mainnet runs on Fly.io at `https://gateflow.fly.dev`; see [Deploy (Fly.io)](rela
 
 The backend only relays `create_gateway` (paying out to the merchant's own account), `create_invoice` and `set_policy` from the merchant's own account, with no deposit and at most 100 Tgas. On the merchant's own account it relays only adding or deleting the invoice signer key (see [Accept payments on your site](#accept-payments-on-your-site)). It cannot sign for the merchant, except `create_invoice` once the merchant has enabled the API.
 
-### The assistant
+## The assistant
 
 Home's composer, the hint chips, Search (Enter with no match) and the Invoices "Ask about invoices" input open a chat. The relay runs a tool-calling loop against `LLM_BASE_URL`: at most 6 tool rounds per message, the last 30 messages of the thread as context, and `CHAT_DAILY_LIMIT` messages per merchant per day.
 
@@ -163,7 +227,7 @@ Home's composer, the hint chips, Search (Enter with no match) and the Invoices "
 - **Writes only propose.** Creating an invoice, changing the risk tolerance or retrying a failed payment stores a pending action and shows a confirm card with the exact values. Nothing changes until the merchant presses Confirm: invoices and risk tolerance then take one passkey prompt, and the relay only submits a delegate whose call equals the stored action, once. Retries go through the operator.
 - **Privacy:** NEAR AI Cloud serves models from TEEs, so payment data stays private in inference. Any other OpenAI-compatible endpoint works through `LLM_BASE_URL`, but then that privacy claim does not hold.
 
-### Accept payments on your site
+## Accept payments on your site
 
 A shop creates one invoice per order from its server, opens the checkout on its own page, and fulfils the order when the webhook says it is paid. The shop needs no NEAR account, wallet or gas.
 
@@ -195,19 +259,45 @@ A shop creates one invoice per order from its server, opens the checkout on its 
 
 **Trust:** Enable API adds one key of the operator's to your account. That key can only call `create_invoice` on the Gateflow contract, and the relay refuses to add any wider key. An invoice always pays out to your gateway's payout account, so the key cannot move funds. If it leaked, it could only create invoices on your gateway, which uses up screening fuel at the rate limit. **Disable API** removes the key with one passkey prompt.
 
-Relay modules, tests and the testnet dev deployment are in [`relay/README.md`](relay/README.md). Mainnet deployment steps are tracked in [`openspec/changes/mainnet-launch/tasks.md`](openspec/changes/mainnet-launch/tasks.md).
-
 ## Status
 
-- The contract, the enclave and the relay are implemented and unit-tested.
-- The enclave runs on OutLayer mainnet as project `ops.gateflow.near/gateflow`; its direct-call checks are in [`enclave/README.md`](enclave/README.md). It has not run on OutLayer testnet, because FastFS testnet was down.
-- The relay runs against a testnet dev deployment (`gateflow-dev-v1.testnet`): merchant onboarding, sponsored `create_gateway` and `create_invoice`, fuel funding and the checkout views. A dry 1Click quote passes against the live API. See [`relay/README.md`](relay/README.md).
-- `web/` (the console and the checkout page) is implemented and unit-tested. Every screen is translated from the `design/` exports. It has been checked against a local relay with in-memory contract and 1Click fakes, with virtual passkeys (with and without PRF); see [`web/README.md`](web/README.md). On mainnet it onboarded one merchant and took one cross-chain payment.
-- The console assistant is implemented and tested against a stub model, and a passkey Confirm was checked in a local run with fakes. It has not yet run against NEAR AI Cloud or on testnet; the model is not chosen yet.
-- Still open for the payer: the Ethereum-wallet option.
-- `GOAL.md` is not yet in this repository.
-- Mainnet: the contract is deployed at `gateflow.near` (operator `ops.gateflow.near`, relay `relay.gateflow.near`, merchant accounts under `merchant.gateflow.near`). One 0.01 USDC invoice paid through 1Click from an EVM chain is `Settled`. BTC and ZEC payments are not yet run. Tracked in [`openspec/changes/mainnet-launch/tasks.md`](openspec/changes/mainnet-launch/tasks.md).
+Checked on 2026-11-09 against mainnet `gateflow.near` (operator `ops.gateflow.near`, relay `relay.gateflow.near`, merchants under `merchant.gateflow.near`, enclave `ops.gateflow.near/gateflow` version `bceb9c0b…`).
+
+| Payer origin | Supported | On mainnet | Evidence |
+|---|---|---|---|
+| Arbitrum USDC (1Click) | yes | settled | payments 0–11. Payment 0 is invoice 0, origin tx `0x8d85…e446` |
+| Solana USDC (1Click) | yes | settled | payment 12, invoice 46, Solana tx `2MGSRAMJ…XMiP`, OutLayer job `1326858` |
+| Base, Ethereum USDC (1Click) | yes | not yet run | unit tests (`enclave`, `relay`) |
+| Bitcoin to nBTC, Zcash to ZEC (1Click) | yes | not yet run | unit tests. Shielded Zcash is always refunded |
+| NEAR direct (`ft_transfer_call`) | yes | not yet run | unit tests (`contract`) |
+| Refund after a flagged or unbound payment | yes | not yet run | unit tests (`contract`, `enclave`) |
+
+- **Console and checkout:** live on mainnet. Merchants onboard with a passkey, and the checkout shows each screening's verdict, wasm hash and attestation link.
+- **Merchant API, widget and webhooks:** live on mainnet and used by the demo shop.
+- **Assistant:** configured on the mainnet relay with `z-ai/glm-5.3-flash` on NEAR AI Cloud. Unit tests cover the confirm-before-write flow against a stub model.
+- **Not built:** paying with an Ethereum wallet from the checkout. EVM payers send to the 1Click deposit address instead.
+- **Contract key:** `gateflow.near` still has a full-access key (see above). Deleting it is on the roadmap.
+
+Relay modules, tests and deployments are in [`relay/README.md`](relay/README.md). The enclave build, deploy and versions are in [`enclave/README.md`](enclave/README.md). Mainnet launch tasks are in [`openspec/changes/mainnet-launch/tasks.md`](openspec/changes/mainnet-launch/tasks.md).
+
+## Disclosures
+
+- **Built at NEAR HACKATHON.** The first commit is 2026-11-01, so there is no code from before the hackathon.
+- **Other chains:** Gateflow is not a port. There is no existing Gateflow product on another chain.
+- **Other projects:** this team submits no other project.
+- **AI tools:** the code, tests and docs were written with Claude Code, driven by OpenSpec. Every change's proposal, design and task list is kept in [`openspec/changes/archive/`](openspec/changes/archive/), and current behavior is specified in [`openspec/specs/`](openspec/specs/).
+- **Libraries:**
+  - contract: `near-sdk` 5
+  - enclave: `serde` and `serde_json`
+  - relay and `examples/shop`: Node built-ins only
+  - web: React, NEAR Wallet Selector (`@near-wallet-selector/*`), `lucide`, `qrcode`, Vite and Vitest
+- **External services:** NEAR Intents 1Click, OutLayer, GoPlus, the OFAC lists from [0xB10C/ofac-sanctioned-digital-currency-addresses](https://github.com/0xB10C/ofac-sanctioned-digital-currency-addresses), Blockstream, Blockchair, publicnode RPCs, and NEAR AI Cloud.
+- **License:** MIT ([`LICENSE`](LICENSE)).
 
 ## Roadmap
 
-- **Bring your own screening keys (BYOK).** A merchant seals their own compliance provider key (first Chainalysis Sanctions) to the OutLayer enclave from the console, so Gateflow, the operator and the relay never see it. Screening then checks every address against that provider as well as the built-in GoPlus and OFAC checks, and a failed lookup fails closed. Deferred past the hackathon: it needs a per-gateway secrets profile on the contract, and `gateflow.near` has no access keys or upgrade path, so it means a new contract deployment and a move of merchants to it. Before shipping, the fuel credit on a failed OutLayer execution must change, or a merchant could drain the contract balance with a bogus profile.
+- **Delete the contract's full-access key.** This makes `gateflow.near` immutable, so funds can only ever go to `payout_to` or `refund_to`.
+- **Run the remaining origins on mainnet:** Base, Ethereum, Bitcoin, Zcash, NEAR direct, and one refund.
+- **Bring your own screening keys (BYOK).** A merchant seals their own compliance provider key (Chainalysis Sanctions first) to the OutLayer enclave from the console, so Gateflow, the operator and the relay never see it. Screening then checks every address against that provider as well as the built-in GoPlus and OFAC checks, and a failed lookup fails closed. This needs a per-gateway secrets profile in the contract: either an upgrade while the full-access key exists, or a new deployment once it is deleted. Before it ships, the fuel credit on a failed OutLayer execution must change, or a merchant could drain the contract balance with a bogus profile.
+- **GoPlus for Solana.** Solana payers are screened against the OFAC list only. GoPlus's address API answered `{"code":5000}` for Solana on 2026-11-09.
+- **Pay with an Ethereum wallet from the checkout.**
