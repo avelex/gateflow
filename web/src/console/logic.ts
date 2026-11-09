@@ -13,12 +13,64 @@ export type Me = { email: string; name: string | null; accountId: string | null;
 export const TGAS = 10n ** 12n;
 
 /// Which onboarding card to show for the backend step and the key this browser can reach.
-export function onboardingScreen(step: string, mode: "prf" | "stored" | null): "details" | "resume-key" | "gateway" | "done" {
+export function onboardingScreen(step: string, mode: "prf" | "stored" | null): "timeline" | "resume-key" | "done" {
   if (step === "done") return "done";
-  if (step === "account") return "details";
-  if (!mode) return "resume-key";
-  return step === "gateway" ? "gateway" : "details";
+  if (step === "account" || mode) return "timeline";
+  return "resume-key";
 }
+
+export type RowId = "passkey" | "account" | "tokens" | "gateway" | "fuel";
+export type Row = { id: RowId; label: string; state: "pending" | "running" | "waiting" | "done" | "failed"; detail?: string };
+export type OnboardingState = {
+  step: Step;
+  accountId?: string;
+  running?: RowId;
+  failed?: { row: RowId; error: string; notOwner: boolean };
+  fuel?: "checking" | "ready" | "low";
+};
+
+const ROWS: { id: RowId; label: string; pending: string; done: string }[] = [
+  { id: "passkey", label: "Passkey", pending: "Your browser may ask twice: create, then unlock", done: "Created and unlocked" },
+  { id: "account", label: "NEAR account", pending: "Random name, your key only", done: "" },
+  { id: "tokens", label: "Token storage", pending: "So every accepted token can reach your account", done: "Every accepted token can reach your account" },
+  { id: "gateway", label: "Gateway", pending: "You confirm it", done: "Pays out to your account" },
+  { id: "fuel", label: "Screening fuel", pending: "Funded by Gateflow", done: "Funded by Gateflow" },
+];
+const ORDER: RowId[] = ROWS.map((r) => r.id);
+/// The first row the backend step has not finished.
+const FIRST_OPEN: Record<Step, RowId> = { account: "passkey", tokens: "tokens", gateway: "gateway", done: "fuel" };
+
+export const GATEWAY_TEXT = "Holds each payment while it is screened, then pays out to your account. Risk limit 50, change it later in Settings.";
+export const NOT_OWNER_HINT = "Your browser may list several passkeys for this email. Pick the newest one.";
+
+/// The five onboarding rows for the recorded step, the row running now, the last failure and the fuel check.
+export function onboardingRows(s: OnboardingState): Row[] {
+  const at = s.running ?? s.failed?.row;
+  const open = Math.max(ORDER.indexOf(FIRST_OPEN[s.step]), at ? ORDER.indexOf(at) : 0);
+  return ROWS.map((r, i): Row => {
+    const done = { id: r.id, label: r.label, state: "done" as const, detail: r.id === "account" ? s.accountId ?? r.done : r.done };
+    if (r.id === "fuel" && s.step === "done" && s.fuel) {
+      if (s.fuel === "ready") return done;
+      if (s.fuel === "low") return { id: r.id, label: r.label, state: "failed", detail: "Still topping up" };
+      return { id: r.id, label: r.label, state: "running", detail: "Checking fuel" };
+    }
+    if (i < open) return done;
+    if (i === open && s.failed?.row === r.id) {
+      const detail = s.failed.notOwner ? `${s.failed.error}. ${NOT_OWNER_HINT}` : s.failed.error;
+      return { id: r.id, label: r.label, state: "failed", detail };
+    }
+    if (i === open && s.running === r.id) return { id: r.id, label: r.label, state: "running", detail: r.pending };
+    if (i === open && r.id === "gateway" && s.step === "gateway") return { id: r.id, label: r.label, state: "waiting", detail: GATEWAY_TEXT };
+    return { id: r.id, label: r.label, state: "pending", detail: r.pending };
+  });
+}
+
+/// The key held from earlier in this page session, else one from `acquire` (one passkey prompt).
+export const keyFor = (held: MerchantKey | undefined, acquire: () => Promise<MerchantKey>): Promise<MerchantKey> =>
+  held ? Promise.resolve(held) : acquire();
+
+/// The Screening fuel row after `GET /console/gateway`; a failed read counts as still topping up.
+export const fuelState = (r: { fuelReady: boolean } | Error): "ready" | "low" => (!(r instanceof Error) && r.fuelReady ? "ready" : "low");
 
 /// The merchant key for one signed action: one passkey prompt in either mode.
 export async function acquireKey(mode: "prf" | "stored" | null): Promise<MerchantKey> {

@@ -1,13 +1,61 @@
 import { expect, test } from "vitest";
-import { onboardingScreen } from "./logic.ts";
+import { onboardingRows, onboardingScreen } from "./logic.ts";
 
 test("onboarding_screen", () => {
-  for (const m of ["prf", "stored", null] as const) expect(onboardingScreen("account", m)).toBe("details");
+  for (const m of ["prf", "stored", null] as const) expect(onboardingScreen("account", m)).toBe("timeline");
   expect(onboardingScreen("tokens", null)).toBe("resume-key");
-  expect(onboardingScreen("tokens", "prf")).toBe("details");
+  expect(onboardingScreen("tokens", "prf")).toBe("timeline");
   expect(onboardingScreen("gateway", null)).toBe("resume-key");
-  expect(onboardingScreen("gateway", "stored")).toBe("gateway");
+  expect(onboardingScreen("gateway", "stored")).toBe("timeline");
   expect(onboardingScreen("done", null)).toBe("done");
+});
+
+const states = (rows: { state: string }[]) => rows.map((r) => r.state);
+
+test("rows_labels", () => {
+  expect(onboardingRows({ step: "account" }).map((r) => r.label)).toEqual(["Passkey", "NEAR account", "Token storage", "Gateway", "Screening fuel"]);
+  expect(states(onboardingRows({ step: "account" }))).toEqual(["pending", "pending", "pending", "pending", "pending"]);
+});
+
+test("rows_running_account", () => {
+  expect(states(onboardingRows({ step: "account", running: "account" }))).toEqual(["done", "running", "pending", "pending", "pending"]);
+});
+
+test("rows_running_tokens", () => {
+  const rows = onboardingRows({ step: "tokens", running: "tokens", accountId: "ab3k7q2z.merchant.gateflow.near" });
+  expect(states(rows)).toEqual(["done", "done", "running", "pending", "pending"]);
+  expect(rows[1].detail).toBe("ab3k7q2z.merchant.gateflow.near");
+});
+
+test("rows_gateway_waits", () => {
+  expect(states(onboardingRows({ step: "gateway" }))).toEqual(["done", "done", "done", "waiting", "pending"]);
+});
+
+test("rows_resume_reload", () => {
+  expect(onboardingRows({ step: "gateway" })).toEqual(onboardingRows({ step: "gateway" }));
+  expect(onboardingRows({ step: "gateway" })[3].state).toBe("waiting");
+});
+
+test("rows_failed_row", () => {
+  const error = "storage registration on zec.omft.near failed: x";
+  const rows = onboardingRows({ step: "tokens", failed: { row: "tokens", error, notOwner: false } });
+  expect(states(rows)).toEqual(["done", "done", "failed", "pending", "pending"]);
+  expect(rows[2].detail).toBe(error);
+});
+
+test("rows_not_owner_hint", () => {
+  const rows = onboardingRows({ step: "gateway", failed: { row: "gateway", error: "This passkey does not own this account", notOwner: true } });
+  expect(rows[3].state).toBe("failed");
+  expect(rows[3].detail).toContain("This passkey does not own this account");
+  expect(rows[3].detail).toContain("newest");
+});
+
+test("rows_fuel", () => {
+  expect(states(onboardingRows({ step: "done", fuel: "checking" }))).toEqual(["done", "done", "done", "done", "running"]);
+  expect(onboardingRows({ step: "done", fuel: "ready" })[4].state).toBe("done");
+  const low = onboardingRows({ step: "done", fuel: "low" })[4];
+  expect(low.state).toBe("failed");
+  expect(low.detail).toBe("Still topping up");
 });
 
 import { heldByToken, type Invoice, type Payment, searchMatches, settledToday } from "./logic.ts";
@@ -285,3 +333,26 @@ test("highlight_snippets", () => {
   expect(kinds(widget, "comment")).toEqual(["// id from POST /api/v1/invoices on your server"]);
   expect(kinds(widget, "tag")).toEqual(["<script", ">", "</script", ">", "<script", ">", "</script", ">"]);
 });
+
+import { vi } from "vitest";
+import { fuelState, keyFor } from "./logic.ts";
+import type { MerchantKey } from "../near/delegate.ts";
+
+const someKey = { publicKey: "ed25519:x", sign: async () => new Uint8Array() } as MerchantKey;
+
+test("key_for_reuses_held", async () => {
+  const acquire = vi.fn(async () => someKey);
+  const held = { ...someKey };
+  expect(await keyFor(held, acquire)).toBe(held);
+  expect(acquire).not.toHaveBeenCalled();
+});
+
+test("key_for_acquires_without_held", async () => {
+  const acquire = vi.fn(async () => someKey);
+  expect(await keyFor(undefined, acquire)).toBe(someKey);
+  expect(acquire).toHaveBeenCalledTimes(1);
+});
+
+test("fuel_ready", () => expect(fuelState({ fuelReady: true })).toBe("ready"));
+test("fuel_low", () => expect(fuelState({ fuelReady: false })).toBe("low"));
+test("fuel_error_is_low", () => expect(fuelState(new Error("502"))).toBe("low"));
