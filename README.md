@@ -1,5 +1,9 @@
 # Gateflow
 
+Gateflow is a non-custodial compliance gateway for crypto checkouts.
+
+## Overview
+
 Taking crypto usually means running a crypto backend: blockchain nodes for every chain, hot wallets and keys, bridges, and a compliance vendor to screen who pays. Gateflow replaces that with a payment link or an API. A buyer pays from NEAR, an EVM chain, Solana, Bitcoin or Zcash. An OutLayer TEE screens the payer against sanctions and risk lists. The `Gateflow` contract on NEAR then does one of two things: it settles the funds to the merchant's own NEAR account, or it refunds the payer.
 
 NEAR does the heavy lifting. NEAR Intents 1Click brings in deposits from other chains, NEP-366 meta transactions let merchants act without holding NEAR, and the contract enforces where funds may go. OutLayer runs the screening in a TEE and publishes an attestation for each verdict.
@@ -268,7 +272,8 @@ Checked on 2026-11-09 against mainnet `gateflow.near` (operator `ops.gateflow.ne
 | Arbitrum USDC (1Click) | yes | settled | payments 0–11. Payment 0 is invoice 0, origin tx `0x8d85…e446` |
 | Solana USDC (1Click) | yes | settled | payment 12, invoice 46, Solana tx `2MGSRAMJ…XMiP`, OutLayer job `1326858` |
 | Base, Ethereum USDC (1Click) | yes | not yet run | unit tests (`enclave`, `relay`) |
-| Bitcoin to nBTC, Zcash to ZEC (1Click) | yes | not yet run | unit tests. Shielded Zcash is always refunded |
+| Bitcoin to nBTC (1Click) | yes | settled | payment 13, invoice 49, Bitcoin tx `cdd65880…7c2c`, OutLayer job `1327511` |
+| Zcash to ZEC (1Click) | yes | not yet run | unit tests. Shielded Zcash is always refunded |
 | NEAR direct (`ft_transfer_call`) | yes | not yet run | unit tests (`contract`) |
 | Refund after a flagged or unbound payment | yes | not yet run | unit tests (`contract`, `enclave`) |
 
@@ -297,7 +302,7 @@ Relay modules, tests and deployments are in [`relay/README.md`](relay/README.md)
 ## Roadmap
 
 - **Delete the contract's full-access key.** This makes `gateflow.near` immutable, so funds can only ever go to `payout_to` or `refund_to`.
-- **Run the remaining origins on mainnet:** Base, Ethereum, Bitcoin, Zcash, NEAR direct, and one refund.
+- **Run the remaining origins on mainnet:** Base, Ethereum, Zcash, NEAR direct, and one refund.
 - **Bring your own screening keys (BYOK).** A merchant seals their own compliance provider key (Chainalysis Sanctions first) to the OutLayer enclave from the console, so Gateflow, the operator and the relay never see it. Screening then checks every address against that provider as well as the built-in GoPlus and OFAC checks, and a failed lookup fails closed. This needs a per-gateway secrets profile in the contract: either an upgrade while the full-access key exists, or a new deployment once it is deleted. Before it ships, the fuel credit on a failed OutLayer execution must change, or a merchant could drain the contract balance with a bogus profile.
 - **GoPlus for Solana.** Solana payers are screened against the OFAC list only. GoPlus's address API answered `{"code":5000}` for Solana on 2026-11-09.
 - **Pay with an Ethereum wallet from the checkout.**
