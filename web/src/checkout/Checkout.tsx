@@ -16,7 +16,8 @@ const NETWORK = import.meta.env.VITE_NEAR_NETWORK ?? "testnet";
 const LINK = { color: "var(--blue-600)", textDecoration: "none" } as const;
 
 // checkout-widget: `?embed=1` inside the shop's modal, `parent` names the shop origin, `return_url` the redirect back.
-const QUERY = new URLSearchParams(location.search);
+// No `location` when tests import this module outside a browser.
+const QUERY = new URLSearchParams(typeof location === "undefined" ? "" : location.search);
 const EMBED = QUERY.get("embed") === "1";
 const PARENT = QUERY.get("parent");
 const RETURN_URL = QUERY.get("return_url");
