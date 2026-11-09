@@ -7,8 +7,8 @@ import { clamp, fromHash, GITHUB, highlight, keyStep, shopUrl, SLIDES, snippet, 
 
 /// Minutes from email sign-in to the first invoice link. Set from a timed onboarding run (tasks 3.2).
 const MINUTES = 3;
-/// Networks a payer can pay from today: the screenable 1Click origins (relay EVM_CHAINS, btc, zec) plus NEAR direct.
-const NETWORKS = ["base", "eth", "arb", "btc", "zec", "near"];
+/// Networks shown on the landing, NEAR first. Base and Arbitrum also work; they're left off to keep the list short.
+const NETWORKS = ["near", "eth", "sol", "btc", "zec"];
 /// Other chains on 1Click's live token list (39 on 2026-11-06) that Gateflow can't screen yet.
 const MORE_CHAINS = 33;
 const SHOP = shopUrl(import.meta.env.VITE_SHOP_URL);
@@ -47,10 +47,11 @@ const More = () => <span className="landing-more">+{MORE_CHAINS} more via NEAR I
 
 /// Payments from every network land straight in the merchant's own wallet.
 function Flow() {
-  const ys = NETWORKS.map((_, i) => 24 + i * 46);
   const mid = 139;
+  const ys = NETWORKS.map((_, i) => mid + (i - (NETWORKS.length - 1) / 2) * 46);
+  const names = NETWORKS.map(chainName);
   return (
-    <svg className="landing-flow" viewBox="0 0 560 300" role="img" aria-label="Payments from Base, Ethereum, Arbitrum, Bitcoin, Zcash and NEAR go straight to your business wallet">
+    <svg className="landing-flow" viewBox="0 0 560 300" role="img" aria-label={`Payments from ${names.slice(0, -1).join(", ")} and ${names.at(-1)} go straight to your business wallet`}>
       {ys.map((y) => (
         <path key={y} d={`M150 ${y} C 280 ${y}, 290 ${mid}, 380 ${mid}`} />
       ))}
@@ -62,24 +63,35 @@ function Flow() {
           </text>
         </g>
       ))}
-      <text className="landing-flow-caption" x={6} y={296}>
+      <text className="landing-flow-caption" x={6} y={ys[ys.length - 1] + 42}>
         +{MORE_CHAINS} more coming
       </text>
-      <circle className="landing-flow-account" cx={410} cy={mid} r={30} />
-      <g transform={`translate(${410 - 14} ${mid - 14})`}>
-        <Icon name="wallet" size={28} />
-      </g>
-      <text x={450} y={mid - 4}>
-        Your business
-      </text>
-      <text x={450} y={mid + 14}>
-        wallet
+      <rect className="landing-wallet-card" x={402} y={mid - 47} width={96} height={40} rx={6} />
+      <rect className="landing-wallet-card" x={414} y={mid - 55} width={96} height={40} rx={6} />
+      <rect className="landing-wallet-body" x={388} y={mid - 35} width={150} height={88} rx={14} />
+      <rect className="landing-wallet-flap" x={474} y={mid - 11} width={72} height={40} rx={10} />
+      <circle className="landing-wallet-snap" cx={494} cy={mid + 9} r={6} />
+      <text x={388} y={mid + 81}>
+        Your business wallet
       </text>
     </svg>
   );
 }
 
-function Hook() {
+function Ctas({ onLaunch }: { onLaunch: () => void }) {
+  return (
+    <div className="landing-ctas">
+      <Button variant="primary" size="lg" onClick={onLaunch}>
+        Launch console
+      </Button>
+      <a className="landing-link-button" href={SHOP} target="_blank" rel="noopener">
+        Example shop
+      </a>
+    </div>
+  );
+}
+
+function Hook({ onLaunch }: { onLaunch: () => void }) {
   return (
     <div className="landing-hero">
       <div>
@@ -100,6 +112,7 @@ function Hook() {
             <Icon name="network" size={18} /> Any chain
           </span>
         </p>
+        <Ctas onLaunch={onLaunch} />
       </div>
       <Flow />
     </div>
@@ -208,7 +221,6 @@ function Verdict() {
         if the payer is clean
       </text>
       <rect className="landing-verdict-badbox" x={414} y={168} width={200} height={60} rx={8} />
-      <path className="landing-verdict-back" d="M440 188 l-8 6 l8 6 M432 194 h14" />
       <text x={452} y={196}>
         Back to buyer
       </text>
@@ -290,14 +302,7 @@ function Developers({ onLaunch }: { onLaunch: () => void }) {
         <p className="landing-lead">
           Share invoice links from the console, or open checkout on your own site. Create invoices over the API and get a signed webhook when they are paid.
         </p>
-        <div className="landing-ctas">
-          <Button variant="primary" size="lg" onClick={onLaunch}>
-            Launch console
-          </Button>
-          <a className="landing-link-button" href={SHOP} target="_blank" rel="noopener">
-            Example shop
-          </a>
-        </div>
+        <Ctas onLaunch={onLaunch} />
       </div>
       <Snippet />
     </div>
@@ -351,11 +356,13 @@ export default function Landing({ onLaunch }: { onLaunch: () => void }) {
     };
   }, []);
 
-  const slides = [<Hook />, <Problem />, <How />, <Trust />, <Developers onLaunch={onLaunch} />];
+  const slides = [<Hook onLaunch={onLaunch} />, <Problem />, <How />, <Trust />, <Developers onLaunch={onLaunch} />];
   return (
     <div className="landing">
       <header className="landing-header">
-        <img src={logo} alt="gateflow" className="landing-logo" />
+        <a href={toHash(0)} aria-label="gateflow, first slide">
+          <img src={logo} alt="" className="landing-logo" />
+        </a>
         <nav>
           <a className="landing-header-link" href={GITHUB} target="_blank" rel="noopener">
             GitHub

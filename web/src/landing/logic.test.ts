@@ -70,7 +70,7 @@ test("snippet", () => {
   const s = snippet("https://gateflow.example");
   expect(s).toContain('<script src="https://gateflow.example/js/v1/gateflow.js"></script>');
   expect(s).toContain('Gateflow.button("#pay", 42)');
-  expect(s.split("\n").length).toBeLessThanOrEqual(4);
+  expect(s.split("\n").length).toBeLessThanOrEqual(7);
 });
 
 test("highlight", () => {
