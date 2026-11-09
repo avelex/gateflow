@@ -42,10 +42,12 @@ Callers must write out `resource_limits` in full. With `{}`, the OutLayer worker
 |---|---|
 | Contract (`GATEFLOW_CONTRACT`) | `gateflow.near` |
 | Project | `ops.gateflow.near/gateflow` |
-| Source commit | `fb0e1c5` (enclave source unchanged since `80bec9e`) |
-| wasm SHA256 | `11a4efa612d4c52ecad82827035968f34f7bc840d2b1fea28a70715f2ee6dabe` |
-| FastFS URL | `https://main.fastfs.io/ops.gateflow.near/outlayer.near/11a4efa612d4c52ecad82827035968f34f7bc840d2b1fea28a70715f2ee6dabe.wasm` |
-| Upload tx | not captured |
+| Source commit | `4e5a9a7` (adds Solana screening) |
+| wasm SHA256 | `bceb9c0bc12a0a8e8c81b1e419c9b43ebe58511d4f2b8089b1195fa80a18e27a` |
+| FastFS URL | `https://main.fastfs.io/ops.gateflow.near/outlayer.near/bceb9c0bc12a0a8e8c81b1e419c9b43ebe58511d4f2b8089b1195fa80a18e27a.wasm` |
+| Upload tx | `DRpUn4iF1MVNR3tS13gDo3uVQrovF8Er2EC4oVz5s5Vc` |
+| Activated | 2026-11-09 |
+| Previous version | `11a4efa612d4c52ecad82827035968f34f7bc840d2b1fea28a70715f2ee6dabe` (source `fb0e1c5`, active 2026-11-03 to 2026-11-09). To roll back, run `outlayer deploy gateflow https://main.fastfs.io/ops.gateflow.near/outlayer.near/11a4efa612d4c52ecad82827035968f34f7bc840d2b1fea28a70715f2ee6dabe.wasm` |
 
 Direct-call checks, run on 2026-11-03 against `outlayer.near` before the contract code was deployed:
 
