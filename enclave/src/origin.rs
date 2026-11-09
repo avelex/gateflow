@@ -57,6 +57,32 @@ pub fn zec_senders(body: &str, hash: &str) -> Option<Vec<String>> {
     (!senders.is_empty()).then_some(senders)
 }
 
+/// Public JSON-RPC endpoint for Solana origins.
+pub const SOL_RPC: &str = "https://solana-rpc.publicnode.com";
+
+/// JSON-RPC body for `getTransaction`; `confirmed` so a deposit 1Click already credited is found.
+pub fn sol_tx_body(sig: &str) -> String {
+    serde_json::json!({
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "getTransaction",
+        "params": [sig, {"encoding": "jsonParsed", "maxSupportedTransactionVersion": 0, "commitment": "confirmed"}]
+    })
+    .to_string()
+}
+
+/// Every signer account of a `jsonParsed` Solana tx, in key order; `None` for a missing tx or no signer.
+pub fn sol_senders(body: &str) -> Option<Vec<String>> {
+    let v: Value = serde_json::from_str(body).ok()?;
+    let keys = v.get("result")?.get("transaction")?.get("message")?.get("accountKeys")?.as_array()?;
+    let signers: Vec<String> = keys
+        .iter()
+        .filter(|k| k.get("signer").and_then(Value::as_bool) == Some(true))
+        .map(|k| Some(k.get("pubkey")?.as_str()?.to_string()))
+        .collect::<Option<_>>()?;
+    (!signers.is_empty()).then_some(signers)
+}
+
 /// True only for a non-empty list in which every score is known and at most `max_risk`.
 pub fn all_pass(scores: &[Option<u8>], max_risk: u8) -> bool {
     !scores.is_empty() && scores.iter().all(|s| s.is_some_and(|s| s <= max_risk))
@@ -128,6 +154,38 @@ mod tests {
     fn zec_shielded_has_no_sender() {
         let hash = "9cda408ce800d3fa29d1bb1383d6eedd05c31d28a3b934c97960ea49ec2cc947";
         assert_eq!(zec_senders(&fixture("zec-shielded.json"), hash), None);
+    }
+
+    const SOL_SIG: &str = "5VERv8NMvzbJMEkV8xnrLkEaWRtSz9CosKDYjCJjBRnbJLgp8uirBgmQpjKhoR4tjF3ZpRzrFmBV6UjKdiSZkQUW";
+
+    #[test]
+    fn sol_signers_in_order() {
+        assert_eq!(
+            sol_senders(&fixture("sol-tx.json")),
+            Some(vec!["9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM".to_string(), "HN7cABqLq46Es1jh92dQQisAq662SmxELLLsHHe4YWrH".to_string()])
+        );
+    }
+
+    #[test]
+    fn sol_null_result_none() {
+        assert_eq!(sol_senders(r#"{"jsonrpc":"2.0","id":1,"result":null}"#), None);
+        let no_signer = r#"{"result":{"transaction":{"message":{"accountKeys":[{"pubkey":"x","signer":false}]}}}}"#;
+        assert_eq!(sol_senders(no_signer), None);
+    }
+
+    #[test]
+    fn sol_rpc_error_none() {
+        assert_eq!(sol_senders(r#"{"jsonrpc":"2.0","id":1,"error":{"code":-32602}}"#), None);
+    }
+
+    #[test]
+    fn sol_tx_body_shape() {
+        let v: Value = serde_json::from_str(&sol_tx_body(SOL_SIG)).unwrap();
+        assert_eq!(
+            v,
+            serde_json::json!({"jsonrpc":"2.0","id":1,"method":"getTransaction","params":[SOL_SIG,{"encoding":"jsonParsed","maxSupportedTransactionVersion":0,"commitment":"confirmed"}]})
+        );
+        assert_eq!(SOL_RPC, "https://solana-rpc.publicnode.com");
     }
 
     #[test]

@@ -1,12 +1,14 @@
 //! The two screenings. Every failure along the way is a `false` verdict (delta spec "Every Gateflow execution ends in a verdict").
 
 use crate::goplus::{goplus_score, goplus_url};
-use crate::ofac::{ofac_score, XBT_LIST, ZEC_LIST};
+use crate::ofac::{ofac_score, SOL_LIST, XBT_LIST, ZEC_LIST};
 use crate::oneclick::{binding, origin, status_url, TOKENS_URL};
-use crate::origin::{all_pass, blockchair_url, btc_senders, esplora_url, evm_rpc, evm_sender, evm_tx_body, zec_senders};
+use crate::origin::{
+    all_pass, blockchair_url, btc_senders, esplora_url, evm_rpc, evm_sender, evm_tx_body, sol_senders, sol_tx_body, zec_senders, SOL_RPC,
+};
 use crate::request::{is_evm_account, Request};
 
-/// One outbound request. `body` is set only for the EVM JSON-RPC POST.
+/// One outbound request. `body` is set only for the EVM and Solana JSON-RPC POSTs.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Http {
     pub method: &'static str,
@@ -61,6 +63,14 @@ fn screen_intents(
         for hash in &hashes {
             let tx = fetch(&Http { method: "POST", url: rpc.into(), body: Some(evm_tx_body(hash)) })?;
             scores.push(evm_score(&evm_sender(&tx)?, fetch));
+        }
+        scores
+    } else if chain == "sol" {
+        let list = get(fetch, SOL_LIST.into())?;
+        let mut scores = Vec::new();
+        for hash in &hashes {
+            let tx = fetch(&Http { method: "POST", url: SOL_RPC.into(), body: Some(sol_tx_body(hash)) })?;
+            scores.extend(sol_senders(&tx)?.iter().map(|s| Some(ofac_score(&list, s))));
         }
         scores
     } else if chain == "btc" {
@@ -206,8 +216,8 @@ mod tests {
 
     #[test]
     fn intents_unsupported_chain() {
-        let sol = "nep141:sol-5ce3bf3a31af18be40ba30f721101b4341690186.omft.near";
-        let net = Net::new(&base_routes(status(sol, &["abc"])));
+        // A NEAR-chain origin has no screener in `screen_intents`.
+        let net = Net::new(&base_routes(status("nep141:wrap.near", &["abc"])));
         assert!(!net.run(intents_req()));
         assert_eq!(net.calls.borrow().len(), 2);
     }
@@ -258,6 +268,55 @@ mod tests {
         routes.push(r(ZEC_LIST, fixture("ofac-zec.txt")));
         routes.push(r(blockchair_url(hash), fixture("zec-transparent.json")));
         assert!(Net::new(&routes).run(intents_req()));
+    }
+
+    const SOL_USDC: &str = "nep141:sol-5ce3bf3a31af18be40ba30f721101b4341690186.omft.near";
+    const LISTED_SOL: &str = "42RLPACwZPx3vYYmxSueqsogfynBDqXK298EDsNoyoHi";
+
+    fn sol_key(sig: &str) -> String {
+        format!("POST {SOL_RPC} {sig}")
+    }
+
+    fn sol_routes(sigs: &[&str]) -> Vec<(String, String)> {
+        let mut routes = base_routes(status(SOL_USDC, sigs));
+        routes.push(r(SOL_LIST, fixture("ofac-sol.txt")));
+        routes
+    }
+
+    #[test]
+    fn clean_sol_payer() {
+        let mut routes = sol_routes(&["s1"]);
+        routes.push(r(sol_key("s1"), fixture("sol-tx.json")));
+        assert!(Net::new(&routes).run(intents_req()));
+    }
+
+    #[test]
+    fn sanctioned_sol_signer() {
+        let mut routes = sol_routes(&["s1"]);
+        routes.push(r(sol_key("s1"), fixture("sol-tx.json").replace("HN7cABqLq46Es1jh92dQQisAq662SmxELLLsHHe4YWrH", LISTED_SOL)));
+        assert!(!Net::new(&routes).run(intents_req()));
+    }
+
+    #[test]
+    fn sol_tx_not_found() {
+        let mut routes = sol_routes(&["s1"]);
+        routes.push(r(sol_key("s1"), r#"{"jsonrpc":"2.0","id":1,"result":null}"#));
+        assert!(!Net::new(&routes).run(intents_req()));
+    }
+
+    #[test]
+    fn sol_rpc_down() {
+        assert!(!Net::new(&sol_routes(&["s1"])).run(intents_req()));
+    }
+
+    #[test]
+    fn sol_two_txs_one_flagged() {
+        let mut routes = sol_routes(&["s1", "s2"]);
+        routes.push(r(sol_key("s1"), fixture("sol-tx.json")));
+        routes.push(r(sol_key("s2"), fixture("sol-tx.json").replace("9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM", LISTED_SOL)));
+        let net = Net::new(&routes);
+        assert!(!net.run(intents_req()));
+        assert_eq!(net.count(SOL_LIST), 1);
     }
 
     #[test]

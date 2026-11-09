@@ -4,6 +4,8 @@ pub const XBT_LIST: &str =
     "https://raw.githubusercontent.com/0xB10C/ofac-sanctioned-digital-currency-addresses/lists/sanctioned_addresses_XBT.txt";
 pub const ZEC_LIST: &str =
     "https://raw.githubusercontent.com/0xB10C/ofac-sanctioned-digital-currency-addresses/lists/sanctioned_addresses_ZEC.txt";
+pub const SOL_LIST: &str =
+    "https://raw.githubusercontent.com/0xB10C/ofac-sanctioned-digital-currency-addresses/lists/sanctioned_addresses_SOL.txt";
 
 /// 100 when `addr` is a line of `list`, else 0.
 pub fn ofac_score(list: &str, addr: &str) -> u8 {

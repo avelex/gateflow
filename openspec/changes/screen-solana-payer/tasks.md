@@ -41,16 +41,16 @@
 - `pub fn sol_senders(body: &str) -> Option<Vec<String>>` in `origin.rs`: `None` when `result` is null or missing, or when there is no signer
 - `pub const SOL_LIST: &str` in `ofac.rs`
 
-- [ ] 1.1 Write failing tests in `origin.rs`: `sol_signers_in_order` (fixture gives exactly `["Fee1…", "Own1…"]`, with the lookup-table key absent), `sol_null_result_none` (`{"jsonrpc":"2.0","id":1,"result":null}` gives `None`), `sol_rpc_error_none` (`{"jsonrpc":"2.0","id":1,"error":{"code":-32602}}` gives `None`), `sol_tx_body_shape` (parsed body equals the Global Constraints body). Run `cd enclave && cargo test sol_`; expect a compile failure.
-- [ ] 1.2 Write failing tests in `flows.rs` with the `Net` routes, keyed `"POST https://solana-rpc.publicnode.com <sig>"`, using `SOL_USDC = "nep141:sol-5ce3bf3a31af18be40ba30f721101b4341690186.omft.near"`:
+- [x] 1.1 Write failing tests in `origin.rs`: `sol_signers_in_order` (fixture gives exactly `["Fee1…", "Own1…"]`, with the lookup-table key absent), `sol_null_result_none` (`{"jsonrpc":"2.0","id":1,"result":null}` gives `None`), `sol_rpc_error_none` (`{"jsonrpc":"2.0","id":1,"error":{"code":-32602}}` gives `None`), `sol_tx_body_shape` (parsed body equals the Global Constraints body). Run `cd enclave && cargo test sol_`; expect a compile failure.
+- [x] 1.2 Write failing tests in `flows.rs` with the `Net` routes, keyed `"POST https://solana-rpc.publicnode.com <sig>"`, using `SOL_USDC = "nep141:sol-5ce3bf3a31af18be40ba30f721101b4341690186.omft.near"`:
   - `clean_sol_payer`: the result is `true`.
   - `sanctioned_sol_signer`: `Own1…` is replaced by a listed address; the result is `false`.
   - `sol_tx_not_found`: a null result gives `false`.
   - `sol_rpc_down`: no route gives `false`.
   - `sol_two_txs_one_flagged`: two hashes, the second has a listed signer; the result is `false`.
-- [ ] 1.3 Implement `SOL_RPC`, `sol_tx_body` and `sol_senders` in `origin.rs`, `SOL_LIST` in `ofac.rs`, and an `else if chain == "sol"` branch in `screen_intents`. The branch follows the `btc` pattern: fetch `SOL_LIST` once, then POST each hash, call `sol_senders`, and map each sender through `ofac_score`.
-- [ ] 1.4 Run `cd enclave && cargo test`; expect all tests to pass. Run `GATEFLOW_CONTRACT=gateflow.near cargo build --target wasm32-wasip2 --release`; expect it to build.
-- [ ] 1.5 Commit: `feat(enclave): screen solana signers against OFAC`.
+- [x] 1.3 Implement `SOL_RPC`, `sol_tx_body` and `sol_senders` in `origin.rs`, `SOL_LIST` in `ofac.rs`, and an `else if chain == "sol"` branch in `screen_intents`. The branch follows the `btc` pattern: fetch `SOL_LIST` once, then POST each hash, call `sol_senders`, and map each sender through `ofac_score`.
+- [x] 1.4 Run `cd enclave && cargo test`; expect all tests to pass. Run `GATEFLOW_CONTRACT=gateflow.near cargo build --target wasm32-wasip2 --release`; expect it to build.
+- [x] 1.5 Commit: `feat(enclave): screen solana signers against OFAC`.
 
 ## 2. Relay: quote Solana and resolve its senders
 
