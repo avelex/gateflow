@@ -58,21 +58,21 @@
 
 **Interfaces (consumes):** the RPC URL, body and signer rule from Global Constraints. They must match Task 1 exactly.
 
-- [ ] 2.1 In `origin.test.ts`, replace `unknown_chain_none` with these tests:
+- [x] 2.1 In `origin.test.ts`, replace `unknown_chain_none` with these tests:
   - `sol_request`: `originRequest("sol","ab")` has url `https://solana-rpc.publicnode.com`, method `POST`, and the Global Constraints body.
   - `sol_signers`: `parseSenders("sol", sig, fx("sol-tx.json"))` deep-equals `["Fee1…","Own1…"]`, case kept.
   - `sol_null_and_error_none`: both give `undefined`.
   - `unknown_chain_none`: now uses `"tron"`.
-- [ ] 2.2 In `checkout.test.ts`:
+- [x] 2.2 In `checkout.test.ts`:
   - Rename `solana_not_screenable` to `solana_screenable`, asserting `true`.
   - Replace `quote_solana_422` with `quote_tron_422`. Add a `{blockchain:"tron", symbol:"USDT"}` asset to its token list; it answers 422.
   - Add `quote_solana_ok`: `SOL_USDC` on an Open USDC invoice gives 200 with `depositAddress`, `amountIn` and `ref`.
   - In `assets_without_invoice_lists_all`, assert that a `sol` asset IS present.
   - In `assets_usdc_same_asset`, compare sorted: `["arb USDC","base USDC","eth USDC","sol USDC"]`.
   - Run `cd relay && npm test`; expect these tests to fail.
-- [ ] 2.3 Implement `screenable` to accept `chain === "sol"`. Add `sol` to `originRequest` and `parseSenders` (no lowercasing for `sol`). Add `sol: "Solana"` to `CHAIN_NAMES` in `origin.ts`.
-- [ ] 2.4 Run `cd relay && npm test`; expect all tests to pass.
-- [ ] 2.5 Commit: `feat(relay): quote and resolve solana origins`.
+- [x] 2.3 Implement `screenable` to accept `chain === "sol"`. Add `sol` to `originRequest` and `parseSenders` (no lowercasing for `sol`). Add `sol: "Solana"` to `CHAIN_NAMES` in `origin.ts`.
+- [x] 2.4 Run `cd relay && npm test`; expect all tests to pass.
+- [x] 2.5 Commit: `feat(relay): quote and resolve solana origins`.
 
 ## 3. Web: Solana refund address and origins
 

@@ -51,7 +51,7 @@ export function destinationAsset(tokens: any[], token: string): string | undefin
 
 export const originChain = (tokens: any[], assetId: string): string | undefined => tokens.find((t) => t.assetId === assetId)?.blockchain;
 
-export const screenable = (chain: string | undefined, evmChains: string[]) => !!chain && (evmChains.includes(chain) || chain === "btc" || chain === "zec");
+export const screenable = (chain: string | undefined, evmChains: string[]) => !!chain && (evmChains.includes(chain) || chain === "sol" || chain === "btc" || chain === "zec");
 
 function invoiceId(raw: unknown): number {
   const n = Number(raw);

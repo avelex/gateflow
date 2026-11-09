@@ -31,7 +31,31 @@ test("zec_transparent_inputs", () => {
 
 test("zec_shielded_none", () => assert.equal(parseSenders("zec", ZEC_S, fx("zec-shielded.json")), undefined));
 
+const SOL_SIG = "5VERv8NMvzbJMEkV8xnrLkEaWRtSz9CosKDYjCJjBRnbJLgp8uirBgmQpjKhoR4tjF3ZpRzrFmBV6UjKdiSZkQUW";
+
+test("sol_request", () => {
+  const r = originRequest("sol", "ab")!;
+  assert.equal(r.url, "https://solana-rpc.publicnode.com");
+  assert.equal(r.init!.method, "POST");
+  assert.deepEqual(JSON.parse(String(r.init!.body)), {
+    jsonrpc: "2.0",
+    id: 1,
+    method: "getTransaction",
+    params: ["ab", { encoding: "jsonParsed", maxSupportedTransactionVersion: 0, commitment: "confirmed" }],
+  });
+});
+
+test("sol_signers", () => {
+  // case kept (base58); the lookup-table key is not a signer
+  assert.deepEqual(parseSenders("sol", SOL_SIG, fx("sol-tx.json")), ["9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM", "HN7cABqLq46Es1jh92dQQisAq662SmxELLLsHHe4YWrH"]);
+});
+
+test("sol_null_and_error_none", () => {
+  assert.equal(parseSenders("sol", SOL_SIG, { jsonrpc: "2.0", id: 1, result: null }), undefined);
+  assert.equal(parseSenders("sol", SOL_SIG, { jsonrpc: "2.0", id: 1, error: { code: -32602 } }), undefined);
+});
+
 test("unknown_chain_none", () => {
-  assert.equal(originRequest("sol", "ab"), undefined);
-  assert.equal(parseSenders("sol", "ab", { result: { from: "x" } }), undefined);
+  assert.equal(originRequest("tron", "ab"), undefined);
+  assert.equal(parseSenders("tron", "ab", { result: { from: "x" } }), undefined);
 });

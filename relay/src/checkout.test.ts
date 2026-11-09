@@ -19,14 +19,14 @@ test("zec_destination", () => assert.equal(destinationAsset(TOKENS, "zec.omft.ne
 test("unknown_destination", () => assert.equal(destinationAsset(TOKENS, "wrap.testnet"), undefined));
 test("base_is_screenable", () => assert.ok(screenable(originChain(TOKENS, BASE_USDC), EVM)));
 test("btc_is_screenable", () => assert.ok(screenable(originChain(TOKENS, "nep141:btc.omft.near"), EVM)));
-test("solana_not_screenable", () => assert.ok(!screenable(originChain(TOKENS, SOL_USDC), EVM)));
+test("solana_screenable", () => assert.ok(screenable(originChain(TOKENS, SOL_USDC), EVM)));
 
 test("assets_screenable_only", async () => {
   const deps = fakeDeps();
   deps.oneclick.tokenList = TOKENS;
   const res = await call(deps, "GET", "/checkout/assets");
   const chains = (res.json as any[]).map((a) => a.chain).sort();
-  assert.deepEqual(chains, ["base", "btc", "zec"]);
+  assert.deepEqual(chains, ["base", "btc", "sol", "zec"]);
   assert.ok((res.json as any[]).some((a) => a.symbol === "BTC"));
 });
 
@@ -169,12 +169,28 @@ test("quote_expired_409", async () => {
   assert.deepEqual(deps.oneclick.quotes, []);
 });
 
-test("quote_solana_422", async () => {
+const TRON_USDT = "nep141:tron-d28a265909efecdcee7c5028585214ea0b96f015.omft.near";
+
+test("quote_tron_422", async () => {
   const deps = fakeDeps();
   quoting(deps);
-  const res = await call(deps, "POST", "/checkout/quote", { ...body, originAsset: SOL_USDC });
+  deps.oneclick.tokenList = [...TOKENS, { assetId: TRON_USDT, blockchain: "tron", symbol: "USDT", decimals: 6, coingeckoId: "tether" }];
+  const res = await call(deps, "POST", "/checkout/quote", { ...body, originAsset: TRON_USDT });
   assert.deepEqual(res, { status: 422, json: { error: "this origin chain can't be screened" }, headers: res.headers });
   assert.deepEqual(deps.oneclick.quotes, []);
+});
+
+test("quote_solana_ok", async () => {
+  const deps = fakeDeps();
+  quoting(deps);
+  const res = await call(deps, "POST", "/checkout/quote", { ...body, originAsset: SOL_USDC, refundTo: "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM" });
+  assert.equal(res.status, 200);
+  const j = res.json as any;
+  assert.equal(j.depositAddress, DEP);
+  assert.equal(j.amountIn, "10050000");
+  assert.match(j.ref, /^[0-9a-f]{32}$/);
+  assert.equal(deps.oneclick.quotes[0].originAsset, SOL_USDC);
+  assert.equal(deps.db.quoteByDeposit(DEP)?.origin_chain, "sol");
 });
 
 test("quote_undeliverable_token", async () => {
@@ -419,7 +435,7 @@ const MORE = [
 ];
 
 test("assets_usdc_same_asset", () => {
-  assert.deepEqual(sameAssets(MORE, USDC, EVM).map((a) => `${a.chain} ${a.symbol}`), ["base USDC", "arb USDC", "eth USDC"]);
+  assert.deepEqual(sameAssets(MORE, USDC, EVM).map((a) => `${a.chain} ${a.symbol}`).sort(), ["arb USDC", "base USDC", "eth USDC", "sol USDC"]);
 });
 
 test("assets_btc_native_only", () => {
@@ -433,7 +449,7 @@ test("assets_for_invoice", async () => {
   withInvoice(deps);
   deps.oneclick.tokenList = MORE;
   const res = await call(deps, "GET", "/checkout/assets?invoice=7");
-  assert.deepEqual((res.json as any[]).map((a) => a.chain), ["base", "arb", "eth"]);
+  assert.deepEqual((res.json as any[]).map((a) => a.chain).sort(), ["arb", "base", "eth", "sol"]);
   assert.equal((await call(deps, "GET", "/checkout/assets?invoice=8")).status, 404);
 });
 
@@ -449,7 +465,7 @@ test("assets_without_invoice_lists_all", async () => {
   deps.oneclick.tokenList = MORE;
   const res = await call(deps, "GET", "/checkout/assets");
   assert.ok((res.json as any[]).some((a) => a.symbol === "USDT"));
-  assert.ok(!(res.json as any[]).some((a) => a.chain === "sol"));
+  assert.ok((res.json as any[]).some((a) => a.chain === "sol"));
 });
 
 test("quote_other_asset_422", async () => {
