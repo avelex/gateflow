@@ -109,7 +109,7 @@
 
 ## 5. Integration check
 
-- [ ] 5.1 Run a local relay against testnet (`relay/README.md` § Run). Never use the mainnet `relay/.env` while the Fly app is up. Then check these, without code changes:
+- [x] 5.1 Run a local relay against testnet (`relay/README.md` § Run). Never use the mainnet `relay/.env` while the Fly app is up. Then check these, without code changes:
   1. A new email shows the rows ticking in order, with a single passkey create (plus the PRF unlock prompt if the browser needs it), and Gateway confirms with no prompt.
   2. A reload at the Gateway row makes Confirm prompt once.
   3. Picking an older passkey shows the `NotOwner` hint.
