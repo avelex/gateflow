@@ -62,17 +62,27 @@ export function newKey() {
   return { secret, publicKey: signer(secret).publicKeyString };
 }
 
-export function withTokens(deps: TestDeps, tokens = ["wrap.testnet", "usdc.testnet"]) {
+/// Allowlists `tokens`, each with storage bounds and a fake `storage_balance_of`: registered when listed in `already`
+/// or sent a successful `storage_deposit`.
+export function withTokens(deps: TestDeps, tokens = ["wrap.testnet", "usdc.testnet"], already: string[] = []) {
   deps.near.viewTable["gateflow.testnet.get_tokens"] = tokens;
-  for (const t of tokens) deps.near.viewTable[`${t}.storage_balance_bounds`] = { min: "1250000000000000000000", max: "1250000000000000000000" };
+  for (const t of tokens) {
+    deps.near.viewTable[`${t}.storage_balance_bounds`] = { min: "1250000000000000000000", max: "1250000000000000000000" };
+    deps.near.viewTable[`${t}.storage_balance_of`] = ({ account_id }: any) =>
+      already.includes(`${t}:${account_id}`) || deposits(deps).includes(`${t}:${account_id}`) ? { total: "1250000000000000000000", available: "0" } : null;
+  }
 }
 
 export async function onboarded(deps: TestDeps, name = "Kaja Coffee") {
   withTokens(deps);
   const cookies = await signedIn(deps);
   const key = newKey();
-  const res = await call(deps, "POST", "/console/onboard", { name, publicKey: key.publicKey }, cookies);
-  return { cookies, key: { ...key, accountId: (res.json as any).accountId as string }, res };
+  let res;
+  for (let n = 0; n < 3; n++) {
+    res = await call(deps, "POST", "/console/onboard", { name, publicKey: key.publicKey }, cookies);
+    if ((res.json as any).step === "gateway" || res.status !== 200) break;
+  }
+  return { cookies, key: { ...key, accountId: (res!.json as any).accountId as string }, res: res! };
 }
 
 test("random_label_alphabet", () => {
@@ -135,8 +145,10 @@ test("onboard_ignores_payout_to", async () => {
   withTokens(deps);
   const cookies = await signedIn(deps);
   const key = newKey();
-  const res = await call(deps, "POST", "/console/onboard", { name: "Kaja Coffee", publicKey: key.publicKey, payoutTo: "shop.testnet" }, cookies);
+  const body = { name: "Kaja Coffee", publicKey: key.publicKey, payoutTo: "shop.testnet" };
+  const res = await call(deps, "POST", "/console/onboard", body, cookies);
   assert.equal(res.status, 200);
+  assert.equal((await call(deps, "POST", "/console/onboard", body, cookies)).status, 200);
   const accountId = (res.json as any).accountId;
   assert.equal("payoutTo" in (res.json as any), false);
   assert.deepEqual(deps.near.sent.map((s) => s.receiver), [accountId, "wrap.testnet", "usdc.testnet"]);
@@ -150,11 +162,59 @@ test("onboard_twice_resumes", async () => {
   const key = newKey();
   deps.near.sendResults.push(() => undefined, () => ({ hash: "x", error: "boom" }));
   const first = await call(deps, "POST", "/console/onboard", { name: "Kaja Coffee", publicKey: key.publicKey }, cookies);
-  assert.equal(first.status, 502);
-  assert.equal(deps.db.merchantByEmail("kaja@example.com")?.step, "tokens");
+  assert.equal((first.json as any).step, "tokens");
   const again = await call(deps, "POST", "/console/onboard", { name: "Kaja Coffee", publicKey: key.publicKey }, cookies);
-  assert.equal((again.json as any).step, "gateway");
+  assert.equal(again.status, 502);
+  assert.equal(deps.db.merchantByEmail("kaja@example.com")?.step, "tokens");
+  const third = await call(deps, "POST", "/console/onboard", { name: "Kaja Coffee", publicKey: key.publicKey }, cookies);
+  assert.equal((third.json as any).step, "gateway");
   assert.equal(deps.near.sent.filter((s) => "createAccount" in s.actions[0]).length, 1);
+});
+
+test("onboard_account_step_only", async () => {
+  const deps = fakeDeps();
+  withTokens(deps);
+  const cookies = await signedIn(deps);
+  const res = await call(deps, "POST", "/console/onboard", { name: "Kaja Coffee", publicKey: newKey().publicKey }, cookies);
+  const accountId = (res.json as any).accountId;
+  assert.deepEqual(res.json, { step: "tokens", accountId });
+  assert.equal(deps.near.sent.length, 1);
+  assert.ok("createAccount" in deps.near.sent[0].actions[0]);
+});
+
+test("onboard_tokens_step", async () => {
+  const deps = fakeDeps();
+  withTokens(deps);
+  const cookies = await signedIn(deps);
+  const body = { name: "Kaja Coffee", publicKey: newKey().publicKey };
+  await call(deps, "POST", "/console/onboard", body, cookies);
+  const res = await call(deps, "POST", "/console/onboard", body, cookies);
+  assert.equal((res.json as any).step, "gateway");
+  assert.deepEqual(deposits(deps).map((d) => d.split(":")[0]), ["wrap.testnet", "usdc.testnet"]);
+});
+
+test("onboard_tokens_skips_registered", async () => {
+  const deps = fakeDeps();
+  const cookies = await signedIn(deps);
+  const body = { name: "Kaja Coffee", publicKey: newKey().publicKey };
+  withTokens(deps);
+  const accountId = ((await call(deps, "POST", "/console/onboard", body, cookies)).json as any).accountId;
+  withTokens(deps, ["wrap.testnet", "usdc.testnet"], [`wrap.testnet:${accountId}`]);
+  assert.equal(((await call(deps, "POST", "/console/onboard", body, cookies)).json as any).step, "gateway");
+  assert.deepEqual(deposits(deps), [`usdc.testnet:${accountId}`]);
+});
+
+test("onboard_tokens_failure_keeps_step", async () => {
+  const deps = fakeDeps();
+  withTokens(deps);
+  const cookies = await signedIn(deps);
+  const body = { name: "Kaja Coffee", publicKey: newKey().publicKey };
+  await call(deps, "POST", "/console/onboard", body, cookies);
+  deps.near.sendResults.push((s) => (((s as any).failed = true), { hash: "x", error: "boom" }));
+  const res = await call(deps, "POST", "/console/onboard", body, cookies);
+  assert.equal(res.status, 502);
+  assert.match((res.json as any).error, /wrap\.testnet/);
+  assert.equal(deps.db.merchantByEmail("kaja@example.com")?.step, "tokens");
 });
 
 test("onboard_key_mismatch_409", async () => {
@@ -434,14 +494,6 @@ test("balances_include_switched_off", async () => {
 
 import { ensureRegistered, syncRegistrations } from "./console.ts";
 
-/// Fakes `storage_balance_of` on `tokens`: registered when listed in `already` or sent a successful `storage_deposit`.
-function withStorage(deps: TestDeps, tokens: string[], already: string[] = []) {
-  withTokens(deps, tokens);
-  for (const t of tokens)
-    deps.near.viewTable[`${t}.storage_balance_of`] = ({ account_id }: any) =>
-      already.includes(`${t}:${account_id}`) || deposits(deps).includes(`${t}:${account_id}`) ? { total: "1250000000000000000000", available: "0" } : null;
-}
-
 const deposits = (deps: TestDeps) =>
   deps.near.sent.filter((s) => (s.actions[0] as any).functionCall?.method === "storage_deposit" && !(s as any).failed).map((s) => `${s.receiver}:${(s.actions[0] as any).functionCall.args.account_id}`);
 
@@ -454,14 +506,14 @@ function twoMerchants(deps: TestDeps) {
 
 test("ensure_registered_skips_registered", async () => {
   const deps = fakeDeps();
-  withStorage(deps, ["wrap.testnet"], ["wrap.testnet:kaja.testnet"]);
+  withTokens(deps, ["wrap.testnet"], ["wrap.testnet:kaja.testnet"]);
   assert.equal(await ensureRegistered(deps, "kaja.testnet", "wrap.testnet"), false);
   assert.equal(deps.near.sent.length, 0);
 });
 
 test("ensure_registered_registers_missing", async () => {
   const deps = fakeDeps();
-  withStorage(deps, ["wrap.testnet"]);
+  withTokens(deps, ["wrap.testnet"]);
   assert.equal(await ensureRegistered(deps, "kaja.testnet", "wrap.testnet"), true);
   assert.equal(deps.near.sent.length, 1);
   const fc = (deps.near.sent[0].actions[0] as any).functionCall;
@@ -473,7 +525,7 @@ test("ensure_registered_registers_missing", async () => {
 
 test("ensure_registered_concurrent_once", async () => {
   const deps = fakeDeps();
-  withStorage(deps, ["wrap.testnet"]);
+  withTokens(deps, ["wrap.testnet"]);
   const r = await Promise.all([ensureRegistered(deps, "kaja.testnet", "wrap.testnet"), ensureRegistered(deps, "kaja.testnet", "wrap.testnet")]);
   assert.deepEqual(r.sort(), [false, true]);
   assert.equal(deps.near.sent.length, 1);
@@ -482,7 +534,7 @@ test("ensure_registered_concurrent_once", async () => {
 test("sync_registers_all_payouts", async () => {
   const deps = fakeDeps();
   twoMerchants(deps);
-  withStorage(deps, ["wrap.testnet", "usdc.testnet"], ["wrap.testnet:a.op.testnet"]);
+  withTokens(deps, ["wrap.testnet", "usdc.testnet"], ["wrap.testnet:a.op.testnet"]);
   assert.equal(await syncRegistrations(deps), 3);
   assert.deepEqual(deposits(deps).sort(), ["usdc.testnet:a.op.testnet", "usdc.testnet:b.op.testnet", "wrap.testnet:b.op.testnet"]);
   assert.equal(await syncRegistrations(deps), 0);
@@ -491,7 +543,7 @@ test("sync_registers_all_payouts", async () => {
 test("sync_continues_after_failure", async () => {
   const deps = fakeDeps();
   twoMerchants(deps);
-  withStorage(deps, ["wrap.testnet", "usdc.testnet"]);
+  withTokens(deps, ["wrap.testnet", "usdc.testnet"]);
   deps.near.sendResults.push((s) => (((s as any).failed = true), { hash: "x", error: "boom" }));
   assert.equal(await syncRegistrations(deps), 3);
   assert.equal(deps.near.sent.length, 4);

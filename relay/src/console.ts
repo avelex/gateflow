@@ -160,17 +160,10 @@ const onboard: Handler = async (req, deps) => {
       failIfError(r, "account creation");
       m = { ...m, name, public_key: publicKey, account_id: id, step: "tokens" };
       deps.db.upsertMerchant(m);
-    }
-
-    if (m.step === "tokens") {
+    } else if (m.step === "tokens") {
+      // One step per request, so the console can show each one. Retries register only what is missing.
       const tokens: string[] = await deps.near.view(deps.cfg.gateflow, "get_tokens", {});
-      for (const token of tokens) {
-        const bounds = await deps.near.view(token, "storage_balance_bounds", {});
-        const r = await deps.near.send(token, [
-          { functionCall: { method: "storage_deposit", args: { account_id: m.account_id, registration_only: true }, gas: 30n * TGAS, deposit: BigInt(bounds.min) } },
-        ]);
-        failIfError(r, `storage registration on ${token}`);
-      }
+      for (const token of tokens) await ensureRegistered(deps, m.account_id!, token);
       m = { ...m, step: "gateway" };
       deps.db.upsertMerchant(m);
     }
