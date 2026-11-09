@@ -204,6 +204,9 @@ export class RpcError extends Error {
   }
 }
 
+const TX_POLLS = 5;
+const TX_POLL_MS = 3000;
+
 export function rpcNear(cfg: { rpcUrl: string; accountId: string; secret?: string }): Near {
   const call = async (method: string, params: object): Promise<any> => {
     const res = await fetch(cfg.rpcUrl, {
@@ -231,6 +234,25 @@ export function rpcNear(cfg: { rpcUrl: string; accountId: string; secret?: strin
     }
   };
 
+  const txStatus = async (hash: string, sender: string) => {
+    try {
+      return await call("EXPERIMENTAL_tx_status", { tx_hash: hash, sender_account_id: sender, wait_until: "FINAL" });
+    } catch (e) {
+      if (e instanceof RpcError && /UNKNOWN_TRANSACTION/.test(e.message + JSON.stringify(e.cause))) return undefined;
+      throw e;
+    }
+  };
+
+  /// The tx's final status, or undefined when it does not show up within the polls.
+  const findTx = async (hash: string, sender: string) => {
+    for (let poll = 0; poll < TX_POLLS; poll++) {
+      if (poll > 0) await new Promise((done) => setTimeout(done, TX_POLL_MS));
+      const r = await txStatus(hash, sender).catch(() => undefined);
+      if (r) return r;
+    }
+    return undefined;
+  };
+
   let queue: Promise<unknown> = Promise.resolve();
   const op = cfg.secret ? signer(cfg.secret) : undefined;
 
@@ -251,6 +273,11 @@ export function rpcNear(cfg: { rpcUrl: string; accountId: string; secret?: strin
       const r = await call("send_tx", { signed_tx_base64: Buffer.from(signed).toString("base64"), wait_until: "FINAL" });
       return txResult(r, executor);
     } catch (e) {
+      // A failed send_tx does not mean a failed tx: the RPC can lose the response after the tx landed.
+      // Only a validation rejection is final. Polling runs inside the queue, so the next tx sees this nonce.
+      const rejected = e instanceof RpcError && /INVALID_TRANSACTION|InvalidTxError/.test(JSON.stringify(e.cause));
+      const landed = rejected ? undefined : await findTx(base58encode(sha256(tx)), cfg.accountId);
+      if (landed) return txResult(landed, executor);
       if (e instanceof RpcError) return { hash: "", error: JSON.stringify(e.cause?.data ?? e.cause) };
       throw e;
     }
@@ -295,13 +322,6 @@ export function rpcNear(cfg: { rpcUrl: string; accountId: string; secret?: strin
       const r = await call("block", { block_id: hash });
       return { timestampSec: Math.floor(Number(r.header.timestamp) / 1e9) };
     },
-    async tx(hash, sender) {
-      try {
-        return await call("EXPERIMENTAL_tx_status", { tx_hash: hash, sender_account_id: sender, wait_until: "FINAL" });
-      } catch (e) {
-        if (e instanceof RpcError && /UNKNOWN_TRANSACTION/.test(e.message + JSON.stringify(e.cause))) return undefined;
-        throw e;
-      }
-    },
+    tx: txStatus,
   };
 }

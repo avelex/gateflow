@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createPublicKey, verify, generateKeyPairSync } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { base58decode, base58encode, encodeActions, rpcNear, signer, txResult, secretFromSeed } from "./near.ts";
+import { base58decode, base58encode, encodeActions, rpcNear, sha256, signer, txResult, secretFromSeed } from "./near.ts";
 
 const fixture = (name: string) => JSON.parse(readFileSync(new URL(`./fixtures/${name}`, import.meta.url), "utf8"));
 
@@ -90,4 +90,80 @@ test("access_key_missing_in_result_is_undefined", async () => {
   } finally {
     globalThis.fetch = real;
   }
+});
+
+const TRANSIENT = { error: { message: "Temporary internal error. Please retry, trace-id: t", code: 19 } };
+const UNKNOWN_TX = { error: { name: "HANDLER_ERROR", cause: { name: "UNKNOWN_TRANSACTION" }, message: "Server error" } };
+const LANDED = () => {
+  const f = fixture("tx-success.json");
+  return { result: f.result ?? f };
+};
+const STATUS = "EXPERIMENTAL_tx_status";
+
+/// One operator send against a fake RPC, with timers firing at once. A thrown error comes back as the result.
+async function sendAgainst(onSend: () => object, onStatus: (poll: number) => object) {
+  const realFetch = globalThis.fetch;
+  const realTimeout = globalThis.setTimeout;
+  const calls: { method: string; params: any }[] = [];
+  globalThis.setTimeout = ((f: () => void) => realTimeout(f, 0)) as typeof setTimeout;
+  globalThis.fetch = (async (_url: string, init: any) => {
+    const { method, params } = JSON.parse(init.body);
+    calls.push({ method, params });
+    if (method === "query") return new Response(JSON.stringify({ result: { nonce: 5, block_hash: base58encode(new Uint8Array(32).fill(2)) } }));
+    return new Response(JSON.stringify(method === "send_tx" ? onSend() : onStatus(calls.filter((c) => c.method === STATUS).length)));
+  }) as typeof fetch;
+  try {
+    const near = rpcNear({ rpcUrl: "http://rpc", accountId: "op.testnet", secret: secretFromSeed(new Uint8Array(32).fill(1)) });
+    const result: any = await near.send("gateflow.testnet", [{ transfer: 1n }]).catch((e) => e);
+    return { result, calls, polls: calls.filter((c) => c.method === STATUS) };
+  } finally {
+    globalThis.fetch = realFetch;
+    globalThis.setTimeout = realTimeout;
+  }
+}
+
+test("send_rpc_error_returns_landed_tx", async () => {
+  const { result, calls, polls } = await sendAgainst(() => TRANSIENT, LANDED);
+  assert.equal(result.value, 3);
+  assert.equal(result.error, undefined);
+  const signed = Buffer.from(calls.find((c) => c.method === "send_tx")!.params.signed_tx_base64, "base64");
+  const unsigned = new Uint8Array(signed.subarray(0, signed.length - 65));
+  assert.equal(polls[0].params.tx_hash, base58encode(sha256(unsigned)));
+  assert.equal(polls[0].params.sender_account_id, "op.testnet");
+});
+
+test("send_network_failure_returns_landed_tx", async () => {
+  const { result } = await sendAgainst(() => {
+    throw new TypeError("fetch failed");
+  }, LANDED);
+  assert.equal(result.value, 3);
+});
+
+test("send_polls_past_unknown_and_status_errors", async () => {
+  const { result, polls } = await sendAgainst(() => TRANSIENT, (poll) => (poll === 1 ? UNKNOWN_TX : poll === 2 ? TRANSIENT : LANDED()));
+  assert.equal(result.value, 3);
+  assert.equal(polls.length, 3);
+});
+
+test("send_reports_original_error_when_tx_never_lands", async () => {
+  const { result, polls } = await sendAgainst(() => TRANSIENT, () => UNKNOWN_TX);
+  assert.match(result.error, /Temporary internal error/);
+  assert.equal(result.hash, "");
+  assert.equal(polls.length, 5);
+});
+
+test("send_rethrows_network_failure_when_tx_never_lands", async () => {
+  const { result } = await sendAgainst(() => {
+    throw new TypeError("fetch failed");
+  }, () => UNKNOWN_TX);
+  assert.ok(result instanceof TypeError);
+});
+
+test("send_invalid_tx_skips_polling", async () => {
+  const rejected = {
+    error: { name: "HANDLER_ERROR", cause: { name: "INVALID_TRANSACTION" }, code: -32000, message: "Server error", data: { TxExecutionError: { InvalidTxError: { InvalidNonce: {} } } } },
+  };
+  const { result, polls } = await sendAgainst(() => rejected, LANDED);
+  assert.match(result.error, /InvalidNonce/);
+  assert.equal(polls.length, 0);
 });
