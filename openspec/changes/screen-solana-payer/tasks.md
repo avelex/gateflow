@@ -78,10 +78,10 @@
 
 **Files:** Modify `web/src/checkout/CrossChainPay.tsx:144`.
 
-- [ ] 3.1 Make the refund placeholder `"7xKX…"` when `asset.chain === "sol"`, keeping the btc, zec and `0x…` cases.
-- [ ] 3.2 Check by reading `web/src/console/Settings.tsx:74` and `web/src/assets.ts` that Settings derives origins from `/checkout/assets` and names `sol` "Solana" with its icon. No code change is expected. Also confirm that the landing already lists NEAR, Ethereum, Solana, Bitcoin, Zcash (`web/src/landing/Landing.tsx:11`), matching the `landing-page` delta.
-- [ ] 3.3 Run `cd web && npx tsc --noEmit && npx vitest run src/checkout src/console src/landing`; expect them to pass.
-- [ ] 3.4 Commit: `feat(web): solana refund placeholder`.
+- [x] 3.1 Make the refund placeholder `"7xKX…"` when `asset.chain === "sol"`, keeping the btc, zec and `0x…` cases.
+- [x] 3.2 Check by reading `web/src/console/Settings.tsx:74` and `web/src/assets.ts` that Settings derives origins from `/checkout/assets` and names `sol` "Solana" with its icon. No code change is expected. Also confirm that the landing already lists NEAR, Ethereum, Solana, Bitcoin, Zcash (`web/src/landing/Landing.tsx:11`), matching the `landing-page` delta.
+- [x] 3.3 Run `cd web && npx tsc --noEmit && npx vitest run src/checkout src/console src/landing`; expect them to pass.
+- [x] 3.4 Commit: `feat(web): solana refund placeholder`.
 
 ## 4. Mainnet rollout and check
 

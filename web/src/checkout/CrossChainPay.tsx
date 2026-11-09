@@ -141,7 +141,7 @@ export default function CrossChainPay({ inv, asset, onQuote, children }: { inv: 
     <>
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 14 }}>
-          <Input label={`Refund address on ${chainName(asset.chain)}`} mono placeholder={asset.chain === "btc" ? "bc1q…" : asset.chain === "zec" ? "t1…" : "0x…"} value={refundTo} onChange={(e) => setRefundTo(e.target.value)} error={missing === "refundTo" ? "Enter the address that gets the swap refund" : undefined} />
+          <Input label={`Refund address on ${chainName(asset.chain)}`} mono placeholder={asset.chain === "btc" ? "bc1q…" : asset.chain === "zec" ? "t1…" : asset.chain === "sol" ? "7xKX…" : "0x…"} value={refundTo} onChange={(e) => setRefundTo(e.target.value)} error={missing === "refundTo" ? "Enter the address that gets the swap refund" : undefined} />
           <Input label="NEAR account" mono placeholder="name.near" value={refundOnNear} onChange={(e) => setRefundOnNear(e.target.value)} error={missing === "refundOnNear" ? "Enter a NEAR account, like name.near" : undefined} />
         </div>
         <span style={{ fontSize: 12, lineHeight: "18px", color: "var(--text-3)" }}>If the swap fails, your deposit goes back to the refund address. If screening returns the payment, it goes to your NEAR account.</span>
