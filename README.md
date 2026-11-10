@@ -1,4 +1,4 @@
-# Gateflow
+<h1><img src="web/src/assets/logo.svg" alt="Gateflow" width="320"></h1>
 
 Gateflow is a non-custodial compliance gateway for crypto checkouts.
 
