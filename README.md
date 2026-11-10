@@ -283,7 +283,7 @@ Checked on 2026-11-09 against mainnet `gateflow.near` (operator `ops.gateflow.ne
 - **Not built:** paying with an Ethereum wallet from the checkout. EVM payers send to the 1Click deposit address instead.
 - **Contract key:** `gateflow.near` still has a full-access key (see above). Deleting it is on the roadmap.
 
-Relay modules, tests and deployments are in [`relay/README.md`](relay/README.md). The enclave build, deploy and versions are in [`enclave/README.md`](enclave/README.md). Mainnet launch tasks are in [`openspec/changes/mainnet-launch/tasks.md`](openspec/changes/mainnet-launch/tasks.md).
+Relay modules, tests and deployments are in [`relay/README.md`](relay/README.md). The enclave build, deploy and versions are in [`enclave/README.md`](enclave/README.md). Mainnet launch tasks are in [`openspec/changes/archive/2026-11-10-mainnet-launch/tasks.md`](openspec/changes/archive/2026-11-10-mainnet-launch/tasks.md).
 
 ## Disclosures
 

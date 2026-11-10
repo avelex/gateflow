@@ -59,4 +59,4 @@ Run a local relay as described in [`relay/README.md`](relay/README.md) (§ Run, 
 
 - Relay and web on Fly.io: [`relay/README.md` § Deploy (Fly.io)](relay/README.md#deploy-flyio)
 - Enclave on OutLayer, its versions and rollback: [`enclave/README.md`](enclave/README.md)
-- Mainnet launch tasks: [`openspec/changes/mainnet-launch/tasks.md`](openspec/changes/mainnet-launch/tasks.md)
+- Mainnet launch tasks: [`openspec/changes/archive/2026-11-10-mainnet-launch/tasks.md`](openspec/changes/archive/2026-11-10-mainnet-launch/tasks.md)
